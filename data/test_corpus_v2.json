@@ -1,0 +1,160 @@
+{
+  "_comment": "Corpus calibre EINHERJAR \u2014 selection post-backtest",
+  "meta": {
+    "total_tested": 4,
+    "total_selected": 3,
+    "thresholds": {
+      "min_sharpe": 0.0,
+      "min_winrate": 0.0,
+      "min_profit_factor": 0.0,
+      "max_drawdown": -1.0,
+      "min_trades": 1,
+      "min_trades_per_month": 0.0,
+      "score_weights": {
+        "sharpe_ratio": 0.3,
+        "win_rate": 0.25,
+        "profit_factor": 0.2,
+        "expectancy": 0.15,
+        "max_drawdown": 0.1
+      }
+    }
+  },
+  "einhers": [
+    {
+      "einher_id": "E_QUANT_HURST_TRENDING_5m_806",
+      "einher_name": "E_QUANT_HURST_TRENDING_5m_806",
+      "asset": "BTCUSD",
+      "timeframe": "15m",
+      "direction": "long",
+      "n_trades": 24,
+      "win_rate": 0.4167,
+      "profit_factor": 1.4304,
+      "sharpe_ratio": 0.1278,
+      "sortino_ratio": 0.225,
+      "max_drawdown": -0.1218,
+      "avg_trade": 0.00458,
+      "expectancy": 0.00458,
+      "total_return": 0.109918,
+      "trades_per_month": 0.27,
+      "score": 0.5171,
+      "definition": {
+        "name": "E_QUANT_HURST_TRENDING_5m_806",
+        "domain": "Quantitatif",
+        "direction": "long",
+        "timeframes": [
+          "15m"
+        ],
+        "trigger": "quant_hurst_exponent > 0.6",
+        "filters": [],
+        "assets": [
+          {
+            "asset": "BTCUSD",
+            "class": "crypto"
+          }
+        ],
+        "tp_rule": {
+          "type": "atr_multiple",
+          "value": 2.5
+        },
+        "sl_rule": {
+          "type": "atr_multiple",
+          "value": 1.5
+        },
+        "max_holding": "1d",
+        "cooldown": "4h"
+      }
+    },
+    {
+      "einher_id": "E_IND_CONF_RSI_14_QUANT_HURST_EXPONENT_5m_4806",
+      "einher_name": "E_IND_CONF_RSI_14_QUANT_HURST_EXPONENT_5m_4806",
+      "asset": "BTCUSD",
+      "timeframe": "15m",
+      "direction": "long",
+      "n_trades": 24,
+      "win_rate": 0.4167,
+      "profit_factor": 1.4304,
+      "sharpe_ratio": 0.1278,
+      "sortino_ratio": 0.225,
+      "max_drawdown": -0.1218,
+      "avg_trade": 0.00458,
+      "expectancy": 0.00458,
+      "total_return": 0.109918,
+      "trades_per_month": 0.27,
+      "score": 0.5171,
+      "definition": {
+        "name": "E_IND_CONF_RSI_14_QUANT_HURST_EXPONENT_5m_4806",
+        "domain": "Indicateur + confluence",
+        "direction": "long",
+        "timeframes": [
+          "15m"
+        ],
+        "trigger": "rsi_14 < 30",
+        "filters": [
+          {
+            "expr": "quant_hurst_exponent > 0.6"
+          }
+        ],
+        "assets": [
+          {
+            "asset": "BTCUSD",
+            "class": "crypto"
+          }
+        ],
+        "tp_rule": {
+          "type": "atr_multiple",
+          "value": 2.5
+        },
+        "sl_rule": {
+          "type": "atr_multiple",
+          "value": 1.5
+        },
+        "max_holding": "1d",
+        "cooldown": "4h"
+      }
+    },
+    {
+      "einher_id": "E_PATTERN_HAMMER_5m_1",
+      "einher_name": "E_PATTERN_HAMMER_5m_1",
+      "asset": "BTCUSD",
+      "timeframe": "15m",
+      "direction": "long",
+      "n_trades": 978,
+      "win_rate": 0.4847,
+      "profit_factor": 1.0983,
+      "sharpe_ratio": 0.0302,
+      "sortino_ratio": 0.0404,
+      "max_drawdown": -0.8239,
+      "avg_trade": 0.00123,
+      "expectancy": 0.00123,
+      "total_return": 1.203143,
+      "trades_per_month": 9.53,
+      "score": 0.3677,
+      "definition": {
+        "name": "E_PATTERN_HAMMER_5m_1",
+        "domain": "Pattern pur",
+        "direction": "long",
+        "timeframes": [
+          "15m"
+        ],
+        "trigger": "pattern_hammer == 1",
+        "filters": [],
+        "assets": [
+          {
+            "asset": "BTCUSD",
+            "class": "crypto"
+          }
+        ],
+        "tp_rule": {
+          "type": "atr_multiple",
+          "value": 2.5
+        },
+        "sl_rule": {
+          "type": "atr_multiple",
+          "value": 1.5
+        },
+        "max_holding": "1d",
+        "cooldown": "4h"
+      }
+    }
+  ]
+}

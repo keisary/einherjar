@@ -1,0 +1,205 @@
+{
+  "einhers": [
+    {
+      "name": "E_PATTERN_HAMMER_5m_1",
+      "domain": "Pattern pur",
+      "direction": "long",
+      "timeframes": [
+        "15m"
+      ],
+      "trigger": "pattern_hammer == 1",
+      "filters": [],
+      "assets": [
+        {
+          "asset": "BTCUSD",
+          "class": "crypto"
+        }
+      ],
+      "tp_rule": {
+        "type": "atr_multiple",
+        "value": 2.5
+      },
+      "sl_rule": {
+        "type": "atr_multiple",
+        "value": 1.5
+      },
+      "max_holding": "1d",
+      "cooldown": "4h"
+    },
+    {
+      "name": "E_INDICATOR_RSI14_SURVENTE_5m_306",
+      "domain": "Indicateur classique",
+      "direction": "long",
+      "timeframes": [
+        "15m"
+      ],
+      "trigger": "rsi_14 < 30",
+      "filters": [],
+      "assets": [
+        {
+          "asset": "BTCUSD",
+          "class": "crypto"
+        }
+      ],
+      "tp_rule": {
+        "type": "atr_multiple",
+        "value": 2.5
+      },
+      "sl_rule": {
+        "type": "atr_multiple",
+        "value": 1.5
+      },
+      "max_holding": "1d",
+      "cooldown": "4h"
+    },
+    {
+      "name": "E_QUANT_HURST_TRENDING_5m_806",
+      "domain": "Quantitatif",
+      "direction": "long",
+      "timeframes": [
+        "15m"
+      ],
+      "trigger": "quant_hurst_exponent > 0.6",
+      "filters": [],
+      "assets": [
+        {
+          "asset": "BTCUSD",
+          "class": "crypto"
+        }
+      ],
+      "tp_rule": {
+        "type": "atr_multiple",
+        "value": 2.5
+      },
+      "sl_rule": {
+        "type": "atr_multiple",
+        "value": 1.5
+      },
+      "max_holding": "1d",
+      "cooldown": "4h"
+    },
+    {
+      "name": "E_PAT_CONF_HAMMER_ADX_TREND_5m_1026",
+      "domain": "Pattern + confluence",
+      "direction": "long",
+      "timeframes": [
+        "15m"
+      ],
+      "trigger": "pattern_hammer == 1",
+      "filters": [
+        {
+          "expr": "adx_14 > 20"
+        }
+      ],
+      "assets": [
+        {
+          "asset": "BTCUSD",
+          "class": "crypto"
+        }
+      ],
+      "tp_rule": {
+        "type": "atr_multiple",
+        "value": 2.5
+      },
+      "sl_rule": {
+        "type": "atr_multiple",
+        "value": 1.5
+      },
+      "max_holding": "1d",
+      "cooldown": "4h"
+    },
+    {
+      "name": "E_IND_CONF_RSI_14_QUANT_HURST_EXPONENT_5m_4806",
+      "domain": "Indicateur + confluence",
+      "direction": "long",
+      "timeframes": [
+        "15m"
+      ],
+      "trigger": "rsi_14 < 30",
+      "filters": [
+        {
+          "expr": "quant_hurst_exponent > 0.6"
+        }
+      ],
+      "assets": [
+        {
+          "asset": "BTCUSD",
+          "class": "crypto"
+        }
+      ],
+      "tp_rule": {
+        "type": "atr_multiple",
+        "value": 2.5
+      },
+      "sl_rule": {
+        "type": "atr_multiple",
+        "value": 1.5
+      },
+      "max_holding": "1d",
+      "cooldown": "4h"
+    },
+    {
+      "name": "E_QUANT_CONF_HURST_EXPONENT_ADX_TREND_5m_6406",
+      "domain": "Quant + confluence",
+      "direction": "long",
+      "timeframes": [
+        "15m"
+      ],
+      "trigger": "quant_hurst_exponent > 0.6",
+      "filters": [
+        {
+          "expr": "adx_14 > 20"
+        }
+      ],
+      "assets": [
+        {
+          "asset": "BTCUSD",
+          "class": "crypto"
+        }
+      ],
+      "tp_rule": {
+        "type": "atr_multiple",
+        "value": 2.5
+      },
+      "sl_rule": {
+        "type": "atr_multiple",
+        "value": 1.5
+      },
+      "max_holding": "1d",
+      "cooldown": "4h"
+    },
+    {
+      "name": "E_MULTI_RSI_HURST_5m_7446",
+      "domain": "Multi-features",
+      "direction": "long",
+      "timeframes": [
+        "15m"
+      ],
+      "trigger": "rsi_14 < 30",
+      "filters": [
+        {
+          "expr": "quant_hurst_exponent > 0.6"
+        },
+        {
+          "expr": "adx_14 > 20"
+        }
+      ],
+      "assets": [
+        {
+          "asset": "BTCUSD",
+          "class": "crypto"
+        }
+      ],
+      "tp_rule": {
+        "type": "atr_multiple",
+        "value": 2.5
+      },
+      "sl_rule": {
+        "type": "atr_multiple",
+        "value": 1.5
+      },
+      "max_holding": "1d",
+      "cooldown": "4h"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "_comment": "Configuration de la calibration et de la selection du corpus final. Ajustez les seuils selon vos objectifs. top_n=null garde tout ce qui passe les seuils.",
+  "backtest_params": {
+    "slippage_pct": 0.05,
+    "fallback_tp_atr_mult": 2.5,
+    "fallback_sl_atr_mult": 1.5,
+    "max_holding_bars": {
+      "5m": 36,
+      "15m": 24,
+      "1h": 12,
+      "4h": 8,
+      "1d": 5
+    },
+    "min_trades_for_metrics": 5
+  },
+  "thresholds": {
+    "min_sharpe": 0.3,
+    "min_winrate": 0.40,
+    "min_profit_factor": 1.0,
+    "max_drawdown": -0.30,
+    "min_trades": 8,
+    "min_trades_per_month": 0.3,
+    "top_n": null,
+    "score_weights": {
+      "sharpe_ratio": 0.30,
+      "win_rate": 0.25,
+      "profit_factor": 0.20,
+      "expectancy": 0.15,
+      "max_drawdown": 0.10
+    }
+  }
+}

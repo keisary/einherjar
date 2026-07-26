@@ -1,0 +1,828 @@
+{
+  "top_25": [
+    {
+      "asset": "TSLA",
+      "class": "stocks_tech",
+      "n_bars": 5163,
+      "ann_vol": 1.7956644598736329,
+      "last_date": "2025-11-28",
+      "score": 15.351973597377565
+    },
+    {
+      "asset": "AVEUSD",
+      "class": "crypto",
+      "n_bars": 9075,
+      "ann_vol": 1.5750998558366007,
+      "last_date": "2025-11-30",
+      "score": 14.354497457359555
+    },
+    {
+      "asset": "AMD",
+      "class": "stocks_tech",
+      "n_bars": 4748,
+      "ann_vol": 1.6209797571844762,
+      "last_date": "2025-11-28",
+      "score": 13.722711064610362
+    },
+    {
+      "asset": "LTCUSD",
+      "class": "crypto",
+      "n_bars": 15467,
+      "ann_vol": 1.414285824365542,
+      "last_date": "2025-11-30",
+      "score": 13.642948727888093
+    },
+    {
+      "asset": "LNKUSD",
+      "class": "crypto",
+      "n_bars": 9143,
+      "ann_vol": 1.4435301910256326,
+      "last_date": "2025-11-30",
+      "score": 13.166226970015572
+    },
+    {
+      "asset": "MATUSD",
+      "class": "crypto",
+      "n_bars": 8821,
+      "ann_vol": 1.4485407546247557,
+      "last_date": "2025-10-14",
+      "score": 13.159998377067147
+    },
+    {
+      "asset": "ETHUSD",
+      "class": "crypto",
+      "n_bars": 16660,
+      "ann_vol": 1.3135913132918235,
+      "last_date": "2025-11-30",
+      "score": 12.769192510085468
+    },
+    {
+      "asset": "NVDA",
+      "class": "stocks_tech",
+      "n_bars": 5163,
+      "ann_vol": 1.4524175315430363,
+      "last_date": "2025-11-28",
+      "score": 12.417395395900492
+    },
+    {
+      "asset": "BIDU",
+      "class": "stocks_tech",
+      "n_bars": 4748,
+      "ann_vol": 1.445953918985752,
+      "last_date": "2025-11-28",
+      "score": 12.24099669045054
+    },
+    {
+      "asset": "BABA",
+      "class": "stocks_tech",
+      "n_bars": 5166,
+      "ann_vol": 1.3356892169521244,
+      "last_date": "2025-11-28",
+      "score": 11.420206287961355
+    },
+    {
+      "asset": "NATGAS",
+      "class": "commodities",
+      "n_bars": 21251,
+      "ann_vol": 1.0384028746737892,
+      "last_date": "2025-11-30",
+      "score": 10.346860452856198
+    },
+    {
+      "asset": "NFLX",
+      "class": "stocks_tech",
+      "n_bars": 5157,
+      "ann_vol": 1.198685502485889,
+      "last_date": "2025-11-28",
+      "score": 10.246728299126607
+    },
+    {
+      "asset": "MS",
+      "class": "stocks_value",
+      "n_bars": 4786,
+      "ann_vol": 0.967340074783551,
+      "last_date": "2025-11-28",
+      "score": 8.196910113957273
+    },
+    {
+      "asset": "BAC",
+      "class": "stocks_value",
+      "n_bars": 5159,
+      "ann_vol": 0.9298999818270459,
+      "last_date": "2025-11-28",
+      "score": 7.949428403841484
+    },
+    {
+      "asset": "UNH",
+      "class": "stocks_value",
+      "n_bars": 4746,
+      "ann_vol": 0.9156545685438732,
+      "last_date": "2025-11-28",
+      "score": 7.751261426700312
+    },
+    {
+      "asset": "GS",
+      "class": "stocks_value",
+      "n_bars": 5163,
+      "ann_vol": 0.8753884105241391,
+      "last_date": "2025-11-28",
+      "score": 7.4841041108329565
+    },
+    {
+      "asset": "XAGUSD",
+      "class": "forex",
+      "n_bars": 18149,
+      "ann_vol": 0.49088939909440604,
+      "last_date": "2025-11-30",
+      "score": 4.813870487710751
+    },
+    {
+      "asset": "CHINA50",
+      "class": "indices",
+      "n_bars": 12843,
+      "ann_vol": 0.43539186649813605,
+      "last_date": "2025-11-28",
+      "score": 4.11908224876972
+    },
+    {
+      "asset": "NIKKEI225",
+      "class": "indices",
+      "n_bars": 21858,
+      "ann_vol": 0.3964986883695089,
+      "last_date": "2025-11-30",
+      "score": 3.9619608116648295
+    },
+    {
+      "asset": "XAUUSD",
+      "class": "forex",
+      "n_bars": 25754,
+      "ann_vol": 0.2857412772939048,
+      "last_date": "2025-11-30",
+      "score": 2.9020981545632476
+    },
+    {
+      "asset": "AUDJPY",
+      "class": "forex",
+      "n_bars": 27737,
+      "ann_vol": 0.22046141235608613,
+      "last_date": "2025-11-30",
+      "score": 2.2554433966521548
+    },
+    {
+      "asset": "NZDJPY",
+      "class": "forex",
+      "n_bars": 27682,
+      "ann_vol": 0.21877950927343315,
+      "last_date": "2025-11-30",
+      "score": 2.237802353328523
+    },
+    {
+      "asset": "CADJPY",
+      "class": "forex",
+      "n_bars": 27738,
+      "ann_vol": 0.202432943884862,
+      "last_date": "2025-11-30",
+      "score": 2.071009391516563
+    },
+    {
+      "asset": "NZDUSD",
+      "class": "forex",
+      "n_bars": 27695,
+      "ann_vol": 0.19780226473322965,
+      "last_date": "2025-11-30",
+      "score": 2.0233279263271005
+    },
+    {
+      "asset": "GBPJPY",
+      "class": "forex",
+      "n_bars": 27739,
+      "ann_vol": 0.19608452793648784,
+      "last_date": "2025-11-30",
+      "score": 2.006068390099811
+    }
+  ],
+  "by_class": {
+    "crypto": [
+      {
+        "asset": "AVEUSD",
+        "class": "crypto",
+        "n_bars": 9075,
+        "ann_vol": 1.5750998558366007,
+        "last_date": "2025-11-30",
+        "score": 14.354497457359555
+      },
+      {
+        "asset": "LTCUSD",
+        "class": "crypto",
+        "n_bars": 15467,
+        "ann_vol": 1.414285824365542,
+        "last_date": "2025-11-30",
+        "score": 13.642948727888093
+      },
+      {
+        "asset": "LNKUSD",
+        "class": "crypto",
+        "n_bars": 9143,
+        "ann_vol": 1.4435301910256326,
+        "last_date": "2025-11-30",
+        "score": 13.166226970015572
+      },
+      {
+        "asset": "MATUSD",
+        "class": "crypto",
+        "n_bars": 8821,
+        "ann_vol": 1.4485407546247557,
+        "last_date": "2025-10-14",
+        "score": 13.159998377067147
+      },
+      {
+        "asset": "ETHUSD",
+        "class": "crypto",
+        "n_bars": 16660,
+        "ann_vol": 1.3135913132918235,
+        "last_date": "2025-11-30",
+        "score": 12.769192510085468
+      },
+      {
+        "asset": "ADAUSD",
+        "class": "crypto",
+        "n_bars": 9137,
+        "ann_vol": 1.3795049225414713,
+        "last_date": "2025-11-30",
+        "score": 12.581356410666062
+      },
+      {
+        "asset": "TRXUSD",
+        "class": "crypto",
+        "n_bars": 13538,
+        "ann_vol": 1.2967431302269496,
+        "last_date": "2025-11-30",
+        "score": 12.33634491914012
+      },
+      {
+        "asset": "BCHUSD",
+        "class": "crypto",
+        "n_bars": 9921,
+        "ann_vol": 1.2972137668598942,
+        "last_date": "2025-11-30",
+        "score": 11.937622392962275
+      },
+      {
+        "asset": "BTCUSD",
+        "class": "crypto",
+        "n_bars": 17638,
+        "ann_vol": 1.0781548668798462,
+        "last_date": "2025-11-30",
+        "score": 10.542055582275912
+      }
+    ],
+    "forex": [
+      {
+        "asset": "XAGUSD",
+        "class": "forex",
+        "n_bars": 18149,
+        "ann_vol": 0.49088939909440604,
+        "last_date": "2025-11-30",
+        "score": 4.813870487710751
+      },
+      {
+        "asset": "XAUUSD",
+        "class": "forex",
+        "n_bars": 25754,
+        "ann_vol": 0.2857412772939048,
+        "last_date": "2025-11-30",
+        "score": 2.9020981545632476
+      },
+      {
+        "asset": "AUDJPY",
+        "class": "forex",
+        "n_bars": 27737,
+        "ann_vol": 0.22046141235608613,
+        "last_date": "2025-11-30",
+        "score": 2.2554433966521548
+      },
+      {
+        "asset": "NZDJPY",
+        "class": "forex",
+        "n_bars": 27682,
+        "ann_vol": 0.21877950927343315,
+        "last_date": "2025-11-30",
+        "score": 2.237802353328523
+      },
+      {
+        "asset": "CADJPY",
+        "class": "forex",
+        "n_bars": 27738,
+        "ann_vol": 0.202432943884862,
+        "last_date": "2025-11-30",
+        "score": 2.071009391516563
+      },
+      {
+        "asset": "NZDUSD",
+        "class": "forex",
+        "n_bars": 27695,
+        "ann_vol": 0.19780226473322965,
+        "last_date": "2025-11-30",
+        "score": 2.0233279263271005
+      },
+      {
+        "asset": "GBPJPY",
+        "class": "forex",
+        "n_bars": 27739,
+        "ann_vol": 0.19608452793648784,
+        "last_date": "2025-11-30",
+        "score": 2.006068390099811
+      },
+      {
+        "asset": "AUDUSD",
+        "class": "forex",
+        "n_bars": 27742,
+        "ann_vol": 0.1893887657842904,
+        "last_date": "2025-11-30",
+        "score": 1.9375870010412586
+      },
+      {
+        "asset": "EURJPY",
+        "class": "forex",
+        "n_bars": 27742,
+        "ann_vol": 0.18048674050583272,
+        "last_date": "2025-11-30",
+        "score": 1.8465127053138874
+      },
+      {
+        "asset": "CHFJPY",
+        "class": "forex",
+        "n_bars": 27733,
+        "ann_vol": 0.1786579898126388,
+        "last_date": "2025-11-28",
+        "score": 1.8277452674225463
+      },
+      {
+        "asset": "USDCHF",
+        "class": "forex",
+        "n_bars": 27742,
+        "ann_vol": 0.17570499481724072,
+        "last_date": "2025-11-30",
+        "score": 1.7975919139980308
+      },
+      {
+        "asset": "EURNZD",
+        "class": "forex",
+        "n_bars": 27978,
+        "ann_vol": 0.16567810959924736,
+        "last_date": "2025-11-30",
+        "score": 1.6964128750374166
+      },
+      {
+        "asset": "GBPAUD",
+        "class": "forex",
+        "n_bars": 27953,
+        "ann_vol": 0.1652101165854322,
+        "last_date": "2025-11-30",
+        "score": 1.6914733107828668
+      },
+      {
+        "asset": "USDJPY",
+        "class": "forex",
+        "n_bars": 26485,
+        "ann_vol": 0.1660559660649401,
+        "last_date": "2025-11-30",
+        "score": 1.691175659901515
+      },
+      {
+        "asset": "GBPUSD",
+        "class": "forex",
+        "n_bars": 27743,
+        "ann_vol": 0.15917058761464345,
+        "last_date": "2025-11-30",
+        "score": 1.6284384493359243
+      },
+      {
+        "asset": "EURUSD",
+        "class": "forex",
+        "n_bars": 27702,
+        "ann_vol": 0.1537059733765656,
+        "last_date": "2025-11-30",
+        "score": 1.5723038970323422
+      },
+      {
+        "asset": "GBPCAD",
+        "class": "forex",
+        "n_bars": 26468,
+        "ann_vol": 0.1519274514468292,
+        "last_date": "2025-11-30",
+        "score": 1.547188071573052
+      },
+      {
+        "asset": "USDCAD",
+        "class": "forex",
+        "n_bars": 27738,
+        "ann_vol": 0.1387310570160465,
+        "last_date": "2025-11-30",
+        "score": 1.419301208891511
+      },
+      {
+        "asset": "EURCHF",
+        "class": "forex",
+        "n_bars": 27742,
+        "ann_vol": 0.1381983587079936,
+        "last_date": "2025-11-30",
+        "score": 1.4138713153811406
+      },
+      {
+        "asset": "EURGBP",
+        "class": "forex",
+        "n_bars": 27738,
+        "ann_vol": 0.13800964775891128,
+        "last_date": "2025-11-30",
+        "score": 1.4119207632091926
+      }
+    ],
+    "stocks_tech": [
+      {
+        "asset": "TSLA",
+        "class": "stocks_tech",
+        "n_bars": 5163,
+        "ann_vol": 1.7956644598736329,
+        "last_date": "2025-11-28",
+        "score": 15.351973597377565
+      },
+      {
+        "asset": "AMD",
+        "class": "stocks_tech",
+        "n_bars": 4748,
+        "ann_vol": 1.6209797571844762,
+        "last_date": "2025-11-28",
+        "score": 13.722711064610362
+      },
+      {
+        "asset": "NVDA",
+        "class": "stocks_tech",
+        "n_bars": 5163,
+        "ann_vol": 1.4524175315430363,
+        "last_date": "2025-11-28",
+        "score": 12.417395395900492
+      },
+      {
+        "asset": "BIDU",
+        "class": "stocks_tech",
+        "n_bars": 4748,
+        "ann_vol": 1.445953918985752,
+        "last_date": "2025-11-28",
+        "score": 12.24099669045054
+      },
+      {
+        "asset": "BABA",
+        "class": "stocks_tech",
+        "n_bars": 5166,
+        "ann_vol": 1.3356892169521244,
+        "last_date": "2025-11-28",
+        "score": 11.420206287961355
+      },
+      {
+        "asset": "NFLX",
+        "class": "stocks_tech",
+        "n_bars": 5157,
+        "ann_vol": 1.198685502485889,
+        "last_date": "2025-11-28",
+        "score": 10.246728299126607
+      },
+      {
+        "asset": "INTC",
+        "class": "stocks_tech",
+        "n_bars": 5161,
+        "ann_vol": 1.1828887555552803,
+        "last_date": "2025-11-28",
+        "score": 10.112609869281012
+      },
+      {
+        "asset": "AMZN",
+        "class": "stocks_tech",
+        "n_bars": 5173,
+        "ann_vol": 0.991100126810956,
+        "last_date": "2025-11-28",
+        "score": 8.475294975028918
+      },
+      {
+        "asset": "ORCL",
+        "class": "stocks_tech",
+        "n_bars": 4748,
+        "ann_vol": 0.9594933786401313,
+        "last_date": "2025-11-28",
+        "score": 8.12277287555717
+      },
+      {
+        "asset": "GOOGL",
+        "class": "stocks_tech",
+        "n_bars": 5166,
+        "ann_vol": 0.8898570466609185,
+        "last_date": "2025-11-28",
+        "score": 7.608320042332119
+      },
+      {
+        "asset": "AAPL",
+        "class": "stocks_tech",
+        "n_bars": 5177,
+        "ann_vol": 0.8431453106363167,
+        "last_date": "2025-11-28",
+        "score": 7.2107255390117055
+      },
+      {
+        "asset": "MSFT",
+        "class": "stocks_tech",
+        "n_bars": 5164,
+        "ann_vol": 0.7680818096543649,
+        "last_date": "2025-11-28",
+        "score": 6.566838617794024
+      },
+      {
+        "asset": "CSCO",
+        "class": "stocks_tech",
+        "n_bars": 5159,
+        "ann_vol": 0.754381199195601,
+        "last_date": "2025-11-28",
+        "score": 6.4489724157505
+      }
+    ],
+    "stocks_value": [
+      {
+        "asset": "MS",
+        "class": "stocks_value",
+        "n_bars": 4786,
+        "ann_vol": 0.967340074783551,
+        "last_date": "2025-11-28",
+        "score": 8.196910113957273
+      },
+      {
+        "asset": "BAC",
+        "class": "stocks_value",
+        "n_bars": 5159,
+        "ann_vol": 0.9298999818270459,
+        "last_date": "2025-11-28",
+        "score": 7.949428403841484
+      },
+      {
+        "asset": "UNH",
+        "class": "stocks_value",
+        "n_bars": 4746,
+        "ann_vol": 0.9156545685438732,
+        "last_date": "2025-11-28",
+        "score": 7.751261426700312
+      },
+      {
+        "asset": "GS",
+        "class": "stocks_value",
+        "n_bars": 5163,
+        "ann_vol": 0.8753884105241391,
+        "last_date": "2025-11-28",
+        "score": 7.4841041108329565
+      },
+      {
+        "asset": "JPM",
+        "class": "stocks_value",
+        "n_bars": 5163,
+        "ann_vol": 0.8239001255143024,
+        "last_date": "2025-11-28",
+        "score": 7.043906730025581
+      },
+      {
+        "asset": "PFE",
+        "class": "stocks_value",
+        "n_bars": 5159,
+        "ann_vol": 0.7406661755804879,
+        "last_date": "2025-11-28",
+        "score": 6.331726905033182
+      },
+      {
+        "asset": "MCD",
+        "class": "stocks_value",
+        "n_bars": 4748,
+        "ann_vol": 0.6041412458883492,
+        "last_date": "2025-11-28",
+        "score": 5.114472110336193
+      },
+      {
+        "asset": "PEP",
+        "class": "stocks_value",
+        "n_bars": 4746,
+        "ann_vol": 0.5794286580532849,
+        "last_date": "2025-11-28",
+        "score": 4.905018945993446
+      },
+      {
+        "asset": "KO",
+        "class": "stocks_value",
+        "n_bars": 5159,
+        "ann_vol": 0.5659955239080734,
+        "last_date": "2025-11-28",
+        "score": 4.838521327166584
+      },
+      {
+        "asset": "JNJ",
+        "class": "stocks_value",
+        "n_bars": 5162,
+        "ann_vol": 0.5647093126667461,
+        "last_date": "2025-11-28",
+        "score": 4.8278541275626985
+      },
+      {
+        "asset": "PG",
+        "class": "stocks_value",
+        "n_bars": 5159,
+        "ann_vol": 0.547678538812144,
+        "last_date": "2025-11-28",
+        "score": 4.6819350658051935
+      }
+    ],
+    "indices": [
+      {
+        "asset": "CHINA50",
+        "class": "indices",
+        "n_bars": 12843,
+        "ann_vol": 0.43539186649813605,
+        "last_date": "2025-11-28",
+        "score": 4.11908224876972
+      },
+      {
+        "asset": "NIKKEI225",
+        "class": "indices",
+        "n_bars": 21858,
+        "ann_vol": 0.3964986883695089,
+        "last_date": "2025-11-30",
+        "score": 3.9619608116648295
+      },
+      {
+        "asset": "NASDAQ100",
+        "class": "indices",
+        "n_bars": 21780,
+        "ann_vol": 0.38341780741979226,
+        "last_date": "2025-11-30",
+        "score": 3.8298812293504523
+      },
+      {
+        "asset": "CAC40",
+        "class": "indices",
+        "n_bars": 17927,
+        "ann_vol": 0.3747484025177365,
+        "last_date": "2025-11-28",
+        "score": 3.6703304551200024
+      },
+      {
+        "asset": "DAX40",
+        "class": "indices",
+        "n_bars": 21001,
+        "ann_vol": 0.35150327679718263,
+        "last_date": "2025-11-30",
+        "score": 3.4982917039261214
+      },
+      {
+        "asset": "SMI20",
+        "class": "indices",
+        "n_bars": 16436,
+        "ann_vol": 0.3232567133955962,
+        "last_date": "2025-11-28",
+        "score": 3.1379467163983388
+      },
+      {
+        "asset": "SP500",
+        "class": "indices",
+        "n_bars": 21862,
+        "ann_vol": 0.3063489583654104,
+        "last_date": "2025-11-30",
+        "score": 3.0612075869782256
+      },
+      {
+        "asset": "DOWJONES",
+        "class": "indices",
+        "n_bars": 21620,
+        "ann_vol": 0.29540091673668345,
+        "last_date": "2025-11-30",
+        "score": 2.948520719831421
+      },
+      {
+        "asset": "FTSE100",
+        "class": "indices",
+        "n_bars": 20946,
+        "ann_vol": 0.28302271337294244,
+        "last_date": "2025-11-30",
+        "score": 2.8160054453113514
+      },
+      {
+        "asset": "RUSSELL2000",
+        "class": "indices",
+        "n_bars": 1093,
+        "ann_vol": 0.3960880944833651,
+        "last_date": "2019-07-30",
+        "score": 2.7716644588637616
+      },
+      {
+        "asset": "USDOLLAR",
+        "class": "indices",
+        "n_bars": 12105,
+        "ann_vol": 0.14522498065841657,
+        "last_date": "2025-11-28",
+        "score": 1.3653263349536338
+      }
+    ],
+    "commodities": [
+      {
+        "asset": "NATGAS",
+        "class": "commodities",
+        "n_bars": 21251,
+        "ann_vol": 1.0384028746737892,
+        "last_date": "2025-11-30",
+        "score": 10.346860452856198
+      },
+      {
+        "asset": "COCOA",
+        "class": "commodities",
+        "n_bars": 6084,
+        "ann_vol": 0.9753208350093932,
+        "last_date": "2025-11-28",
+        "score": 8.498538077450645
+      },
+      {
+        "asset": "COFFEE",
+        "class": "commodities",
+        "n_bars": 6127,
+        "ann_vol": 0.8911695854516571,
+        "last_date": "2025-11-28",
+        "score": 7.771554617786433
+      },
+      {
+        "asset": "WTIUSD",
+        "class": "commodities",
+        "n_bars": 22561,
+        "ann_vol": 0.7334459085288405,
+        "last_date": "2025-11-28",
+        "score": 7.352078182663856
+      },
+      {
+        "asset": "XPDUSD",
+        "class": "commodities",
+        "n_bars": 7046,
+        "ann_vol": 0.81617329758072,
+        "last_date": "2025-11-30",
+        "score": 7.231587013514632
+      },
+      {
+        "asset": "HEATOIL",
+        "class": "commodities",
+        "n_bars": 12182,
+        "ann_vol": 0.7431461076075763,
+        "last_date": "2025-11-28",
+        "score": 6.991367585236726
+      },
+      {
+        "asset": "BRENT",
+        "class": "commodities",
+        "n_bars": 24083,
+        "ann_vol": 0.6394458377977548,
+        "last_date": "2025-11-28",
+        "score": 6.4515628087251615
+      },
+      {
+        "asset": "SUGAR",
+        "class": "commodities",
+        "n_bars": 7344,
+        "ann_vol": 0.5689578258913652,
+        "last_date": "2025-11-28",
+        "score": 5.06473460098831
+      },
+      {
+        "asset": "COTTON",
+        "class": "commodities",
+        "n_bars": 10063,
+        "ann_vol": 0.5437097784337465,
+        "last_date": "2025-11-28",
+        "score": 5.011220777635473
+      },
+      {
+        "asset": "XPTUSD",
+        "class": "commodities",
+        "n_bars": 6512,
+        "ann_vol": 0.542678259977853,
+        "last_date": "2025-11-30",
+        "score": 4.765559236142979
+      },
+      {
+        "asset": "COPPER",
+        "class": "commodities",
+        "n_bars": 21936,
+        "ann_vol": 0.4144581692456454,
+        "last_date": "2025-11-30",
+        "score": 4.142894842703327
+      },
+      {
+        "asset": "SOYBEAN",
+        "class": "commodities",
+        "n_bars": 9977,
+        "ann_vol": 0.42603084737509117,
+        "last_date": "2025-11-28",
+        "score": 3.922950812912525
+      }
+    ]
+  },
+  "selection_method": "volatility * log(liquidity) on 4h with class quotas",
+  "timestamp": "2026-07-20T11:11:57.390144"
+}

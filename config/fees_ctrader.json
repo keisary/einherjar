@@ -1,0 +1,184 @@
+{
+  "default": {
+    "spread_pct": 0.0001,
+    "commission_per_lot": 3.5,
+    "swap_long": 0.0,
+    "swap_short": 0.0
+  },
+  "per_symbol": {
+    "EURUSD": {
+      "spread_pct": 0.000008,
+      "commission_per_lot": 3.5,
+      "swap_long": -0.000003,
+      "swap_short": -0.000001
+    },
+    "GBPUSD": {
+      "spread_pct": 0.000015,
+      "commission_per_lot": 3.5,
+      "swap_long": -0.000004,
+      "swap_short": -0.000002
+    },
+    "USDJPY": {
+      "spread_pct": 0.000012,
+      "commission_per_lot": 3.5,
+      "swap_long": 0.000002,
+      "swap_short": -0.000004
+    },
+    "AUDUSD": {
+      "spread_pct": 0.000018,
+      "commission_per_lot": 3.5,
+      "swap_long": -0.000002,
+      "swap_short": -0.000003
+    },
+    "USDCAD": {
+      "spread_pct": 0.000016,
+      "commission_per_lot": 3.5,
+      "swap_long": -0.000001,
+      "swap_short": -0.000004
+    },
+    "USDCHF": {
+      "spread_pct": 0.000014,
+      "commission_per_lot": 3.5,
+      "swap_long": 0.000003,
+      "swap_short": -0.000006
+    },
+    "EURGBP": {
+      "spread_pct": 0.000016,
+      "commission_per_lot": 3.5,
+      "swap_long": -0.000003,
+      "swap_short": -0.000001
+    },
+    "NZDUSD": {
+      "spread_pct": 0.000022,
+      "commission_per_lot": 3.5,
+      "swap_long": -0.000002,
+      "swap_short": -0.000003
+    },
+    "BTCUSD": {
+      "spread_pct": 0.0005,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0001,
+      "swap_short": -0.0001
+    },
+    "ETHUSD": {
+      "spread_pct": 0.0008,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0001,
+      "swap_short": -0.0001
+    },
+    "ADAUSD": {
+      "spread_pct": 0.002,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0005,
+      "swap_short": -0.0005
+    },
+    "BCHUSD": {
+      "spread_pct": 0.0015,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0003,
+      "swap_short": -0.0003
+    },
+    "LTCUSD": {
+      "spread_pct": 0.0012,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0003,
+      "swap_short": -0.0003
+    },
+    "AAPL": {
+      "spread_pct": 0.0002,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0001,
+      "swap_short": -0.0001
+    },
+    "MSFT": {
+      "spread_pct": 0.0002,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0001,
+      "swap_short": -0.0001
+    },
+    "NVDA": {
+      "spread_pct": 0.0003,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0001,
+      "swap_short": -0.0001
+    },
+    "AMZN": {
+      "spread_pct": 0.00025,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0001,
+      "swap_short": -0.0001
+    },
+    "GOOGL": {
+      "spread_pct": 0.00025,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0001,
+      "swap_short": -0.0001
+    },
+    "TSLA": {
+      "spread_pct": 0.0004,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0001,
+      "swap_short": -0.0001
+    },
+    "JPM": {
+      "spread_pct": 0.0002,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0001,
+      "swap_short": -0.0001
+    },
+    "XOM": {
+      "spread_pct": 0.0002,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0001,
+      "swap_short": -0.0001
+    },
+    "US500": {
+      "spread_pct": 0.0003,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0002,
+      "swap_short": -0.0002
+    },
+    "US100": {
+      "spread_pct": 0.00035,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0002,
+      "swap_short": -0.0002
+    },
+    "US30": {
+      "spread_pct": 0.0003,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0002,
+      "swap_short": -0.0002
+    },
+    "DE40": {
+      "spread_pct": 0.0004,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0002,
+      "swap_short": -0.0002
+    },
+    "XAUUSD": {
+      "spread_pct": 0.00015,
+      "commission_per_lot": 3.5,
+      "swap_long": -0.00001,
+      "swap_short": -0.000005
+    },
+    "USOUSD": {
+      "spread_pct": 0.0005,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0001,
+      "swap_short": -0.0001
+    },
+    "UKOUSD": {
+      "spread_pct": 0.0005,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0001,
+      "swap_short": -0.0001
+    },
+    "XCUUSD": {
+      "spread_pct": 0.001,
+      "commission_per_lot": 0.0,
+      "swap_long": -0.0002,
+      "swap_short": -0.0002
+    }
+  }
+}

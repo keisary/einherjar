@@ -1,0 +1,48 @@
+{
+  "_comment": "Selection manuelle de 28 actifs — les plus liquides/importants par classe. Tous verifies dans les donnees MIDAS V3.",
+  "selection_method": "Manuelle par expertise marche : 5 crypto + 8 forex + 8 actions US + 4 indices + 3 commodities",
+  "timestamp": "2026-07-20T11:30:00",
+  "assets": [
+    {"asset": "BTCUSD", "class": "crypto", "broker": "binance", "name": "Bitcoin", "reason": "Crypto #1 par capi et liquidite"},
+    {"asset": "ETHUSD", "class": "crypto", "broker": "binance", "name": "Ethereum", "reason": "Crypto #2 par capi"},
+    {"asset": "ADAUSD", "class": "crypto", "broker": "binance", "name": "Cardano", "reason": "Top 10 crypto, forte volatilite"},
+    {"asset": "BCHUSD", "class": "crypto", "broker": "binance", "name": "Bitcoin Cash", "reason": "Hard fork de BTC, liquidite etablie"},
+    {"asset": "LTCUSD", "class": "crypto", "broker": "binance", "name": "Litecoin", "reason": "Crypto historique, haute liquidite"},
+    {"asset": "EURUSD", "class": "forex", "broker": "oanda", "name": "EUR/USD", "reason": "Pair forex la plus echangee au monde"},
+    {"asset": "GBPUSD", "class": "forex", "broker": "oanda", "name": "GBP/USD", "reason": "Majeur, forte volatilite post-Brexit"},
+    {"asset": "USDJPY", "class": "forex", "broker": "oanda", "name": "USD/JPY", "reason": "Majeur Asie, carry trade populaire"},
+    {"asset": "AUDUSD", "class": "forex", "broker": "oanda", "name": "AUD/USD", "reason": "Majeur, proxy commodities"},
+    {"asset": "USDCAD", "class": "forex", "broker": "oanda", "name": "USD/CAD", "reason": "Majeur, correle au petrole"},
+    {"asset": "USDCHF", "class": "forex", "broker": "oanda", "name": "USD/CHF", "reason": "Majeur, franc suisse refuge"},
+    {"asset": "EURGBP", "class": "forex", "broker": "oanda", "name": "EUR/GBP", "reason": "Cross majeur europeen"},
+    {"asset": "XAUUSD", "class": "forex", "broker": "oanda", "name": "Or / USD", "reason": "Metal refuge, haute liquidite"},
+    {"asset": "AAPL", "class": "stocks_tech", "broker": "alpaca", "name": "Apple Inc.", "reason": "Plus grande capi au monde"},
+    {"asset": "MSFT", "class": "stocks_tech", "broker": "alpaca", "name": "Microsoft Corp.", "reason": "Top 3 capi, cloud/IA"},
+    {"asset": "NVDA", "class": "stocks_tech", "broker": "alpaca", "name": "NVIDIA Corp.", "reason": "Leader IA, volatilite extreme"},
+    {"asset": "AMZN", "class": "stocks_tech", "broker": "alpaca", "name": "Amazon.com Inc.", "reason": "E-commerce + cloud, top liquidite"},
+    {"asset": "GOOGL", "class": "stocks_tech", "broker": "alpaca", "name": "Alphabet Inc.", "reason": "Google, pub + IA + cloud"},
+    {"asset": "TSLA", "class": "stocks_tech", "broker": "alpaca", "name": "Tesla Inc.", "reason": "EV + volatilite mythique"},
+    {"asset": "JPM", "class": "stocks_value", "broker": "alpaca", "name": "JPMorgan Chase", "reason": "Plus grande banque US"},
+    {"asset": "XOM", "class": "stocks_growth", "broker": "alpaca", "name": "Exxon Mobil Corp.", "reason": "Energie, dividend aristocrat"},
+    {"asset": "SP500", "class": "indices", "broker": "oanda", "name": "S&P 500", "reason": "Indice reference mondial"},
+    {"asset": "NASDAQ100", "class": "indices", "broker": "oanda", "name": "NASDAQ 100", "reason": "Tech US, haute volatilite"},
+    {"asset": "DOWJONES", "class": "indices", "broker": "oanda", "name": "Dow Jones Industrial", "reason": "Indice industriel historique"},
+    {"asset": "DAX40", "class": "indices", "broker": "oanda", "name": "DAX 40", "reason": "Europe, Allemagne"},
+    {"asset": "WTIUSD", "class": "commodities", "broker": "oanda", "name": "WTI Crude Oil", "reason": "Petrole US, benchmark mondial"},
+    {"asset": "BRENT", "class": "commodities", "broker": "oanda", "name": "Brent Crude Oil", "reason": "Petrole international"},
+    {"asset": "COPPER", "class": "commodities", "broker": "oanda", "name": "Copper", "reason": "Metal industriel, barometre economie"}
+  ],
+  "summary": {
+    "total": 28,
+    "crypto": 5,
+    "forex": 8,
+    "stocks_us": 8,
+    "indices": 4,
+    "commodities": 3
+  },
+  "broker_coverage": {
+    "binance": ["BTCUSD", "ETHUSD", "ADAUSD", "BCHUSD", "LTCUSD"],
+    "alpaca": ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "TSLA", "JPM", "XOM"],
+    "oanda": ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "EURGBP", "XAUUSD", "SP500", "NASDAQ100", "DOWJONES", "DAX40", "WTIUSD", "BRENT", "COPPER"]
+  }
+}

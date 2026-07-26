@@ -1,0 +1,28 @@
+# Credentials et secrets
+config/credentials.json
+config/*.secret
+*.key
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Donnees
+*.db
+*.db-journal
+data/live/*.parquet
+
+# Node / React
+node_modules/
+dist/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,9 @@
+{
+  "_comment": "Interactions trigger-filtre decouvertes par InteractionMiner v3",
+  "meta": {
+    "interaction_p_value_threshold": 0.05,
+    "min_edge_improvement_ratio": 1.2,
+    "total_interactions": 0
+  },
+  "interactions": []
+}

@@ -1,0 +1,29 @@
+{
+  "_comment": "Configuration globale EINHERJAR. Cles en snake_case.",
+  "risk_per_trade": 0.01,
+  "confidence_thresholds": [0.5, 0.75, 1.0],
+  "timeframes": ["5m", "15m", "1h", "4h", "1d"],
+  "default_cooldown": "4h",
+  "default_sl_atr_mult": 1.5,
+  "default_tp_atr_mult": 2.5,
+  "risk_limits": {
+    "exposure_total_pct": 0.60,
+    "exposure_asset_pct": 0.20,
+    "exposure_class_pct": 0.35,
+    "max_positions": 15,
+    "max_correlated": 3,
+    "daily_loss_pct": 0.05,
+    "drawdown_soft_pct": 0.15,
+    "drawdown_hard_pct": 0.25,
+    "weekly_loss_pct": 0.10
+  },
+  "validation_config": {
+    "min_sharpe": 1.0,
+    "min_win_rate": 0.45,
+    "min_trades": 30,
+    "max_drawdown": 0.25,
+    "min_avg_profit": 0.0005,
+    "max_walkforward_gap": 0.50,
+    "min_assets_valid": 3
+  }
+}

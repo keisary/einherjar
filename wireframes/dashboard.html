@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EINHERJAR — Wireframes Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #0A0A0A;
+    --bg-card: #121212;
+    --bg-card-hover: #1A1A1A;
+    --border: #2A2A2A;
+    --border-accent: #3A3A3A;
+    --text-primary: #F5F5F0;
+    --text-secondary: #A0A0A0;
+    --text-muted: #6B7280;
+    --accent-cold: #8B9DC3;
+    --accent-rune: #C9A96E;
+    --accent-green: #4CAF50;
+    --accent-red: #E74C3C;
+    --accent-orange: #F39C12;
+    --font-title: 'Cinzel', serif;
+    --font-body: 'Cormorant Garamond', serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+  .logo {
+    font-family: var(--font-title);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: var(--text-primary);
+  }
+  .logo span { color: var(--accent-rune); }
+  .status-bar {
+    display: flex;
+    gap: 24px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .status-bar .live { color: var(--accent-green); }
+  .status-bar .warn { color: var(--accent-orange); }
+
+  /* Navigation */
+  .nav {
+    display: flex;
+    gap: 2px;
+    padding: 0 32px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav button {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-title);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 14px 20px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.3s ease;
+  }
+  .nav button:hover { color: var(--text-primary); }
+  .nav button.active {
+    color: var(--accent-rune);
+    border-bottom-color: var(--accent-rune);
+  }
+
+  /* Main content */
+  .main { padding: 24px 32px; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Cards */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    transition: border-color 0.3s ease;
+  }
+  .card:hover { border-color: var(--border-accent); }
+  .card-title {
+    font-family: var(--font-title);
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: "//";
+    color: var(--accent-rune);
+    font-size: 10px;
+  }
+
+  /* Grid layouts */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; }
+
+  @media (max-width: 1200px) {
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .grid-1-2 { grid-template-columns: 1fr; }
+  }
+
+  /* Metric boxes */
+  .metric-value {
+    font-family: var(--font-mono);
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -1px;
+  }
+  .metric-value.pos { color: var(--accent-green); }
+  .metric-value.neg { color: var(--accent-red); }
+  .metric-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-style: italic;
+  }
+  .metric-change {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    margin-top: 8px;
+  }
+
+  /* Tables */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .data-table th {
+    text-align: left;
+    padding: 10px 12px;
+    color: var(--text-muted);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+  .data-table tr:hover td { color: var(--text-primary); background: var(--bg-card-hover); }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .tag-long { background: rgba(76, 175, 80, 0.15); color: var(--accent-green); border: 1px solid rgba(76, 175, 80, 0.3); }
+  .tag-short { background: rgba(231, 76, 60, 0.15); color: var(--accent-red); border: 1px solid rgba(231, 76, 60, 0.3); }
+  .tag-forming { background: rgba(243, 156, 18, 0.15); color: var(--accent-orange); border: 1px solid rgba(243, 156, 18, 0.3); }
+  .tag-triggered { background: rgba(139, 157, 195, 0.15); color: var(--accent-cold); border: 1px solid rgba(139, 157, 195, 0.3); }
+
+  /* Gauges */
+  .gauge-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .gauge-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .gauge-fill {
+    height: 100%;
+    background: var(--accent-rune);
+    transition: width 0.5s ease;
+  }
+  .gauge-fill.danger { background: var(--accent-red); }
+  .gauge-fill.warn { background: var(--accent-orange); }
+  .gauge-text {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    min-width: 40px;
+    text-align: right;
+  }
+
+  /* Chart placeholder */
+  .chart-placeholder {
+    height: 220px;
+    background: var(--bg-primary);
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 14px;
+  }
+
+  /* Health indicators */
+  .health-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .health-row:last-child { border-bottom: none; }
+  .health-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+  }
+  .health-dot.warn { background: var(--accent-orange); box-shadow: 0 0 6px var(--accent-orange); }
+  .health-dot.error { background: var(--accent-red); box-shadow: 0 0 6px var(--accent-red); }
+
+  /* Progress bar for position towards TP/SL */
+  .progress-track {
+    width: 100%;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    position: relative;
+    margin-top: 6px;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent-green);
+    transition: width 0.3s ease;
+  }
+  .progress-marker {
+    position: absolute;
+    top: -2px;
+    width: 2px;
+    height: 10px;
+    background: var(--text-primary);
+  }
+
+  /* Rune decorative */
+  .rune-divider {
+    text-align: center;
+    color: var(--border-accent);
+    font-family: var(--font-title);
+    font-size: 14px;
+    letter-spacing: 8px;
+    padding: 20px 0;
+  }
+
+  /* Signal forming card */
+  .signal-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .signal-card:hover { border-color: var(--border-accent); }
+  .signal-conditions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .condition-pill {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 2px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+  }
+  .condition-pill.met { border-color: var(--accent-green); color: var(--accent-green); }
+  .condition-pill.pending { border-color: var(--text-muted); color: var(--text-muted); }
+
+  h2 {
+    font-family: var(--font-title);
+    font-size: 14px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+  }
+
+  .mb-16 { margin-bottom: 16px; }
+  .mb-24 { margin-bottom: 24px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">EINHER<span>JAR</span></div>
+  <div class="status-bar">
+    <span class="live">LIVE</span>
+    <span>UTC 2026-07-21 01:55:23</span>
+    <span>Cycle: 245ms</span>
+    <span>Assets: 28/28</span>
+    <span class="warn">CB: 15% DD</span>
+  </div>
+</div>
+
+<!-- NAVIGATION -->
+<div class="nav">
+  <button class="active" onclick="showPage('overview')">Vue d'ensemble</button>
+  <button onclick="showPage('positions')">Positions</button>
+  <button onclick="showPage('forming')">En formation</button>
+  <button onclick="showPage('performance')">Performance</button>
+  <button onclick="showPage('journal')">Journal</button>
+  <button onclick="showPage('health')">Sante</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+<!-- PAGE 1: VUE D'ENSEMBLE -->
+<div id="overview" class="page active">
+  <div class="grid-4 mb-24">
+    <div class="card">
+      <div class="metric-label">Equity</div>
+      <div class="metric-value">$124,832.50</div>
+      <div class="metric-change pos">+2.34% / +$2,853</div>
+    </div>
+    <div class="card">
+      <div class="metric-label">P&L Jour</div>
+      <div class="metric-value pos">+$1,247</div>
+      <div class="metric-change">12 trades / 8 gagnants</div>
+    </div>
+    <div class="card">
+      <div class="metric-label">P&L Semaine</div>
+      <div class="metric-value neg">-$482</div>
+      <div class="metric-change">64 trades / 31 gagnants</div>
+    </div>
+    <div class="card">
+      <div class="metric-label">Drawdown Max</div>
+      <div class="metric-value neg">-8.4%</div>
+      <div class="metric-change">Limite: -15%</div>
+    </div>
+  </div>
+
+  <div class="grid-1-2 mb-24">
+    <div class="card">
+      <div class="card-title">Equity Curve</div>
+      <div class="chart-placeholder">[Graphique equity curve - ligne lisse avec aire remplie]</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Exposition par classe</div>
+      <div style="margin-bottom: 12px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="color:var(--text-secondary);font-size:13px;">Crypto</span>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">18.2% / 35%</span>
+        </div>
+        <div class="gauge-container">
+          <div class="gauge-bar"><div class="gauge-fill" style="width:52%"></div></div>
+          <div class="gauge-text">52%</div>
+        </div>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="color:var(--text-secondary);font-size:13px;">Forex</span>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">12.5% / 35%</span>
+        </div>
+        <div class="gauge-container">
+          <div class="gauge-bar"><div class="gauge-fill" style="width:36%"></div></div>
+          <div class="gauge-text">36%</div>
+        </div>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="color:var(--text-secondary);font-size:13px;">Actions US</span>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">8.1% / 35%</span>
+        </div>
+        <div class="gauge-container">
+          <div class="gauge-bar"><div class="gauge-fill" style="width:23%"></div></div>
+          <div class="gauge-text">23%</div>
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="color:var(--text-secondary);font-size:13px;">Indices</span>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">4.3% / 35%</span>
+        </div>
+        <div class="gauge-container">
+          <div class="gauge-bar"><div class="gauge-fill" style="width:12%"></div></div>
+          <div class="gauge-text">12%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Positions ouvertes (7)</div>
+      <table class="data-table">
+        <tr><th>Actif</th><th>Dir</th><th>Entree</th><th>SL</th><th>TP</th><th>P&L</th></tr>
+        <tr><td>BTCUSD</td><td><span class="tag tag-long">Long</span></td><td>$67,420</td><td>$66,800</td><td>$68,900</td><td style="color:var(--accent-green)">+$312</td></tr>
+        <tr><td>EURUSD</td><td><span class="tag tag-short">Short</span></td><td>1.0842</td><td>1.0890</td><td>1.0780</td><td style="color:var(--accent-red)">-$45</td></tr>
+        <tr><td>AAPL</td><td><span class="tag tag-long">Long</span></td><td>$187.32</td><td>$184.00</td><td>$195.00</td><td style="color:var(--accent-green)">+$128</td></tr>
+        <tr><td>SP500</td><td><span class="tag tag-long">Long</span></td><td>5,482.30</td><td>5,420.00</td><td>5,600.00</td><td style="color:var(--accent-green)">+$89</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Signaux en formation</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="signal-card">
+          <div>
+            <div style="font-family:var(--font-title);font-size:13px;color:var(--text-primary);">E_RSI_SURVENTE_HAMMER</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">ETHUSD / 15m / Long</div>
+            <div class="signal-conditions">
+              <span class="condition-pill met">rsi_14 &lt; 30</span>
+              <span class="condition-pill met">pattern_hammer == 1</span>
+              <span class="condition-pill pending">volume_ratio &gt; 1.5</span>
+            </div>
+          </div>
+          <span class="tag tag-forming">2/3</span>
+        </div>
+        <div class="signal-card">
+          <div>
+            <div style="font-family:var(--font-title);font-size:13px;color:var(--text-primary);">E_MACD_CROSS_ADX</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">GBPUSD / 1h / Short</div>
+            <div class="signal-conditions">
+              <span class="condition-pill met">macd_line &lt; signal</span>
+              <span class="condition-pill pending">adx_14 &gt; 25</span>
+            </div>
+          </div>
+          <span class="tag tag-forming">1/2</span>
+        </div>
+        <div class="signal-card">
+          <div>
+            <div style="font-family:var(--font-title);font-size:13px;color:var(--text-primary);">E_HURST_TRENDING</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">XAUUSD / 4h / Long</div>
+            <div class="signal-conditions">
+              <span class="condition-pill met">quant_hurst &gt; 0.6</span>
+              <span class="condition-pill met">ema_50 &gt; ema_200</span>
+              <span class="condition-pill met">atr_14 &gt; avg</span>
+            </div>
+          </div>
+          <span class="tag tag-triggered">3/3</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rune-divider">* * *</div>
+</div>
+
+<!-- PAGE 2: POSITIONS OUVERTES -->
+<div id="positions" class="page">
+  <h2>Positions ouvertes</h2>
+  <div class="card mb-16">
+    <table class="data-table">
+      <tr>
+        <th>Actif</th><th>Einher</th><th>Dir</th><th>Qty</th><th>Entree</th>
+        <th>SL</th><th>TP</th><th>Prix actuel</th><th>P&L latente</th><th>Progres</th><th>Duree</th>
+      </tr>
+      <tr>
+        <td>BTCUSD</td>
+        <td>E_PATTERN_HAMMER_15m</td>
+        <td><span class="tag tag-long">Long</span></td>
+        <td>0.15</td>
+        <td>$67,420.00</td>
+        <td>$66,800.00</td>
+        <td>$68,900.00</td>
+        <td>$67,850.00</td>
+        <td style="color:var(--accent-green)">+$64.50</td>
+        <td>
+          <div class="progress-track">
+            <div class="progress-fill" style="width:42%"></div>
+            <div class="progress-marker" style="left:42%"></div>
+          </div>
+        </td>
+        <td>2h 14m</td>
+      </tr>
+      <tr>
+        <td>ETHUSD</td>
+        <td>E_ENGULFING_BULL_ADX</td>
+        <td><span class="tag tag-long">Long</span></td>
+        <td>1.20</td>
+        <td>$3,521.40</td>
+        <td>$3,480.00</td>
+        <td>$3,650.00</td>
+        <td>$3,545.20</td>
+        <td style="color:var(--accent-green)">+$28.56</td>
+        <td>
+          <div class="progress-track">
+            <div class="progress-fill" style="width:15%"></div>
+            <div class="progress-marker" style="left:15%"></div>
+          </div>
+        </td>
+        <td>45m</td>
+      </tr>
+      <tr>
+        <td>EURUSD</td>
+        <td>E_DOUBLE_TOP_RSI</td>
+        <td><span class="tag tag-short">Short</span></td>
+        <td>50,000</td>
+        <td>1.08420</td>
+        <td>1.08900</td>
+        <td>1.07800</td>
+        <td>1.08385</td>
+        <td style="color:var(--accent-green)">+$17.50</td>
+        <td>
+          <div class="progress-track">
+            <div class="progress-fill" style="width:18%"></div>
+            <div class="progress-marker" style="left:18%"></div>
+          </div>
+        </td>
+        <td>1h 32m</td>
+      </tr>
+      <tr>
+        <td>USDJPY</td>
+        <td>E_HARAMI_BEAR_MACD</td>
+        <td><span class="tag tag-short">Short</span></td>
+        <td>30,000</td>
+        <td>157.420</td>
+        <td>158.100</td>
+        <td>156.200</td>
+        <td>157.650</td>
+        <td style="color:var(--accent-red)">-$43.80</td>
+        <td>
+          <div class="progress-track">
+            <div class="progress-fill" style="width:65%"></div>
+            <div class="progress-marker" style="left:65%"></div>
+          </div>
+        </td>
+        <td>3h 07m</td>
+      </tr>
+      <tr>
+        <td>AAPL</td>
+        <td>E_MOMENTUM_20_EMA9</td>
+        <td><span class="tag tag-long">Long</span></td>
+        <td>25</td>
+        <td>$187.32</td>
+        <td>$184.00</td>
+        <td>$195.00</td>
+        <td>$189.15</td>
+        <td style="color:var(--accent-green)">+$45.75</td>
+        <td>
+          <div class="progress-track">
+            <div class="progress-fill" style="width:35%"></div>
+            <div class="progress-marker" style="left:35%"></div>
+          </div>
+        </td>
+        <td>5h 22m</td>
+      </tr>
+      <tr>
+        <td>SP500</td>
+        <td>E_CHANNEL_UP_ATR</td>
+        <td><span class="tag tag-long">Long</span></td>
+        <td>2</td>
+        <td>5,482.30</td>
+        <td>5,420.00</td>
+        <td>5,600.00</td>
+        <td>5,510.20</td>
+        <td style="color:var(--accent-green)">+$55.80</td>
+        <td>
+          <div class="progress-track">
+            <div class="progress-fill" style="width:16%"></div>
+            <div class="progress-marker" style="left:16%"></div>
+          </div>
+        </td>
+        <td>1d 2h</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- PAGE 3: SIGNAUX EN FORMATION -->
+<div id="forming" class="page">
+  <h2>Signaux en formation</h2>
+  <div class="grid-2">
+    <div class="card mb-16">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-family:var(--font-title);font-size:16px;color:var(--text-primary);">E_RSI_SURVENTE_HAMMER</div>
+        <span class="tag tag-forming">2/3</span>
+      </div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">ETHUSD / 15m / Long — En attente volume</div>
+      <div class="signal-conditions" style="margin-bottom:16px;">
+        <span class="condition-pill met">rsi_14 &lt; 30 [32.4]</span>
+        <span class="condition-pill met">pattern_hammer == 1</span>
+        <span class="condition-pill pending">volume_ratio &gt; 1.5 [1.2]</span>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">
+        TP: 1.5x ATR | SL: 1.0x ATR | Score confiance: 0.67
+      </div>
+    </div>
+    <div class="card mb-16">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-family:var(--font-title);font-size:16px;color:var(--text-primary);">E_MACD_CROSS_ADX</div>
+        <span class="tag tag-forming">1/2</span>
+      </div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">GBPUSD / 1h / Short — En attente ADX</div>
+      <div class="signal-conditions" style="margin-bottom:16px;">
+        <span class="condition-pill met">macd_line &lt; signal [-0.0024]</span>
+        <span class="condition-pill pending">adx_14 &gt; 25 [18.3]</span>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">
+        TP: 2.0x ATR | SL: 1.5x ATR | Score confiance: 0.50
+      </div>
+    </div>
+    <div class="card mb-16">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-family:var(--font-title);font-size:16px;color:var(--text-primary);">E_HURST_TRENDING</div>
+        <span class="tag tag-triggered">3/3</span>
+      </div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">XAUUSD / 4h / Long — Pret a declencher</div>
+      <div class="signal-conditions" style="margin-bottom:16px;">
+        <span class="condition-pill met">quant_hurst &gt; 0.6 [0.72]</span>
+        <span class="condition-pill met">ema_50 &gt; ema_200</span>
+        <span class="condition-pill met">atr_14 &gt; avg [12.4]</span>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">
+        TP: 2.5x ATR | SL: 1.5x ATR | Score confiance: 1.00
+      </div>
+    </div>
+    <div class="card mb-16">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-family:var(--font-title);font-size:16px;color:var(--text-primary);">E_BOLLINGER_SQUEEZE</div>
+        <span class="tag tag-forming">1/3</span>
+      </div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">AUDUSD / 1h / Long — Compression en cours</div>
+      <div class="signal-conditions" style="margin-bottom:16px;">
+        <span class="condition-pill met">bb_width &lt; 5% [4.2%]</span>
+        <span class="condition-pill pending">volume_ratio &gt; 1.8</span>
+        <span class="condition-pill pending">close &gt; ema_20</span>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">
+        TP: 2.0x ATR | SL: 1.0x ATR | Score confiance: 0.33
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 4: PERFORMANCE -->
+<div id="performance" class="page">
+  <h2>Performance par Einher</h2>
+  <div class="card">
+    <table class="data-table">
+      <tr>
+        <th>Nom</th><th>Domaine</th><th>Dir</th><th>Trades</th>
+        <th>Win Rate</th><th>Sharpe</th><th>PF</th><th>Expectancy</th><th>DD</th><th>Etat</th>
+      </tr>
+      <tr>
+        <td>E_PATTERN_HAMMER_15m</td>
+        <td>Pattern pur</td>
+        <td><span class="tag tag-long">Long</span></td>
+        <td>147</td>
+        <td style="color:var(--accent-green)">58.5%</td>
+        <td style="color:var(--accent-green)">1.24</td>
+        <td>1.42</td>
+        <td>0.0032</td>
+        <td>-8.2%</td>
+        <td><span style="color:var(--accent-green)">ACTIF</span></td>
+      </tr>
+      <tr>
+        <td>E_RSI_SURVENTE_MACD</td>
+        <td>Indicateur + conf</td>
+        <td><span class="tag tag-long">Long</span></td>
+        <td>203</td>
+        <td style="color:var(--accent-green)">52.2%</td>
+        <td style="color:var(--accent-green)">0.98</td>
+        <td>1.28</td>
+        <td>0.0018</td>
+        <td>-12.4%</td>
+        <td><span style="color:var(--accent-green)">ACTIF</span></td>
+      </tr>
+      <tr>
+        <td>E_DOUBLE_TOP_ADX</td>
+        <td>Pattern + conf</td>
+        <td><span class="tag tag-short">Short</span></td>
+        <td>89</td>
+        <td style="color:var(--accent-red)">44.9%</td>
+        <td style="color:var(--accent-red)">0.72</td>
+        <td>1.12</td>
+        <td>0.0008</td>
+        <td>-15.1%</td>
+        <td><span style="color:var(--accent-orange)">PROBATION</span></td>
+      </tr>
+      <tr>
+        <td>E_HURST_TRENDING_EMA</td>
+        <td>Quant + conf</td>
+        <td><span class="tag tag-long">Long</span></td>
+        <td>64</td>
+        <td style="color:var(--accent-green)">56.3%</td>
+        <td style="color:var(--accent-green)">1.08</td>
+        <td>1.35</td>
+        <td>0.0025</td>
+        <td>-9.7%</td>
+        <td><span style="color:var(--accent-green)">ACTIF</span></td>
+      </tr>
+      <tr>
+        <td>E_CHANNEL_UP_ATR</td>
+        <td>Pattern + conf</td>
+        <td><span class="tag tag-long">Long</span></td>
+        <td>112</td>
+        <td style="color:var(--accent-green)">51.8%</td>
+        <td style="color:var(--accent-green)">0.85</td>
+        <td>1.18</td>
+        <td>0.0012</td>
+        <td>-11.3%</td>
+        <td><span style="color:var(--accent-green)">ACTIF</span></td>
+      </tr>
+      <tr>
+        <td>E_MACD_CROSS_VOLUME</td>
+        <td>Indicateur pur</td>
+        <td><span class="tag tag-short">Short</span></td>
+        <td>178</td>
+        <td style="color:var(--accent-red)">42.7%</td>
+        <td style="color:var(--accent-red)">0.45</td>
+        <td>0.98</td>
+        <td>-0.0012</td>
+        <td>-18.5%</td>
+        <td><span style="color:var(--accent-red)">DESACTIVE</span></td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- PAGE 5: JOURNAL -->
+<div id="journal" class="page">
+  <h2>Journal systeme</h2>
+  <div class="card">
+    <table class="data-table">
+      <tr>
+        <th>Heure UTC</th><th>Type</th><th>Actif</th><th>Einher</th>
+        <th>Detail</th><th>Prix</th><th>Qty</th><th>Fee</th>
+      </tr>
+      <tr>
+        <td>01:55:12</td>
+        <td><span class="tag tag-triggered">ORDRE</span></td>
+        <td>XAUUSD</td>
+        <td>E_HURST_TRENDING</td>
+        <td>Market buy</td>
+        <td>$2,412.50</td>
+        <td>0.5</td>
+        <td>$0.00</td>
+      </tr>
+      <tr>
+        <td>01:54:45</td>
+        <td><span class="tag tag-forming">SIGNAL</span></td>
+        <td>XAUUSD</td>
+        <td>E_HURST_TRENDING</td>
+        <td>Triggered (3/3 conditions)</td>
+        <td>$2,412.30</td>
+        <td>-</td>
+        <td>-</td>
+      </tr>
+      <tr>
+        <td>01:52:08</td>
+        <td><span class="tag tag-short">CLOSE</span></td>
+        <td>USDJPY</td>
+        <td>E_HARAMI_BEAR_MACD</td>
+        <td>SL touche</td>
+        <td>158.100</td>
+        <td>30,000</td>
+        <td>$0.00</td>
+      </tr>
+      <tr>
+        <td>01:51:33</td>
+        <td><span style="background:rgba(231,76,60,0.1);color:var(--accent-red);border:1px solid rgba(231,76,60,0.3);padding:2px 8px;border-radius:2px;font-size:10px;">REJET</span></td>
+        <td>BTCUSD</td>
+        <td>E_PATTERN_HAMMER_5m</td>
+        <td>Exposition crypto > 35%</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+      </tr>
+      <tr>
+        <td>01:50:17</td>
+        <td><span class="tag tag-forming">FORMING</span></td>
+        <td>ETHUSD</td>
+        <td>E_RSI_SURVENTE_HAMMER</td>
+        <td>2/3 conditions remplies</td>
+        <td>$3,545.20</td>
+        <td>-</td>
+        <td>-</td>
+      </tr>
+      <tr>
+        <td>01:48:02</td>
+        <td><span class="tag tag-long">ORDRE</span></td>
+        <td>AAPL</td>
+        <td>E_MOMENTUM_20_EMA9</td>
+        <td>Market buy</td>
+        <td>$187.32</td>
+        <td>25</td>
+        <td>$0.00</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- PAGE 6: SANTE -->
+<div id="health" class="page">
+  <h2>Sante du systeme</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Fraicheur des donnees</div>
+      <div class="health-row">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="health-dot"></div>
+          <span style="color:var(--text-secondary);font-size:13px;">Binance (crypto)</span>
+        </div>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">3.2s</span>
+      </div>
+      <div class="health-row">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="health-dot"></div>
+          <span style="color:var(--text-secondary);font-size:13px;">OANDA (forex)</span>
+        </div>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">4.1s</span>
+      </div>
+      <div class="health-row">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="health-dot"></div>
+          <span style="color:var(--text-secondary);font-size:13px;">Alpaca (actions)</span>
+        </div>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">2.8s</span>
+      </div>
+      <div class="health-row">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="health-dot warn"></div>
+          <span style="color:var(--text-secondary);font-size:13px;">Binance Futures</span>
+        </div>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--accent-orange);">12.5s (polling)</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Latence cycles</div>
+      <div class="health-row">
+        <span style="color:var(--text-secondary);font-size:13px;">Cycle moyen</span>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);">245ms</span>
+      </div>
+      <div class="health-row">
+        <span style="color:var(--text-secondary);font-size:13px;">P95 cycle</span>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);">412ms</span>
+      </div>
+      <div class="health-row">
+        <span style="color:var(--text-secondary);font-size:13px;">P99 cycle</span>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--accent-orange);">890ms</span>
+      </div>
+      <div class="health-row">
+        <span style="color:var(--text-secondary);font-size:13px;">Cycles / heure</span>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);">14,400</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Erreurs broker (24h)</div>
+      <div class="health-row">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="health-dot"></div>
+          <span style="color:var(--text-secondary);font-size:13px;">Binance</span>
+        </div>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);">0 erreurs</span>
+      </div>
+      <div class="health-row">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="health-dot"></div>
+          <span style="color:var(--text-secondary);font-size:13px;">OANDA</span>
+        </div>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);">2 erreurs (rate limit)</span>
+      </div>
+      <div class="health-row">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="health-dot"></div>
+          <span style="color:var(--text-secondary);font-size:13px;">Alpaca</span>
+        </div>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);">0 erreurs</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Circuit breakers</div>
+      <div class="health-row">
+        <span style="color:var(--text-secondary);font-size:13px;">Daily loss</span>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--accent-green);">Inactif (-1.2% / 5%)</span>
+      </div>
+      <div class="health-row">
+        <span style="color:var(--text-secondary);font-size:13px;">Drawdown</span>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--accent-orange);">Reduit (8.4% / 15%)</span>
+      </div>
+      <div class="health-row">
+        <span style="color:var(--text-secondary);font-size:13px;">Weekly loss</span>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--accent-green);">Inactif (-0.4% / 10%)</span>
+      </div>
+      <div class="health-row">
+        <span style="color:var(--text-secondary);font-size:13px;">Corrélation</span>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--accent-green);">OK (2/3 positions)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,221 @@
+{
+  "_comment": "Regles de sortie natives (Cas A) pour les patterns chartistes et chandeliers. Chaque entree definit la methode de calcul du TP et du SL.",
+  "double_top": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du pattern projetee depuis la ligne de cou",
+    "sl_type": "beyond_structure",
+    "sl_description": "Au-dessus du plus haut des deux sommets + marge ATR",
+    "sl_atr_mult": 1.0
+  },
+  "double_bottom": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du pattern projetee depuis la ligne de cou",
+    "sl_type": "beyond_structure",
+    "sl_description": "En-dessous du plus bas des deux creux + marge ATR",
+    "sl_atr_mult": 1.0
+  },
+  "head_shoulders": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur tete / ligne de cou projetee",
+    "sl_type": "beyond_structure",
+    "sl_description": "Au-dessus du sommet de la tete + marge ATR",
+    "sl_atr_mult": 1.0
+  },
+  "inv_head_shoulders": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur tete / ligne de cou projetee",
+    "sl_type": "beyond_structure",
+    "sl_description": "En-dessous du creux de la tete + marge ATR",
+    "sl_atr_mult": 1.0
+  },
+  "triple_top": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur projetee depuis la ligne de support",
+    "sl_type": "beyond_structure",
+    "sl_description": "Au-dessus du plus haut des trois sommets + marge ATR",
+    "sl_atr_mult": 1.0
+  },
+  "triple_bottom": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur projetee depuis la ligne de resistance",
+    "sl_type": "beyond_structure",
+    "sl_description": "En-dessous du plus bas des trois creux + marge ATR",
+    "sl_atr_mult": 1.0
+  },
+  "ascending_triangle": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du triangle projetee depuis la cassure",
+    "sl_type": "beyond_structure",
+    "sl_description": "De l'autre cote de la borne support cassee + marge ATR",
+    "sl_atr_mult": 1.5
+  },
+  "descending_triangle": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du triangle projetee depuis la cassure",
+    "sl_type": "beyond_structure",
+    "sl_description": "De l'autre cote de la borne resistance cassee + marge ATR",
+    "sl_atr_mult": 1.5
+  },
+  "symmetrical_triangle": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du triangle projetee depuis la cassure",
+    "sl_type": "beyond_structure",
+    "sl_description": "De l'autre cote de la borne cassee + marge ATR",
+    "sl_atr_mult": 1.5
+  },
+  "rectangle": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du rectangle projetee depuis la cassure",
+    "sl_type": "beyond_structure",
+    "sl_description": "De l'autre cote de la borne cassee + marge ATR",
+    "sl_atr_mult": 1.5
+  },
+  "bull_flag": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du mat projetee depuis la cassure",
+    "sl_type": "atr_multiple",
+    "sl_description": "1.5x ATR en-dessous de l'entree",
+    "sl_atr_mult": 1.5
+  },
+  "bear_flag": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du mat projetee depuis la cassure",
+    "sl_type": "atr_multiple",
+    "sl_description": "1.5x ATR au-dessus de l'entree",
+    "sl_atr_mult": 1.5
+  },
+  "bull_pennant": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du mat projetee depuis la cassure",
+    "sl_type": "atr_multiple",
+    "sl_description": "1.5x ATR en-dessous de l'entree",
+    "sl_atr_mult": 1.5
+  },
+  "bear_pennant": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du mat projetee depuis la cassure",
+    "sl_type": "atr_multiple",
+    "sl_description": "1.5x ATR au-dessus de l'entree",
+    "sl_atr_mult": 1.5
+  },
+  "rising_wedge": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du wedge projetee depuis la cassure",
+    "sl_type": "beyond_structure",
+    "sl_description": "Au-dessus de la borne superieure cassee + marge ATR",
+    "sl_atr_mult": 1.0
+  },
+  "falling_wedge": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du wedge projetee depuis la cassure",
+    "sl_type": "beyond_structure",
+    "sl_description": "En-dessous de la borne inferieure cassee + marge ATR",
+    "sl_atr_mult": 1.0
+  },
+  "channel_up": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du canal projetee depuis la cassure",
+    "sl_type": "beyond_structure",
+    "sl_description": "En-dessous de la borne inferieure + marge ATR",
+    "sl_atr_mult": 1.5
+  },
+  "channel_down": {
+    "tp_type": "pattern_height",
+    "tp_description": "Hauteur du canal projetee depuis la cassure",
+    "sl_type": "beyond_structure",
+    "sl_description": "Au-dessus de la borne superieure + marge ATR",
+    "sl_atr_mult": 1.5
+  },
+  "cup_handle": {
+    "tp_type": "pattern_height",
+    "tp_description": "Profondeur du cup projetee depuis la ligne de cou",
+    "sl_type": "beyond_structure",
+    "sl_description": "En-dessous du plus bas du cup + marge ATR",
+    "sl_atr_mult": 1.5
+  },
+  "harmonic_gartley": {
+    "tp_type": "fibonacci_ratio",
+    "tp_description": "TP sur ratios 0.382 / 0.618 de AD",
+    "sl_type": "beyond_structure",
+    "sl_description": "Au-dela du point X",
+    "sl_atr_mult": 0.5
+  },
+  "harmonic_butterfly": {
+    "tp_type": "fibonacci_ratio",
+    "tp_description": "TP sur ratios 0.382 / 0.618 de AD",
+    "sl_type": "beyond_structure",
+    "sl_description": "Au-dela du point X",
+    "sl_atr_mult": 0.5
+  },
+  "harmonic_bat": {
+    "tp_type": "fibonacci_ratio",
+    "tp_description": "TP sur ratios 0.382 / 0.618 de AD",
+    "sl_type": "beyond_structure",
+    "sl_description": "Au-dela du point X",
+    "sl_atr_mult": 0.5
+  },
+  "harmonic_crab": {
+    "tp_type": "fibonacci_ratio",
+    "tp_description": "TP sur ratios 0.382 / 0.618 de AD",
+    "sl_type": "beyond_structure",
+    "sl_description": "Au-dela du point X",
+    "sl_atr_mult": 0.5
+  },
+  "hammer": {
+    "tp_type": "atr_multiple",
+    "tp_description": "2.0x ATR",
+    "sl_type": "beyond_structure",
+    "sl_description": "En-dessous du plus bas de la meche + marge",
+    "sl_atr_mult": 1.0
+  },
+  "engulfing_bull": {
+    "tp_type": "atr_multiple",
+    "tp_description": "2.5x ATR",
+    "sl_type": "beyond_structure",
+    "sl_description": "En-dessous du plus bas de la bougie 1 + marge",
+    "sl_atr_mult": 1.0
+  },
+  "engulfing_bear": {
+    "tp_type": "atr_multiple",
+    "tp_description": "2.5x ATR",
+    "sl_type": "beyond_structure",
+    "sl_description": "Au-dessus du plus haut de la bougie 1 + marge",
+    "sl_atr_mult": 1.0
+  },
+  "morning_star": {
+    "tp_type": "atr_multiple",
+    "tp_description": "2.5x ATR",
+    "sl_type": "beyond_structure",
+    "sl_description": "En-dessous du plus bas du pattern + marge",
+    "sl_atr_mult": 1.0
+  },
+  "evening_star": {
+    "tp_type": "atr_multiple",
+    "tp_description": "2.5x ATR",
+    "sl_type": "beyond_structure",
+    "sl_description": "Au-dessus du plus haut du pattern + marge",
+    "sl_atr_mult": 1.0
+  },
+  "pin_bar_bull": {
+    "tp_type": "atr_multiple",
+    "tp_description": "2.0x ATR",
+    "sl_type": "beyond_structure",
+    "sl_description": "En-dessous du plus bas de la meche + marge",
+    "sl_atr_mult": 1.0
+  },
+  "pin_bar_bear": {
+    "tp_type": "atr_multiple",
+    "tp_description": "2.0x ATR",
+    "sl_type": "beyond_structure",
+    "sl_description": "Au-dessus du plus haut de la meche + marge",
+    "sl_atr_mult": 1.0
+  },
+  "default": {
+    "tp_type": "atr_multiple",
+    "tp_description": "Fallback : 2.5x ATR(14)",
+    "sl_type": "atr_multiple",
+    "sl_description": "Fallback : 1.5x ATR(14)",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 1.5
+  }
+}
