@@ -95,7 +95,27 @@ class Engine:
             self._dataset,
         )
 
-    def run(self) -> None:
+    def run(
+        self,
+        *,
+        pairs: Any | None = None,
+        assets: Any | None = None,
+        timeframes: Any | None = None,
+    ) -> Any:
+        """
+        Point d'entrée du pipeline.
+
+        Phase A : Data Contract (initialize)
+        Phase B-E : discovery -> validation -> execution -> portfolio
+        """
+        self.initialize()
+        from discovery import DiscoveryOrchestrator
+        orchestrator = DiscoveryOrchestrator(config=self._config)
+        return orchestrator.run(
+            pairs=pairs,
+            assets=assets,
+            timeframes=timeframes,
+        )
         """
         Point d'entrée du pipeline.
 

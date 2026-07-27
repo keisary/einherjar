@@ -105,7 +105,18 @@ def _bounded_profit_factor(value: float) -> float:
     return float(1.0 - np.exp(-max(0.0, value - 1.0)))
 
 
-def _family_key(result: ExecutionResult) -> str:
+def _normalize_result(obj: Any) -> Any:
+    """
+    Si l'objet est un Einher avec un execution_result, retourne
+    l'execution_result. Sinon retourne l'objet tel quel.
+    """
+    execution_result = getattr(obj, "execution_result", None)
+    if execution_result is not None:
+        return execution_result
+    return obj
+
+
+def _family_key(result: Any) -> str:
     metadata = _to_mapping(result.metadata)
     for key in ("family", "target_family", "portfolio_family"):
         if key in metadata and metadata[key] is not None:
@@ -138,7 +149,7 @@ def _family_key(result: ExecutionResult) -> str:
     return "unknown"
 
 
-def _profile_name(result: ExecutionResult) -> str:
+def _profile_name(result: Any) -> str:
     profile = getattr(result, "profile", None)
     if profile is not None and getattr(profile, "name", None):
         name = str(profile.name).strip().lower()
@@ -155,10 +166,16 @@ def _profile_name(result: ExecutionResult) -> str:
     return "unknown"
 
 
-def _subject_fingerprint(result: ExecutionResult) -> str:
+def _subject_fingerprint(result: Any) -> str:
     value = getattr(result, "subject_fingerprint", None)
     if value:
         return str(value)
+    # Fallback for Einher
+    candidate = getattr(result, "candidate", None)
+    if candidate is not None:
+        fp = getattr(candidate, "fingerprint", None)
+        if fp:
+            return str(fp)
     execution_fp = getattr(result, "execution_fingerprint", None)
     if execution_fp is not None:
         digest = getattr(execution_fp, "digest", None)
@@ -167,7 +184,7 @@ def _subject_fingerprint(result: ExecutionResult) -> str:
     return ""
 
 
-def _execution_fingerprint(result: ExecutionResult) -> str:
+def _execution_fingerprint(result: Any) -> str:
     fp = getattr(result, "execution_fingerprint", None)
     if fp is None:
         return _subject_fingerprint(result)
@@ -175,22 +192,53 @@ def _execution_fingerprint(result: ExecutionResult) -> str:
     return str(digest or fp)
 
 
-def _default_series(result: ExecutionResult) -> np.ndarray:
+def _default_series(result: Any) -> np.ndarray:
     records = getattr(result, "records", ())
+    if not records:
+        # Fallback for Einher: build from journal trades
+        journal = getattr(result, "journal", None)
+        if journal is not None:
+            trades = getattr(journal, "trades", ())
+            values = [float(getattr(trade, "pnl", 0.0)) for trade in trades]
+            if values:
+                return np.asarray(values, dtype=float)
     values = [float(getattr(record.trade, "pnl", 0.0)) for record in records]
     if not values:
-        metrics = result.replay.metrics
-        values = [
-            float(metrics.total_pnl),
-            float(metrics.expectancy),
-            float(metrics.win_rate),
-            float(metrics.profit_factor if np.isfinite(metrics.profit_factor) else 0.0),
-            float(-metrics.max_drawdown),
-            float(metrics.trade_count),
-            float(metrics.average_duration_bars),
-            float(metrics.signal_coverage),
-        ]
+        replay = getattr(result, "replay", None)
+        if replay is not None:
+            metrics = replay.metrics
+            values = [
+                float(metrics.total_pnl),
+                float(metrics.expectancy),
+                float(metrics.win_rate),
+                float(metrics.profit_factor if np.isfinite(metrics.profit_factor) else 0.0),
+                float(-metrics.max_drawdown),
+                float(metrics.trade_count),
+                float(metrics.average_duration_bars),
+                float(metrics.signal_coverage),
+            ]
     return np.asarray(values, dtype=float)
+
+
+def _diagnostic_penalty(result: Any) -> float:
+    diagnostics = getattr(result, "diagnostics", None)
+    if diagnostics is None:
+        return 0.0
+
+    issues = getattr(diagnostics, "issues", ())
+    if not issues:
+        return 0.0
+
+    penalty_map = {
+        "info": 0.01,
+        "warning": 0.05,
+        "error": 0.15,
+    }
+    penalty = 0.0
+    for issue in issues:
+        severity = str(getattr(issue, "severity", "warning")).strip().lower()
+        penalty += penalty_map.get(severity, 0.05)
+    return min(1.0, penalty)
 
 
 def _normalized_series(values: np.ndarray, *, size: int = 64) -> np.ndarray:
@@ -210,27 +258,6 @@ def _normalized_series(values: np.ndarray, *, size: int = 64) -> np.ndarray:
     if std <= 1e-12:
         return series - mean
     return (series - mean) / std
-
-
-def _diagnostic_penalty(result: ExecutionResult) -> float:
-    diagnostics = getattr(result, "diagnostics", None)
-    if diagnostics is None:
-        return 0.0
-
-    issues = getattr(diagnostics, "issues", ())
-    if not issues:
-        return 0.0
-
-    penalty_map = {
-        "info": 0.01,
-        "warning": 0.05,
-        "error": 0.15,
-    }
-    penalty = 0.0
-    for issue in issues:
-        severity = str(getattr(issue, "severity", "warning")).strip().lower()
-        penalty += penalty_map.get(severity, 0.05)
-    return min(1.0, penalty)
 
 
 @dataclass(frozen=True, slots=True)
@@ -345,7 +372,7 @@ class PortfolioSelectionEntry:
     Entrée de sélection de portefeuille.
     """
 
-    result: ExecutionResult
+    result: Any
     score: float
     accepted: bool = True
     reasons: tuple[str, ...] = ()
@@ -419,7 +446,7 @@ class PortfolioSelection:
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     @property
-    def results(self) -> tuple[ExecutionResult, ...]:
+    def results(self) -> tuple[Any, ...]:
         return tuple(entry.result for entry in self.selected)
 
     @property
@@ -495,7 +522,7 @@ class PortfolioSelector:
 
     def select(
         self,
-        results: Iterable[ExecutionResult],
+        results: Iterable[Any],
         *,
         limit: int | None = None,
         families: Iterable[str] | None = None,
@@ -516,6 +543,9 @@ class PortfolioSelector:
         per_profile_counts: Counter[str] = Counter()
 
         for rank, result in enumerate(results):
+            # PORT-005 : normaliser si on reçoit un Einher
+            result = _normalize_result(result)
+
             family = _family_key(result)
             profile_name = _profile_name(result)
 
@@ -628,11 +658,11 @@ class PortfolioSelector:
         )
         return selection
 
-    def score(self, result: ExecutionResult) -> float:
+    def score(self, result: Any) -> float:
         score, _ = self._score_result(result)
         return score
 
-    def _score_result(self, result: ExecutionResult) -> tuple[float, tuple[str, ...]]:
+    def _score_result(self, result: Any) -> tuple[float, tuple[str, ...]]:
         metrics = result.replay.metrics
         profile = getattr(result, "profile", None)
         mae_mfe = getattr(result, "mae_mfe", None)

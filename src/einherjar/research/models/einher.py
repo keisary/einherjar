@@ -38,6 +38,8 @@ class Einher:
 
     report: Report
 
+    execution_result: Any | None = None
+
     # ==================================================
     # VALIDATION
     # ==================================================
@@ -119,6 +121,42 @@ class Einher:
                 data["report"],
                 registry,
             ),
+        )
+
+    @classmethod
+    def from_execution_result(cls, result: Any) -> "Einher":
+        from execution.execution_report import ExecutionResult
+        from execution.profiler import ExecutionProfile
+
+        if not isinstance(result, ExecutionResult):
+            raise TypeError("result must be an ExecutionResult.")
+
+        profile = (
+            result.profile.to_profile_model()
+            if isinstance(result.profile, ExecutionProfile)
+            else Profile(name="unknown")
+        )
+
+        candidate = result.validated_candidate
+        if candidate is None:
+            candidate = result.candidate
+        if not isinstance(candidate, ValidatedCandidate):
+            raise TypeError(
+                "Cannot build Einher: validated_candidate is missing or invalid."
+            )
+
+        report = Report(
+            candidate=candidate,
+            journal=result.journal,
+            metadata=dict(result.metadata),
+        )
+
+        return cls(
+            profile=profile,
+            candidate=candidate,
+            journal=result.journal,
+            report=report,
+            execution_result=result,
         )
 
     # ==================================================

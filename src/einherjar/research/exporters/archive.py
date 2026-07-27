@@ -10,12 +10,15 @@ L'archive n'invente pas de contenu :
 - elle assemble les exporteurs existants,
 - écrit un manifest,
 - produit un paquet transportable.
+
+Toute erreur d'export est loguée explicitement ; les échecs
+Parquet ne sont plus silencieux.
 """
 
 from __future__ import annotations
 
-import io
 import json as _json
+import logging
 import tempfile
 import zipfile
 from dataclasses import dataclass, field
@@ -35,9 +38,6 @@ __all__ = [
     "ArchiveManifest",
     "ArchiveExporter",
 ]
-
-
-import logging
 
 logger = logging.getLogger("einherjar.archive")
 
@@ -98,16 +98,19 @@ class ArchiveManifest:
     created_at: datetime
     files: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
+    errors: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "files", tuple(self.files))
         object.__setattr__(self, "metadata", dict(self.metadata))
+        object.__setattr__(self, "errors", tuple(str(e) for e in self.errors))
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "created_at": self.created_at.isoformat(),
             "files": list(self.files),
             "metadata": dict(self.metadata),
+            "errors": list(self.errors),
         }
 
 
@@ -147,154 +150,117 @@ class ArchiveExporter:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         manifest_files: list[str] = []
+        errors: list[str] = []
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
-
             seen_names: set[str] = set()
-        with zipfile.ZipFile(path, "w", compression=self._settings.compression) as zf:
+
+            def _add_to_zip(zf: zipfile.ZipFile, file_path: Path) -> None:
+                name = file_path.name
+                if name in seen_names:
+                    return
+                seen_names.add(name)
+                zf.write(file_path, arcname=name)
+                manifest_files.append(name)
+
+            with zipfile.ZipFile(path, "w", compression=self._settings.compression) as zf:
                 if self._settings.include_json:
                     if corpus is not None:
-                        file_path = tmpdir_path / f"{stem}_corpus.json"
-                        self._json.export_corpus(corpus, file_path)
-                        if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(file_path, arcname=file_path.name)
-                        manifest_files.append(file_path.name)
+                        try:
+                            file_path = tmpdir_path / f"{stem}_corpus.json"
+                            self._json.export_corpus(corpus, file_path)
+                            _add_to_zip(zf, file_path)
+                        except Exception as exc:
+                            errors.append(f"json_corpus: {exc}")
+                            logger.warning("Export JSON corpus échoué : %s", exc)
 
                     if rejected is not None:
-                        file_path = tmpdir_path / f"{stem}_rejected.json"
-                        self._json.export_rejected(rejected, file_path)
-                        if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(file_path, arcname=file_path.name)
-                        manifest_files.append(file_path.name)
+                        try:
+                            file_path = tmpdir_path / f"{stem}_rejected.json"
+                            self._json.export_rejected(rejected, file_path)
+                            _add_to_zip(zf, file_path)
+                        except Exception as exc:
+                            errors.append(f"json_rejected: {exc}")
+                            logger.warning("Export JSON rejected échoué : %s", exc)
 
                     if reports is not None:
-                        file_path = tmpdir_path / f"{stem}_reports.json"
-                        self._json.export_reports(reports, file_path)
-                        if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(file_path, arcname=file_path.name)
-                        manifest_files.append(file_path.name)
+                        try:
+                            file_path = tmpdir_path / f"{stem}_reports.json"
+                            self._json.export_reports(reports, file_path)
+                            _add_to_zip(zf, file_path)
+                        except Exception as exc:
+                            errors.append(f"json_reports: {exc}")
+                            logger.warning("Export JSON reports échoué : %s", exc)
 
                 if self._settings.include_csv:
                     if corpus is not None:
-                        file_path = tmpdir_path / f"{stem}_corpus.csv"
-                        self._csv.export_corpus(corpus, file_path)
-                        if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(file_path, arcname=file_path.name)
-                        manifest_files.append(file_path.name)
+                        try:
+                            file_path = tmpdir_path / f"{stem}_corpus.csv"
+                            self._csv.export_corpus(corpus, file_path)
+                            _add_to_zip(zf, file_path)
+                        except Exception as exc:
+                            errors.append(f"csv_corpus: {exc}")
+                            logger.warning("Export CSV corpus échoué : %s", exc)
 
                     if rejected is not None:
-                        file_path = tmpdir_path / f"{stem}_rejected.csv"
-                        self._csv.export_rejected(rejected, file_path)
-                        if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(file_path, arcname=file_path.name)
-                        manifest_files.append(file_path.name)
+                        try:
+                            file_path = tmpdir_path / f"{stem}_rejected.csv"
+                            self._csv.export_rejected(rejected, file_path)
+                            _add_to_zip(zf, file_path)
+                        except Exception as exc:
+                            errors.append(f"csv_rejected: {exc}")
+                            logger.warning("Export CSV rejected échoué : %s", exc)
 
                     if reports is not None:
-                        file_path = tmpdir_path / f"{stem}_reports.csv"
-                        self._csv.export_reports(reports, file_path)
-                        if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(file_path, arcname=file_path.name)
-                        manifest_files.append(file_path.name)
+                        try:
+                            file_path = tmpdir_path / f"{stem}_reports.csv"
+                            self._csv.export_reports(reports, file_path)
+                            _add_to_zip(zf, file_path)
+                        except Exception as exc:
+                            errors.append(f"csv_reports: {exc}")
+                            logger.warning("Export CSV reports échoué : %s", exc)
 
                 if self._settings.include_parquet:
                     if corpus is not None:
                         try:
                             file_path = tmpdir_path / f"{stem}_corpus.parquet"
                             self._parquet.export_corpus(corpus, file_path)
-                            if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(file_path, arcname=file_path.name)
-                            manifest_files.append(file_path.name)
+                            _add_to_zip(zf, file_path)
                         except Exception as exc:
+                            errors.append(f"parquet_corpus: {exc}")
                             logger.warning("Export Parquet corpus échoué : %s", exc)
 
                     if rejected is not None:
                         try:
                             file_path = tmpdir_path / f"{stem}_rejected.parquet"
                             self._parquet.export_rejected(rejected, file_path)
-                            if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(file_path, arcname=file_path.name)
-                            manifest_files.append(file_path.name)
+                            _add_to_zip(zf, file_path)
                         except Exception as exc:
+                            errors.append(f"parquet_rejected: {exc}")
                             logger.warning("Export Parquet rejected échoué : %s", exc)
 
                     if reports is not None:
                         try:
                             file_path = tmpdir_path / f"{stem}_reports.parquet"
                             self._parquet.export_reports(reports, file_path)
-                            if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(file_path, arcname=file_path.name)
-                            manifest_files.append(file_path.name)
+                            _add_to_zip(zf, file_path)
                         except Exception as exc:
+                            errors.append(f"parquet_reports: {exc}")
                             logger.warning("Export Parquet reports échoué : %s", exc)
-                    if corpus is not None:
-                        try:
-                            file_path = tmpdir_path / f"{stem}_corpus.parquet"
-                            self._parquet.export_corpus(corpus, file_path)
-                            if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(file_path, arcname=file_path.name)
-                            manifest_files.append(file_path.name)
-                        except Exception:
-                            pass
-
-                    if rejected is not None:
-                        try:
-                            file_path = tmpdir_path / f"{stem}_rejected.parquet"
-                            self._parquet.export_rejected(rejected, file_path)
-                            if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(file_path, arcname=file_path.name)
-                            manifest_files.append(file_path.name)
-                        except Exception:
-                            pass
-
-                    if reports is not None:
-                        try:
-                            file_path = tmpdir_path / f"{stem}_reports.parquet"
-                            self._parquet.export_reports(reports, file_path)
-                            if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(file_path, arcname=file_path.name)
-                            manifest_files.append(file_path.name)
-                        except Exception:
-                            pass
 
                 manifest = ArchiveManifest(
                     created_at=_utc_now(),
-                    files=tuple(sorted(set(manifest_files))),
+                    files=tuple(sorted(manifest_files)),
                     metadata={**_to_mapping(metadata)},
+                    errors=tuple(errors),
                 )
                 manifest_path = tmpdir_path / self._settings.manifest_name
                 manifest_path.write_text(
                     _json.dumps(manifest.to_dict(), indent=2, ensure_ascii=False),
                     encoding="utf-8",
                 )
-                if name in seen_names:
-                    continue
-                seen_names.add(name)
-                zf.write(manifest_path, arcname=manifest_path.name)
+                _add_to_zip(zf, manifest_path)
 
         return path
 

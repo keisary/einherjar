@@ -29,6 +29,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from models.einher import Einher
+
 # ==========================================================
 # PATH / IMPORT SAFETY
 # ==========================================================
@@ -1203,6 +1205,16 @@ class DiscoveryOrchestrator:
                 context=context,
             )
 
+            # PORT-005 : transformer les ExecutionResult en objets de connaissance Einher
+            einhers = []
+            for result in execution_results:
+                try:
+                    einher = Einher.from_execution_result(result)
+                    einhers.append(einher)
+                except Exception:
+                    einhers.append(result)
+            execution_results = tuple(einhers)
+
             portfolio_selection, portfolio_allocation, portfolio_report = self._build_portfolio(
                 execution_results,
                 target=target,
@@ -1245,7 +1257,11 @@ class DiscoveryOrchestrator:
                 report_bundle=report_bundle,
                 memory_snapshot=memory_snapshot,
                 knowledge_snapshot=knowledge_snapshot,
-                success=True,
+                success=bool(
+                    corpus is not None
+                    and hasattr(corpus, "entries")
+                    and len(getattr(corpus, "entries", ())) > 0
+                ),
                 errors=tuple(errors),
                 metadata=dict(metadata or {}),
                 started_at=started_at,
@@ -1335,6 +1351,7 @@ class DiscoveryOrchestrator:
 
     def _discover(self, dataset: Any, *, target: DiscoveryTarget, context: DiscoveryContext) -> Any:
         from pathlib import Path
+        import numpy as np
         from models.feature_registry import FeatureRegistry
         from discovery.family_manager import FamilyManager
         from discovery.generator import DiscoveryGenerator
@@ -1349,8 +1366,45 @@ class DiscoveryOrchestrator:
         registry = FeatureRegistry(str(meta_path))
         family_manager = FamilyManager.from_config(self.config, registry)
 
-        # Construire le generator
-        generator = DiscoveryGenerator(self.config, registry)
+        # DISC-001 : ancrer la génération sur les valeurs réelles du dataset
+        midas = getattr(dataset, "midas", None)
+        if midas is None or not hasattr(midas, "X") or midas.X.size == 0:
+            raise RuntimeError("Dataset MIDAS arrays are required for data-driven discovery.")
+
+        feature_statistics: dict[Any, dict[str, Any]] = {}
+        X = midas.X
+        for feature in registry.features:
+            if not feature.enabled:
+                continue
+            col = feature.column_index
+            if col < 0 or col >= X.shape[1]:
+                continue
+            column = X[:, col]
+            finite = column[np.isfinite(column)]
+            if finite.size == 0:
+                continue
+            stats = {
+                "min": float(np.min(finite)),
+                "max": float(np.max(finite)),
+                "mean": float(np.mean(finite)),
+                "std": float(np.std(finite)),
+                "quantiles": {
+                    0.25: float(np.quantile(finite, 0.25)),
+                    0.50: float(np.quantile(finite, 0.50)),
+                    0.75: float(np.quantile(finite, 0.75)),
+                },
+            }
+            feature_statistics[col] = stats
+            feature_statistics[str(col)] = stats
+            feature_statistics[feature.name] = stats
+            feature_statistics[feature.name.lower()] = stats
+
+        # Construire le generator avec les statistiques réelles
+        generator = DiscoveryGenerator(
+            self.config,
+            registry,
+            feature_statistics=feature_statistics,
+        )
 
         # Construire l'explorer avec le generator
         explorer = Explorer(
@@ -1376,61 +1430,42 @@ class DiscoveryOrchestrator:
         context: DiscoveryContext,
     ) -> tuple[Any, tuple[Any, ...], tuple[Any, ...]]:
         from validation.evaluator import ValidationEvaluator
+        from models.hypothesis import Hypothesis
 
         validator = ValidationEvaluator(
             config=self.config,
             dataset=dataset,
         )
 
-        validation_output = _try_call(
-            validator,
-            ("validate", "run", "process", "score", "evaluate"),
-            candidates=candidates,
-            items=candidates,
-            hypotheses=candidates,
-            dataset=dataset,
-            data=dataset,
-            asset=target.asset,
-            timeframe=target.timeframe,
-            target=target,
-            context=context,
-            config=self.config,
-            metadata=target.metadata,
-        )
-        if validation_output is None:
-            validation_output = _try_call(
-                validator,
-                ("validate", "run", "process", "score", "evaluate"),
-                candidates,
+        validated: list[Any] = []
+        rejected: list[Any] = []
+        assessments: list[Any] = []
+
+        for item in candidates:
+            hyp = None
+            if isinstance(item, Hypothesis):
+                hyp = item
+            elif hasattr(item, "hypothesis") and isinstance(item.hypothesis, Hypothesis):
+                hyp = item.hypothesis
+            elif hasattr(item, "hypothesis"):
+                hyp = item.hypothesis
+
+            if hyp is None:
+                rejected.append(item)
+                continue
+
+            assessment = validator.assess(
+                hyp,
                 dataset=dataset,
-                target=target,
-                context=context,
-                config=self.config,
-                metadata=target.metadata,
+                split_name="validation",
             )
+            assessments.append(assessment)
+            if assessment.passed and assessment.validated_candidate is not None:
+                validated.append(assessment.validated_candidate)
+            else:
+                rejected.append(item)
 
-        validated = _extract_items(
-            validation_output,
-            "validated_candidates",
-            "accepted_candidates",
-            "accepted",
-            "selected",
-            "candidates",
-            "items",
-            "results",
-        )
-        rejected = _extract_items(
-            validation_output,
-            "rejected_candidates",
-            "rejected",
-            "discarded",
-            "failed",
-        )
-
-        if not validated:
-            validated = list(candidates)
-
-        return validation_output, tuple(validated), tuple(rejected)
+        return assessments, tuple(validated), tuple(rejected)
 
     def _execute(
         self,
@@ -1446,59 +1481,21 @@ class DiscoveryOrchestrator:
         if engine is None:
             raise RuntimeError("Execution engine is unavailable.")
 
-        if hasattr(engine, "report") and hasattr(engine.report, "reset"):
-            try:
-                engine.report.reset()
-            except Exception:
-                pass
+        engine.reset()
 
-        if hasattr(engine, "execute_batch"):
-            execution_results = _try_call(
-                engine,
-                ("execute_batch", "run_batch"),
-                validated_candidates,
-                dataset=dataset,
-                data=dataset,
-                target=target,
-                context=context,
-                config=self.settings.execution_config,
-                metadata=target.metadata,
-            )
-            if execution_results is None:
-                execution_results = _try_call(
-                    engine,
-                    ("execute_batch", "run_batch"),
-                    validated_candidates,
-                )
-            execution_results = _extract_items(execution_results, "results", "executions")
-        else:
-            execution_results = []
-            for candidate in validated_candidates:
-                result = _try_call(
-                    engine,
-                    ("execute", "run", "replay"),
-                    candidate,
-                    dataset=dataset,
-                    data=dataset,
-                    target=target,
-                    context=context,
-                    config=self.settings.execution_config,
-                    metadata=target.metadata,
-                )
-                if result is None:
-                    result = _try_call(
-                        engine,
-                        ("execute", "run", "replay"),
-                        candidate,
-                    )
-                if result is not None:
-                    execution_results.append(result)
+        midas = getattr(dataset, "midas", None)
+        if midas is None:
+            raise RuntimeError("Dataset is not in MIDAS mode; execution requires MIDAS arrays.")
 
-        execution_report = _extract_attr(engine, "report", default=None)
-        if execution_report is None:
-            execution_report = _try_call(engine, ("report",), default=None)
+        execution_results = engine.execute_batch(
+            validated_candidates,
+            dataset=dataset,
+            matrix=midas.X,
+            prices=midas.Y_ret,
+            timestamps=midas.ts,
+        )
 
-        return tuple(execution_results), execution_report
+        return tuple(execution_results), engine.report
 
     def _build_portfolio(
         self,
@@ -1516,136 +1513,72 @@ class DiscoveryOrchestrator:
         from portfolio.portfolio_report import PortfolioReporter
         from portfolio.optimizer import PortfolioOptimizer
 
+        if not execution_results:
+            return None, None, None
+
         selector = PortfolioSelector(config=self.config)
-        correlation = PortfolioCorrelationAnalyzer(config=self.config)
-        diversification = DiversificationEngine(config=self.config)
-        risk_model = PortfolioRiskModel(config=self.config)
-        capital_manager = CapitalManager(config=self.config)
-        allocator = PortfolioAllocator(config=self.config)
-        reporter = PortfolioReporter(config=self.config)
-        optimizer = PortfolioOptimizer(config=self.config)
-
-        if selector is None or allocator is None or reporter is None:
-            raise RuntimeError("Portfolio stack is unavailable.")
-
-        selection = _try_call(
-            selector,
-            ("select",),
+        selection = selector.select(
             execution_results,
-            limit=None,
             metadata={"asset": target.asset, "timeframe": target.timeframe, "run_id": self.run_id},
         )
-        if selection is None:
-            selection = _try_call(
-                selector,
-                ("select",),
-                execution_results,
-            )
 
-        selected_results = _extract_items(selection, "results", "selected")
-        if not selected_results:
-            selected_results = list(execution_results)
+        selected_results = list(selection.results)
 
-        corr_matrix = None
-        if correlation is not None:
-            corr_matrix = _try_call(correlation, ("correlate", "matrix", "similarity_matrix"), selected_results, metadata={"asset": target.asset, "timeframe": target.timeframe})
-            if corr_matrix is None:
-                corr_matrix = _try_call(correlation, ("correlate", "matrix", "similarity_matrix"), selected_results)
+        correlation = PortfolioCorrelationAnalyzer(config=self.config)
+        corr_matrix = correlation.correlate(
+            selected_results,
+            metadata={"asset": target.asset, "timeframe": target.timeframe},
+        )
 
-        diversification_assessment = None
-        if diversification is not None:
-            diversification_assessment = _try_call(
-                diversification,
-                ("assess", "score"),
-                selected_results,
-                correlation=corr_matrix,
-                metadata={"asset": target.asset, "timeframe": target.timeframe},
-            )
-            if diversification_assessment is None:
-                diversification_assessment = _try_call(
-                    diversification,
-                    ("assess", "score"),
-                    selected_results,
-                    correlation=corr_matrix,
-                )
+        diversification = DiversificationEngine(config=self.config)
+        div_assessment = diversification.assess(
+            selected_results,
+            correlation=corr_matrix,
+            metadata={"asset": target.asset, "timeframe": target.timeframe},
+        )
 
-        risk_assessment = None
-        if risk_model is not None:
-            risk_assessment = _try_call(
-                risk_model,
-                ("assess", "score"),
-                selected_results,
-                correlation=corr_matrix,
-                diversification=diversification_assessment,
-                metadata={"asset": target.asset, "timeframe": target.timeframe},
-            )
-            if risk_assessment is None:
-                risk_assessment = _try_call(
-                    risk_model,
-                    ("assess", "score"),
-                    selected_results,
-                    correlation=corr_matrix,
-                    diversification=diversification_assessment,
-                )
+        risk = PortfolioRiskModel(config=self.config)
+        risk_assessment = risk.assess(
+            selected_results,
+            correlation=corr_matrix,
+            diversification=div_assessment,
+            metadata={"asset": target.asset, "timeframe": target.timeframe},
+        )
 
-        if optimizer is not None:
-            optimization = _try_call(
-                optimizer,
-                ("optimize", "search", "tune"),
-                selected_results,
-                correlation=corr_matrix,
-                diversification=diversification_assessment,
-                risk=risk_assessment,
-                total_capital=getattr(self.settings.execution_config, "max_open_positions", 1),
-                metadata={"asset": target.asset, "timeframe": target.timeframe},
-            )
-            best_allocation = _extract_attr(optimization, "best_allocation", default=None)
-            if best_allocation is not None:
-                allocation = best_allocation
-            else:
-                allocation = None
-        else:
-            allocation = None
+        optimizer = PortfolioOptimizer(config=self.config)
+        optimization = optimizer.optimize(
+            selected_results,
+            correlation=corr_matrix,
+            diversification=div_assessment,
+            risk=risk_assessment,
+            total_capital=getattr(self.settings.execution_config, "max_open_positions", 1),
+            metadata={"asset": target.asset, "timeframe": target.timeframe},
+        )
+        best_allocation = getattr(optimization, "best_allocation", None)
+        allocation = best_allocation if best_allocation is not None else None
 
         if allocation is None:
-            allocation = _try_call(
-                allocator,
-                ("allocate", "plan"),
+            allocator = PortfolioAllocator(config=self.config)
+            allocation = allocator.allocate(
                 selected_results,
                 weights=None,
                 total_capital=getattr(self.settings.execution_config, "max_open_positions", 1),
                 risk=risk_assessment,
-                diversification=diversification_assessment,
+                diversification=div_assessment,
                 correlation=corr_matrix,
                 metadata={"asset": target.asset, "timeframe": target.timeframe},
             )
-            if allocation is None:
-                allocation = _try_call(
-                    allocator,
-                    ("allocate", "plan"),
-                    selected_results,
-                )
 
-        portfolio_report = _try_call(
-            reporter,
-            ("build", "summarize"),
+        reporter = PortfolioReporter(config=self.config)
+        portfolio_report = reporter.build(
             allocation=allocation,
             selection=selection,
             risk=risk_assessment,
-            diversification=diversification_assessment,
+            diversification=div_assessment,
             correlation=corr_matrix,
-            capital_plan=_extract_attr(allocation, "capital_plan", default=None),
-            rejected=_extract_attr(selection, "rejected", default=()),
             name=f"{target.slug}",
             metadata={"asset": target.asset, "timeframe": target.timeframe, "run_id": self.run_id},
         )
-        if portfolio_report is None:
-            portfolio_report = _try_call(
-                reporter,
-                ("build", "summarize"),
-                allocation=allocation,
-                selection=selection,
-            )
 
         return selection, allocation, portfolio_report
 
