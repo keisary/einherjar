@@ -100,6 +100,14 @@ class DatasetLoader:
         self._contract: DatasetContract | None = None
 
         self._load()
+    
+    @classmethod
+    def from_config(cls, config: Any | None) -> "DatasetLoader":
+        if isinstance(config, DatasetConfig):
+            return cls(config)
+        if hasattr(config, "dataset") and isinstance(config.dataset, DatasetConfig):
+            return cls(config.dataset)
+        raise TypeError("config must be a DatasetConfig or have a .dataset attribute")
 
     # ==================================================
     # PRIVATE

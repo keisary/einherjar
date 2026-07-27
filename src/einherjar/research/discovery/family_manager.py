@@ -709,9 +709,10 @@ class FamilyManager:
         metadata = feature.metadata or {}
 
         quality = 1.0
-        quality *= max(0.0, _coerce_float(feature.exploration_weight, 1.0))
-        quality *= max(0.0, _coerce_float(feature.novelty_bonus, 1.0))
-        quality /= max(1e-9, _coerce_float(feature.complexity_cost, 1.0))
+        # Les attributs directs n'existent pas sur Feature ; utiliser metadata
+        # quality *= max(0.0, _coerce_float(feature.exploration_weight, 1.0))
+        # quality *= max(0.0, _coerce_float(feature.novelty_bonus, 1.0))
+        # quality /= max(1e-9, _coerce_float(feature.complexity_cost, 1.0))
 
         if "exploration_weight" in metadata:
             quality *= max(0.0, _coerce_float(metadata.get("exploration_weight"), 1.0))
@@ -824,6 +825,29 @@ class FamilyManager:
     # ==================================================
     # PYTHON PROTOCOL
     # ==================================================
+
+    def _weighted_choice(
+        self,
+        items: Sequence[Any],
+        weights: Sequence[float],
+    ) -> Any:
+        if not items:
+            raise ValueError("items cannot be empty.")
+
+        if len(items) != len(weights):
+            raise ValueError("items and weights must have the same length.")
+
+        normalized = np.asarray(weights, dtype=float)
+        normalized = np.where(np.isfinite(normalized), normalized, 0.0)
+
+        total = float(normalized.sum())
+        if total <= 0.0:
+            index = int(self._rng.integers(0, len(items)))
+            return items[index]
+
+        probabilities = normalized / total
+        index = int(self._rng.choice(len(items), p=probabilities))
+        return items[index]
 
     def __contains__(self, item: EconomicFamily | str) -> bool:
         try:

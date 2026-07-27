@@ -151,43 +151,62 @@ class ArchiveExporter:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
 
-            with zipfile.ZipFile(path, "w", compression=self._settings.compression) as zf:
+            seen_names: set[str] = set()
+        with zipfile.ZipFile(path, "w", compression=self._settings.compression) as zf:
                 if self._settings.include_json:
                     if corpus is not None:
                         file_path = tmpdir_path / f"{stem}_corpus.json"
                         self._json.export_corpus(corpus, file_path)
-                        zf.write(file_path, arcname=file_path.name)
+                        if name in seen_names:
+                    continue
+                seen_names.add(name)
+                zf.write(file_path, arcname=file_path.name)
                         manifest_files.append(file_path.name)
 
                     if rejected is not None:
                         file_path = tmpdir_path / f"{stem}_rejected.json"
                         self._json.export_rejected(rejected, file_path)
-                        zf.write(file_path, arcname=file_path.name)
+                        if name in seen_names:
+                    continue
+                seen_names.add(name)
+                zf.write(file_path, arcname=file_path.name)
                         manifest_files.append(file_path.name)
 
                     if reports is not None:
                         file_path = tmpdir_path / f"{stem}_reports.json"
                         self._json.export_reports(reports, file_path)
-                        zf.write(file_path, arcname=file_path.name)
+                        if name in seen_names:
+                    continue
+                seen_names.add(name)
+                zf.write(file_path, arcname=file_path.name)
                         manifest_files.append(file_path.name)
 
                 if self._settings.include_csv:
                     if corpus is not None:
                         file_path = tmpdir_path / f"{stem}_corpus.csv"
                         self._csv.export_corpus(corpus, file_path)
-                        zf.write(file_path, arcname=file_path.name)
+                        if name in seen_names:
+                    continue
+                seen_names.add(name)
+                zf.write(file_path, arcname=file_path.name)
                         manifest_files.append(file_path.name)
 
                     if rejected is not None:
                         file_path = tmpdir_path / f"{stem}_rejected.csv"
                         self._csv.export_rejected(rejected, file_path)
-                        zf.write(file_path, arcname=file_path.name)
+                        if name in seen_names:
+                    continue
+                seen_names.add(name)
+                zf.write(file_path, arcname=file_path.name)
                         manifest_files.append(file_path.name)
 
                     if reports is not None:
                         file_path = tmpdir_path / f"{stem}_reports.csv"
                         self._csv.export_reports(reports, file_path)
-                        zf.write(file_path, arcname=file_path.name)
+                        if name in seen_names:
+                    continue
+                seen_names.add(name)
+                zf.write(file_path, arcname=file_path.name)
                         manifest_files.append(file_path.name)
 
                 if self._settings.include_parquet:
@@ -195,7 +214,10 @@ class ArchiveExporter:
                         try:
                             file_path = tmpdir_path / f"{stem}_corpus.parquet"
                             self._parquet.export_corpus(corpus, file_path)
-                            zf.write(file_path, arcname=file_path.name)
+                            if name in seen_names:
+                    continue
+                seen_names.add(name)
+                zf.write(file_path, arcname=file_path.name)
                             manifest_files.append(file_path.name)
                         except Exception as exc:
                             logger.warning("Export Parquet corpus échoué : %s", exc)
@@ -204,7 +226,10 @@ class ArchiveExporter:
                         try:
                             file_path = tmpdir_path / f"{stem}_rejected.parquet"
                             self._parquet.export_rejected(rejected, file_path)
-                            zf.write(file_path, arcname=file_path.name)
+                            if name in seen_names:
+                    continue
+                seen_names.add(name)
+                zf.write(file_path, arcname=file_path.name)
                             manifest_files.append(file_path.name)
                         except Exception as exc:
                             logger.warning("Export Parquet rejected échoué : %s", exc)
@@ -213,7 +238,10 @@ class ArchiveExporter:
                         try:
                             file_path = tmpdir_path / f"{stem}_reports.parquet"
                             self._parquet.export_reports(reports, file_path)
-                            zf.write(file_path, arcname=file_path.name)
+                            if name in seen_names:
+                    continue
+                seen_names.add(name)
+                zf.write(file_path, arcname=file_path.name)
                             manifest_files.append(file_path.name)
                         except Exception as exc:
                             logger.warning("Export Parquet reports échoué : %s", exc)
@@ -221,7 +249,10 @@ class ArchiveExporter:
                         try:
                             file_path = tmpdir_path / f"{stem}_corpus.parquet"
                             self._parquet.export_corpus(corpus, file_path)
-                            zf.write(file_path, arcname=file_path.name)
+                            if name in seen_names:
+                    continue
+                seen_names.add(name)
+                zf.write(file_path, arcname=file_path.name)
                             manifest_files.append(file_path.name)
                         except Exception:
                             pass
@@ -230,7 +261,10 @@ class ArchiveExporter:
                         try:
                             file_path = tmpdir_path / f"{stem}_rejected.parquet"
                             self._parquet.export_rejected(rejected, file_path)
-                            zf.write(file_path, arcname=file_path.name)
+                            if name in seen_names:
+                    continue
+                seen_names.add(name)
+                zf.write(file_path, arcname=file_path.name)
                             manifest_files.append(file_path.name)
                         except Exception:
                             pass
@@ -239,7 +273,10 @@ class ArchiveExporter:
                         try:
                             file_path = tmpdir_path / f"{stem}_reports.parquet"
                             self._parquet.export_reports(reports, file_path)
-                            zf.write(file_path, arcname=file_path.name)
+                            if name in seen_names:
+                    continue
+                seen_names.add(name)
+                zf.write(file_path, arcname=file_path.name)
                             manifest_files.append(file_path.name)
                         except Exception:
                             pass
@@ -254,6 +291,9 @@ class ArchiveExporter:
                     _json.dumps(manifest.to_dict(), indent=2, ensure_ascii=False),
                     encoding="utf-8",
                 )
+                if name in seen_names:
+                    continue
+                seen_names.add(name)
                 zf.write(manifest_path, arcname=manifest_path.name)
 
         return path

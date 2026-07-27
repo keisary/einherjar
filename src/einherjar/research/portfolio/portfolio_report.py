@@ -306,6 +306,9 @@ class PortfolioReporter:
     Construit un rapport final de portefeuille.
     """
 
+    def __init__(self, *, config: Any | None = None) -> None:
+        self._config = config
+
     def build(
         self,
         *,

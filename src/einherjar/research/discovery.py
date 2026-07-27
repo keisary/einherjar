@@ -18,6 +18,7 @@ Rôle :
 
 from __future__ import annotations
 
+import argparse
 import importlib
 import inspect
 import json
@@ -73,6 +74,20 @@ except Exception:  # pragma: no cover
 # ==========================================================
 # HELPERS
 # ==========================================================
+
+
+def _resolve_asset_class(asset: str) -> str:
+    """Résout la classe d'actif depuis assets_v1.json."""
+    assets_path = Path(r"D:/midas_v2/einherjar/config/assets_v1.json")
+    if assets_path.exists():
+        try:
+            data = json.loads(assets_path.read_text(encoding="utf-8"))
+            for entry in data.get("assets", []):
+                if entry.get("asset") == asset:
+                    return entry.get("class", "unknown")
+        except Exception:
+            pass
+    return "unknown"
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -171,26 +186,26 @@ def _extract_attr(obj: Any, *names: str, default: Any = None) -> Any:
     return default
 
 
-def _try_call(target: Any, method_names: Sequence[str], *args: Any, **kwargs: Any) -> Any:
-    if target is None:
+def _try_call(obj: Any, method_names: Sequence[str], *args: Any, **kwargs: Any) -> Any:
+    if obj is None:
         return None
 
-    if callable(target) and not inspect.ismodule(target):
+    if callable(obj) and not inspect.ismodule(obj):
         try:
-            return target(*args, **kwargs)
+            return obj(*args, **kwargs)
         except TypeError:
             try:
-                return target(**kwargs)
+                return obj(**kwargs)
             except TypeError:
                 try:
-                    return target(*args)
+                    return obj(*args)
                 except TypeError:
                     pass
 
     for name in method_names:
-        if not hasattr(target, name):
+        if not hasattr(obj, name):
             continue
-        fn = getattr(target, name)
+        fn = getattr(obj, name)
         if not callable(fn):
             continue
         try:
@@ -244,11 +259,22 @@ def _instantiate(
 
             if inspect.isclass(cls) or callable(cls):
                 if config is not None:
-                    for kwargs in ({"config": config}, {"settings": config}, {}):
+                    for kwargs in (
+                        {"config": config},
+                        {"settings": config},
+                        {},
+                    ):
                         try:
                             return cls(**kwargs)  # type: ignore[misc]
                         except Exception:
                             continue
+                    # Essayer from_config / from_settings
+                    for factory in ("from_config", "from_settings"):
+                        if hasattr(cls, factory) and callable(getattr(cls, factory)):
+                            try:
+                                return getattr(cls, factory)(config)  # type: ignore[misc]
+                            except Exception:
+                                continue
                 else:
                     try:
                         return cls()  # type: ignore[misc]
@@ -674,81 +700,25 @@ class DiscoveryComponents:
 
     @classmethod
     def create(cls, config: Any | None) -> "DiscoveryComponents":
-        root_config = config
-        search_config = _build_search_config(config)
-        execution_config = _build_execution_config(config)
-
+        # Les composants stateful globaux (memory, knowledge, exporters)
+        # sont instanciés une fois. Les composants par-paire (loader,
+        # generator, validator, execution, portfolio) sont construits
+        # à la volée dans run_pair() quand les dépendances sont connues.
         return cls(
-            dataset_loader=_instantiate(
-                ("dataset.loader",),
-                ("DatasetLoader", "Loader", "DataLoader"),
-                config=root_config,
-            ),
-            dataset_validator=_instantiate(
-                ("dataset.validator",),
-                ("DatasetValidator", "Validator", "DataValidator"),
-                config=root_config,
-            ),
-            discovery_generator=_instantiate(
-                ("discovery.generator",),
-                ("DiscoveryGenerator", "Generator", "DiscoveryEngine", "SearchEngine"),
-                config=search_config,
-            ),
-            discovery_explorer=_instantiate(
-                ("discovery.explorer",),
-                ("DiscoveryExplorer", "Explorer", "ExplorerEngine"),
-                config=search_config,
-            ),
-            validation_engine=_instantiate(
-                ("validation.engine", "validation.validator", "validation.validation_report"),
-                ("ValidationEngine", "Validator", "ValidationPipeline", "Evaluator"),
-                config=root_config,
-            ),
-            execution_engine=_instantiate(
-                ("execution.executor",),
-                ("ExecutionEngine",),
-                config=root_config,
-            ),
-            portfolio_selector=_instantiate(
-                ("portfolio.selector",),
-                ("PortfolioSelector",),
-                config=root_config,
-            ),
-            portfolio_correlation=_instantiate(
-                ("portfolio.correlation",),
-                ("PortfolioCorrelationAnalyzer",),
-                config=root_config,
-            ),
-            portfolio_diversification=_instantiate(
-                ("portfolio.diversification",),
-                ("DiversificationEngine",),
-                config=root_config,
-            ),
-            portfolio_risk=_instantiate(
-                ("portfolio.risk",),
-                ("PortfolioRiskModel",),
-                config=root_config,
-            ),
-            portfolio_capital=_instantiate(
-                ("portfolio.capital",),
-                ("CapitalManager",),
-                config=root_config,
-            ),
-            portfolio_allocator=_instantiate(
-                ("portfolio.allocator",),
-                ("PortfolioAllocator",),
-                config=root_config,
-            ),
-            portfolio_reporter=_instantiate(
-                ("portfolio.portfolio_report",),
-                ("PortfolioReporter",),
-                config=root_config,
-            ),
-            portfolio_optimizer=_instantiate(
-                ("portfolio.optimizer",),
-                ("PortfolioOptimizer",),
-                config=root_config,
-            ),
+            dataset_loader=None,
+            dataset_validator=None,
+            discovery_generator=None,
+            discovery_explorer=None,
+            validation_engine=None,
+            execution_engine=None,
+            portfolio_selector=None,
+            portfolio_correlation=None,
+            portfolio_diversification=None,
+            portfolio_risk=None,
+            portfolio_capital=None,
+            portfolio_allocator=None,
+            portfolio_reporter=None,
+            portfolio_optimizer=None,
             corpus_cls=_load_symbol(("exporters.corpus",), ("Corpus",)),
             rejected_cls=_load_symbol(("exporters.rejected",), ("RejectedCorpus",)),
             corpus_builder=_load_symbol(("exporters.corpus",), ("CorpusBuilder",)),
@@ -1352,53 +1322,50 @@ class DiscoveryOrchestrator:
     # ==================================================
 
     def _load_dataset(self, target: DiscoveryTarget, *, context: DiscoveryContext) -> Any:
-        loader = self.components.dataset_loader
-        if loader is None:
-            raise RuntimeError("Dataset loader is unavailable.")
+        from config.dataset import DatasetConfig
+        from dataset.loader import DatasetLoader
 
-        return _try_call(
-            loader,
-            ("load_pair", "load", "load_dataset", "get_dataset"),
+        dataset_cfg = DatasetConfig(
+            midas_root=r"D:/midas_v2/midasV3/src/data/compiled",
             asset=target.asset,
+            asset_class=_resolve_asset_class(target.asset),
             timeframe=target.timeframe,
-            target=target,
-            context=context,
-            config=self.config,
-            search_config=self.settings.search_config,
-            execution_config=self.settings.execution_config,
-            metadata=target.metadata,
         )
+        return DatasetLoader(dataset_cfg)
 
     def _discover(self, dataset: Any, *, target: DiscoveryTarget, context: DiscoveryContext) -> Any:
-        stage = self.components.discovery_explorer or self.components.discovery_generator
-        if stage is None:
-            raise RuntimeError("Discovery engine is unavailable.")
+        from pathlib import Path
+        from models.feature_registry import FeatureRegistry
+        from discovery.family_manager import FamilyManager
+        from discovery.generator import DiscoveryGenerator
+        from discovery.explorer import Explorer
 
-        output = _try_call(
-            stage,
-            ("run", "discover", "generate", "search", "explore"),
-            dataset=dataset,
-            data=dataset,
-            asset=target.asset,
-            timeframe=target.timeframe,
-            target=target,
-            context=context,
-            config=self.settings.search_config,
-            metadata=target.metadata,
+        # Charger le metadata.json de l'actif courant
+        meta_path = Path(r"D:/midas_v2/midasV3/src/data/compiled")
+        meta_path = meta_path / _resolve_asset_class(target.asset) / target.timeframe / "metadata.json"
+        if not meta_path.exists():
+            raise FileNotFoundError(f"metadata.json introuvable : {meta_path}")
+
+        registry = FeatureRegistry(str(meta_path))
+        family_manager = FamilyManager.from_config(self.config, registry)
+
+        # Construire le generator
+        generator = DiscoveryGenerator(self.config, registry)
+
+        # Construire l'explorer avec le generator
+        explorer = Explorer(
+            registry=registry,
+            config=self.config,
+            generator=generator,
+            search_config=self.settings.search_config,
         )
 
-        if output is None:
-            output = _try_call(
-                stage,
-                ("run", "discover", "generate", "search", "explore"),
-                dataset,
-                target=target,
-                context=context,
-                config=self.settings.search_config,
-                metadata=target.metadata,
-            )
-
-        return output
+        # Lancer la recherche avec un seed_size raisonnable
+        result = explorer.run(
+            seed_size=5,
+            max_iterations=getattr(self.settings.search_config, "max_depth", 3),
+        )
+        return result
 
     def _validate(
         self,
@@ -1408,9 +1375,12 @@ class DiscoveryOrchestrator:
         target: DiscoveryTarget,
         context: DiscoveryContext,
     ) -> tuple[Any, tuple[Any, ...], tuple[Any, ...]]:
-        validator = self.components.validation_engine
-        if validator is None:
-            return None, tuple(candidates), ()
+        from validation.evaluator import ValidationEvaluator
+
+        validator = ValidationEvaluator(
+            config=self.config,
+            dataset=dataset,
+        )
 
         validation_output = _try_call(
             validator,
@@ -1470,7 +1440,9 @@ class DiscoveryOrchestrator:
         target: DiscoveryTarget,
         context: DiscoveryContext,
     ) -> tuple[tuple[Any, ...], Any]:
-        engine = self._spawn_pair_component(self.components.execution_engine, self.settings.execution_config)
+        from execution.executor import ExecutionEngine
+
+        engine = ExecutionEngine(config=self.config)
         if engine is None:
             raise RuntimeError("Execution engine is unavailable.")
 
@@ -1535,14 +1507,23 @@ class DiscoveryOrchestrator:
         target: DiscoveryTarget,
         context: DiscoveryContext,
     ) -> tuple[Any, Any, Any]:
-        selector = self._spawn_pair_component(self.components.portfolio_selector, self.config)
-        correlation = self._spawn_pair_component(self.components.portfolio_correlation, self.config)
-        diversification = self._spawn_pair_component(self.components.portfolio_diversification, self.config)
-        risk_model = self._spawn_pair_component(self.components.portfolio_risk, self.config)
-        capital_manager = self._spawn_pair_component(self.components.portfolio_capital, self.config)
-        allocator = self._spawn_pair_component(self.components.portfolio_allocator, self.config)
-        reporter = self._spawn_pair_component(self.components.portfolio_reporter, self.config)
-        optimizer = self._spawn_pair_component(self.components.portfolio_optimizer, self.config)
+        from portfolio.selector import PortfolioSelector
+        from portfolio.correlation import PortfolioCorrelationAnalyzer
+        from portfolio.diversification import DiversificationEngine
+        from portfolio.risk import PortfolioRiskModel
+        from portfolio.capital import CapitalManager
+        from portfolio.allocator import PortfolioAllocator
+        from portfolio.portfolio_report import PortfolioReporter
+        from portfolio.optimizer import PortfolioOptimizer
+
+        selector = PortfolioSelector(config=self.config)
+        correlation = PortfolioCorrelationAnalyzer(config=self.config)
+        diversification = DiversificationEngine(config=self.config)
+        risk_model = PortfolioRiskModel(config=self.config)
+        capital_manager = CapitalManager(config=self.config)
+        allocator = PortfolioAllocator(config=self.config)
+        reporter = PortfolioReporter(config=self.config)
+        optimizer = PortfolioOptimizer(config=self.config)
 
         if selector is None or allocator is None or reporter is None:
             raise RuntimeError("Portfolio stack is unavailable.")
@@ -2018,6 +1999,36 @@ class DiscoveryOrchestrator:
     # EXPORTS
     # ==================================================
 
+    def _build_memory_snapshot(
+        self,
+        pair_results: list[DiscoveryPairResult],
+        *,
+        corpus: Any,
+        rejected: Any,
+        metadata: Mapping[str, Any] | None,
+    ) -> dict[str, Any]:
+        snapshot: dict[str, Any] = {"pairs": []}
+        for pr in pair_results:
+            ms = pr.memory_snapshot
+            if ms:
+                snapshot["pairs"].append({"pair": pr.pair_key, **ms})
+        return snapshot
+
+    def _build_knowledge_snapshot(
+        self,
+        pair_results: list[DiscoveryPairResult],
+        *,
+        corpus: Any,
+        rejected: Any,
+        metadata: Mapping[str, Any] | None,
+    ) -> dict[str, Any]:
+        snapshot: dict[str, Any] = {"pairs": []}
+        for pr in pair_results:
+            ks = pr.knowledge_snapshot
+            if ks:
+                snapshot["pairs"].append({"pair": pr.pair_key, **ks})
+        return snapshot
+    
     def _export_pair(self, result: DiscoveryPairResult) -> dict[str, str]:
         export_paths: dict[str, str] = {}
         pair_dir = self.run_root / result.context.target.slug
@@ -2257,3 +2268,65 @@ def main(
         timeframes=timeframes,
         metadata=metadata,
     )
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="EINHERJAR Discovery — recherche d'Einhers sur l'univers MIDAS")
+    parser.add_argument("--asset", type=str, default="", help="Actif unique (ex: XAUUSD)")
+    parser.add_argument("--asset-class", type=str, default="", help="Classe d'actif (ex: forex, crypto, commodities)")
+    parser.add_argument("--timeframe", type=str, default="15m", help="Timeframe (ex: 5m, 15m, 1h, 4h, 1d)")
+    parser.add_argument("--debug", action="store_true", help="Logs détaillés")
+    args = parser.parse_args()
+
+    import logging
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)-5s] %(message)s")
+    else:
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)-5s] %(message)s")
+
+    from config.config import Config
+    from config.dataset import DatasetConfig
+
+    config = Config()
+    config.dataset = DatasetConfig(
+        midas_root=r"D:/midas_v2/midasV3/src/data/compiled",
+        asset=args.asset,
+        asset_class=args.asset_class,
+        timeframe=args.timeframe,
+    )
+
+    assets_v1_path = Path(r"D:/midas_v2/einherjar/config/assets_v1.json")
+    assets_cfg = json.loads(assets_v1_path.read_text(encoding="utf-8"))
+    assets_list = assets_cfg.get("assets", [])
+
+    if args.asset:
+        # Trouver la classe d'actif si non fournie
+        asset_class = args.asset_class
+        if not asset_class:
+            for entry in assets_list:
+                if entry["asset"] == args.asset:
+                    asset_class = entry["class"]
+                    break
+        if not asset_class:
+            raise ValueError(f"Actif {args.asset} non trouvé dans assets_v1.json — fournissez --asset-class")
+        config.dataset = DatasetConfig(
+                    midas_root=r"D:/midas_v2/midasV3/src/data/compiled",
+                    asset=args.asset,
+                    asset_class=asset_class,
+                    timeframe=args.timeframe,
+                )
+        result = main(config, assets=[args.asset], timeframes=[args.timeframe])
+    else:
+        # Tout l'univers
+        all_assets = [entry["asset"] for entry in assets_list]
+        all_classes = {entry["asset"]: entry["class"] for entry in assets_list}
+        # On lance asset par asset avec la bonne classe
+        result = main(config, assets=all_assets, timeframes=[args.timeframe])
+
+    print("=" * 60)
+    print(f"Run ID : {result.run_id}")
+    print(f"Pairs  : {result.pair_count}")
+    print(f"Success: {result.success_count}")
+    print(f"Failures: {result.failure_count}")
+    for pr in result.pair_results:
+        status = "OK" if pr.success else "FAIL"
+        print(f"  [{status}] {pr.pair_key}")

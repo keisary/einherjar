@@ -699,7 +699,7 @@ class Explorer:
         hypothesis = node.hypothesis
         depth = node.depth + 1
 
-        available_actions = self._heuristics.available_actions(
+        available_actions = self._generator.available_actions(
             hypothesis,
             depth=node.depth,
         )
@@ -873,7 +873,7 @@ class Explorer:
                     action=self._heuristics.choose_action(
                         hypothesis,
                         depth=depth,
-                        available_actions=self._heuristics.available_actions(
+                        available_actions=self._generator.available_actions(
                             hypothesis,
                             depth=depth,
                         ),

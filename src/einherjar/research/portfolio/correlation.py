@@ -271,7 +271,18 @@ class PortfolioCorrelationAnalyzer:
     Calcule les corrélations entre résultats d'exécution.
     """
 
-    def __init__(self, settings: PortfolioCorrelationSettings | None = None) -> None:
+    def __init__(
+        self,
+        settings: PortfolioCorrelationSettings | None = None,
+        *,
+        config: PortfolioConfig | Any | None = None,
+    ) -> None:
+        if settings is not None:
+            self._settings = settings
+        elif config is not None:
+            self._settings = PortfolioCorrelationSettings.from_config(config)
+        else:
+            self._settings = PortfolioCorrelationSettings()
         self._settings = settings or PortfolioCorrelationSettings()
 
     @property

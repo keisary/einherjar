@@ -1027,7 +1027,7 @@ class DiscoveryGenerator:
         )
         return condition
 
-    def available_actions(self, hypothesis: Hypothesis) -> tuple[str, ...]:
+    def available_actions(self, hypothesis: Hypothesis, **kwargs: Any) -> tuple[str, ...]:
         actions: list[str] = ["mutate", "replace"]
 
         if self._settings.max_conditions <= 0 or len(hypothesis) < self._settings.max_conditions:
