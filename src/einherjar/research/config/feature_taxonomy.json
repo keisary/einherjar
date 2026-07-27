@@ -1,0 +1,1235 @@
+{
+    "_comment": "Taxonomie manuelle des features MIDAS — générée le 2026-07-27",
+    "features": {
+        "open": {
+            "feature_type": "atomic",
+            "economic_family": "price_action",
+            "value_type": "float"
+        },
+        "high": {
+            "feature_type": "atomic",
+            "economic_family": "price_action",
+            "value_type": "float"
+        },
+        "low": {
+            "feature_type": "atomic",
+            "economic_family": "price_action",
+            "value_type": "float"
+        },
+        "close": {
+            "feature_type": "atomic",
+            "economic_family": "price_action",
+            "value_type": "float"
+        },
+        "volume": {
+            "feature_type": "atomic",
+            "economic_family": "volume_flow",
+            "value_type": "float"
+        },
+        "rsi_14": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "rsi_21": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "rsi_30": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "macd_line": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "macd_signal": {
+            "feature_type": "composite",
+            "economic_family": "momentum",
+            "value_type": "boolean"
+        },
+        "macd_histogram": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "ema_9": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "ema_12": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "ema_21": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "ema_26": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "ema_50": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "ema_100": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "ema_200": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "sma_20": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "sma_50": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "sma_100": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "sma_200": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "bb_upper": {
+            "feature_type": "atomic",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "bb_middle": {
+            "feature_type": "atomic",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "bb_lower": {
+            "feature_type": "atomic",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "bb_width": {
+            "feature_type": "atomic",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "bb_percent": {
+            "feature_type": "atomic",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "volume_sma_20": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "volume_ratio": {
+            "feature_type": "atomic",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "atr_14": {
+            "feature_type": "atomic",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "atr_21": {
+            "feature_type": "atomic",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "stoch_k": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "stoch_d": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "williams_r": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "cci_20": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "adx_14": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "di_plus": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "di_minus": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "obv": {
+            "feature_type": "atomic",
+            "economic_family": "volume_flow",
+            "value_type": "float"
+        },
+        "obv_ema": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "vwap": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "momentum_10": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "momentum_20": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "roc_10": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "roc_20": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "trix_14": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "ultimate_oscillator": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "money_flow_index": {
+            "feature_type": "atomic",
+            "economic_family": "volume_flow",
+            "value_type": "float"
+        },
+        "chaikin_oscillator": {
+            "feature_type": "atomic",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "aroon_up": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "aroon_down": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "parabolic_sar": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "supertrend": {
+            "feature_type": "atomic",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "supertrend_signal": {
+            "feature_type": "composite",
+            "economic_family": "trend",
+            "value_type": "boolean"
+        },
+        "choppiness_index": {
+            "feature_type": "atomic",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "vortex_pos": {
+            "feature_type": "atomic",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "vortex_neg": {
+            "feature_type": "atomic",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "quant_realized_vol_10": {
+            "feature_type": "quantitative",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "quant_realized_vol_20": {
+            "feature_type": "quantitative",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "quant_realized_vol_50": {
+            "feature_type": "quantitative",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "quant_garch_volatility": {
+            "feature_type": "quantitative",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "quant_vol_clustering": {
+            "feature_type": "quantitative",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "quant_hurst_exponent": {
+            "feature_type": "quantitative",
+            "economic_family": "market_regime",
+            "value_type": "float"
+        },
+        "quant_autocorr_10": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "quant_autocorr_20": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "quant_autocorr_50": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "quant_shannon_entropy": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "quant_sample_entropy": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "quant_dominant_frequency": {
+            "feature_type": "quantitative",
+            "economic_family": "market_regime",
+            "value_type": "float"
+        },
+        "quant_spectral_centroid": {
+            "feature_type": "quantitative",
+            "economic_family": "market_regime",
+            "value_type": "float"
+        },
+        "quant_fractal_dimension": {
+            "feature_type": "quantitative",
+            "economic_family": "market_regime",
+            "value_type": "float"
+        },
+        "quant_dfa_exponent": {
+            "feature_type": "quantitative",
+            "economic_family": "market_regime",
+            "value_type": "float"
+        },
+        "quant_vol_persistence": {
+            "feature_type": "quantitative",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "quant_approximate_entropy": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "quant_permutation_entropy": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "quant_rolling_skewness": {
+            "feature_type": "quantitative",
+            "economic_family": "risk",
+            "value_type": "float"
+        },
+        "quant_rolling_kurtosis": {
+            "feature_type": "quantitative",
+            "economic_family": "risk",
+            "value_type": "float"
+        },
+        "quant_dynamic_var": {
+            "feature_type": "quantitative",
+            "economic_family": "risk",
+            "value_type": "float"
+        },
+        "quant_dynamic_cvar": {
+            "feature_type": "quantitative",
+            "economic_family": "risk",
+            "value_type": "float"
+        },
+        "quant_max_drawdown": {
+            "feature_type": "quantitative",
+            "economic_family": "risk",
+            "value_type": "float"
+        },
+        "quant_regime_detection": {
+            "feature_type": "quantitative",
+            "economic_family": "market_regime",
+            "value_type": "float"
+        },
+        "quant_amihud_illiquidity": {
+            "feature_type": "quantitative",
+            "economic_family": "microstructure",
+            "value_type": "float"
+        },
+        "quant_kyles_lambda": {
+            "feature_type": "quantitative",
+            "economic_family": "microstructure",
+            "value_type": "float"
+        },
+        "quant_kaufman_efficiency": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "quant_variance_ratio": {
+            "feature_type": "quantitative",
+            "economic_family": "risk",
+            "value_type": "float"
+        },
+        "pattern_hammer": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_inverted_hammer": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_dragonfly_doji": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_morning_star": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_piercing_line": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_three_white_soldiers": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_engulfing_bull": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_engulfing_bear": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_harami_bull": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_pin_bar_bull": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_pin_bar_bear": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_marubozu_bull": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_abandoned_baby_bull": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_three_inside_up": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_three_outside_up": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_concealing_baby_swallow": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_unique_three_river_bottom": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_belt_hold_bull": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_kicking_bull": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_matching_low": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_ladder_bottom": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_breakaway_bull": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_hanging_man": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_shooting_star": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_gravestone_doji": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_evening_star": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_dark_cloud_cover": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_three_black_crows": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_harami_bear": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_marubozu_bear": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_abandoned_baby_bear": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_three_inside_down": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_three_outside_down": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_advance_block": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_deliberation": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_belt_hold_bear": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_kicking_bear": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_matching_high": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_ladder_top": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_breakaway_bear": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_doji": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_long_legged_doji": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_spinning_top": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_four_price_doji": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_rickshaw_man": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_high_wave_candle": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_tri_star": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_double_top": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_double_bottom": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_triple_top": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_triple_bottom": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_head_shoulders": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_inv_head_shoulders": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_rounding_top": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_rounding_bottom": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_diamond_top": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_diamond_bottom": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_v_top": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_v_bottom": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_island_top": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_island_bottom": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_spike_reversal": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_ascending_triangle": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_descending_triangle": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_symmetrical_triangle": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_rectangle": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_bull_flag": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_bear_flag": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_bull_pennant": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_bear_pennant": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_rising_wedge": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_falling_wedge": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_broadening_wedge": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_cup_handle": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_channel_up": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_channel_down": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_measured_move": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_gartley_bull": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_gartley_bear": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_butterfly_bull": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_butterfly_bear": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_bat_bull": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_bat_bear": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_crab_bull": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_crab_bear": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_shark_bull": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_shark_bear": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_support": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_resistance": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_uptrend": {
+            "feature_type": "pattern",
+            "economic_family": "trend",
+            "value_type": "boolean"
+        },
+        "pattern_downtrend": {
+            "feature_type": "pattern",
+            "economic_family": "trend",
+            "value_type": "boolean"
+        },
+        "pattern_sideways_trend": {
+            "feature_type": "pattern",
+            "economic_family": "trend",
+            "value_type": "boolean"
+        },
+        "pattern_gap_up": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_gap_down": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_gap_fill": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_breakaway_gap": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_runaway_gap": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_exhaustion_gap": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_island_reversal": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_gap_and_go": {
+            "feature_type": "pattern",
+            "economic_family": "price_action",
+            "value_type": "boolean"
+        },
+        "pattern_three_drives": {
+            "feature_type": "pattern",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "pattern_wolfe_wave": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_elliott_wave_1": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_elliott_wave_3": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_elliott_wave_5": {
+            "feature_type": "pattern",
+            "economic_family": "market_structure",
+            "value_type": "boolean"
+        },
+        "pattern_fibonacci_retracement": {
+            "feature_type": "pattern",
+            "economic_family": "momentum",
+            "value_type": "boolean"
+        },
+        "pattern_fibonacci_extension": {
+            "feature_type": "pattern",
+            "economic_family": "momentum",
+            "value_type": "boolean"
+        },
+        "macd_signal_right": {
+            "feature_type": "composite",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "rsi_14_norm": {
+            "feature_type": "composite",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "rsi_21_norm": {
+            "feature_type": "composite",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "stoch_k_norm": {
+            "feature_type": "composite",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "stoch_d_norm": {
+            "feature_type": "composite",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "williams_r_norm": {
+            "feature_type": "composite",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "roc_10_norm": {
+            "feature_type": "composite",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "roc_20_norm": {
+            "feature_type": "composite",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "momentum_10_norm": {
+            "feature_type": "composite",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "momentum_20_norm": {
+            "feature_type": "composite",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "Factor_Momentum_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "sma_20_signal": {
+            "feature_type": "composite",
+            "economic_family": "trend",
+            "value_type": "boolean"
+        },
+        "sma_50_signal": {
+            "feature_type": "composite",
+            "economic_family": "trend",
+            "value_type": "boolean"
+        },
+        "ema_12_signal": {
+            "feature_type": "composite",
+            "economic_family": "trend",
+            "value_type": "boolean"
+        },
+        "ema_26_signal": {
+            "feature_type": "composite",
+            "economic_family": "trend",
+            "value_type": "boolean"
+        },
+        "macd_trend_signal": {
+            "feature_type": "composite",
+            "economic_family": "momentum",
+            "value_type": "boolean"
+        },
+        "aroon_trend_signal": {
+            "feature_type": "composite",
+            "economic_family": "trend",
+            "value_type": "boolean"
+        },
+        "Factor_Trend_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "adx_strength_signal": {
+            "feature_type": "composite",
+            "economic_family": "trend",
+            "value_type": "boolean"
+        },
+        "volume_ratio_signal": {
+            "feature_type": "composite",
+            "economic_family": "volatility",
+            "value_type": "boolean"
+        },
+        "obv_signal": {
+            "feature_type": "composite",
+            "economic_family": "volume_flow",
+            "value_type": "boolean"
+        },
+        "vwap_signal": {
+            "feature_type": "composite",
+            "economic_family": "trend",
+            "value_type": "boolean"
+        },
+        "volume_sma_signal": {
+            "feature_type": "composite",
+            "economic_family": "trend",
+            "value_type": "boolean"
+        },
+        "Factor_Volume_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "atr_14_signal": {
+            "feature_type": "composite",
+            "economic_family": "volatility",
+            "value_type": "boolean"
+        },
+        "bb_width_signal": {
+            "feature_type": "composite",
+            "economic_family": "volatility",
+            "value_type": "boolean"
+        },
+        "Factor_Volatility_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "quant_realized_vol_10_signal": {
+            "feature_type": "quantitative",
+            "economic_family": "volatility",
+            "value_type": "boolean"
+        },
+        "quant_shannon_entropy_signal": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "boolean"
+        },
+        "regime_signal": {
+            "feature_type": "composite",
+            "economic_family": "other",
+            "value_type": "boolean"
+        },
+        "quant_hurst_exponent_signal": {
+            "feature_type": "quantitative",
+            "economic_family": "market_regime",
+            "value_type": "boolean"
+        },
+        "quant_vol_persistence_signal": {
+            "feature_type": "quantitative",
+            "economic_family": "momentum",
+            "value_type": "boolean"
+        },
+        "Factor_Quantitative_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "Factor_Candlestick_Bullish_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "price_action",
+            "value_type": "float"
+        },
+        "Factor_Candlestick_Bearish_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "price_action",
+            "value_type": "float"
+        },
+        "Factor_Chart_Patterns_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "price_action",
+            "value_type": "float"
+        },
+        "Factor_Harmonic_Patterns_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "price_action",
+            "value_type": "float"
+        },
+        "Factor_Support_Resistance_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "price_action",
+            "value_type": "float"
+        },
+        "Factor_Regime_Hurst_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "skewness_risk": {
+            "feature_type": "atomic",
+            "economic_family": "other",
+            "value_type": "float"
+        },
+        "kurtosis_risk": {
+            "feature_type": "atomic",
+            "economic_family": "other",
+            "value_type": "float"
+        },
+        "Factor_Risk_TailEvent_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "risk",
+            "value_type": "float"
+        },
+        "quant_autocorr_10_weighted": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "quant_autocorr_20_weighted": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "quant_autocorr_50_weighted": {
+            "feature_type": "quantitative",
+            "economic_family": "statistical",
+            "value_type": "float"
+        },
+        "Factor_Persistence_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "Factor_RelativeStrength_Momentum": {
+            "feature_type": "quantitative",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "Factor_Correlation_Dynamic": {
+            "feature_type": "quantitative",
+            "economic_family": "cross_asset",
+            "value_type": "float"
+        },
+        "Factor_Momentum_Acceleration_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "momentum",
+            "value_type": "float"
+        },
+        "Factor_Volatility_Expansion_Rate": {
+            "feature_type": "quantitative",
+            "economic_family": "volatility",
+            "value_type": "float"
+        },
+        "Factor_Divergence_Score_Bearish": {
+            "feature_type": "quantitative",
+            "economic_family": "price_action",
+            "value_type": "float"
+        },
+        "Factor_Divergence_Score_Bullish": {
+            "feature_type": "quantitative",
+            "economic_family": "price_action",
+            "value_type": "float"
+        },
+        "Factor_Trend_Confirmation_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "trend",
+            "value_type": "float"
+        },
+        "Factor_Reversal_Climax_Score": {
+            "feature_type": "quantitative",
+            "economic_family": "price_action",
+            "value_type": "float"
+        }
+    }
+}

@@ -21,7 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .enums import ComparisonOperator
+from .enums import ConditionOperator
 from .feature import Feature
 
 
@@ -40,7 +40,7 @@ class Condition:
 
     left: Feature
 
-    operator: ComparisonOperator
+    operator: ConditionOperator
 
     right: Feature | int | float | bool
 
@@ -57,10 +57,10 @@ class Condition:
 
         if not isinstance(
             self.operator,
-            ComparisonOperator,
+            ConditionOperator,
         ):
             raise TypeError(
-                "operator must be a ComparisonOperator."
+                "operator must be a ConditionOperator."
             )
 
         if not isinstance(
@@ -133,7 +133,7 @@ class Condition:
 
         return cls(
             left=registry[data["left"]],
-            operator=ComparisonOperator(
+            operator=ConditionOperator(
                 data["operator"]
             ),
             right=right_operand,

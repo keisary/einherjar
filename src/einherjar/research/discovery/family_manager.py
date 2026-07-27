@@ -166,7 +166,6 @@ def _normalize_avoid_features(
     return output
 
 
-@dataclass(slots=True)
 class FamilyManager:
     """
     Gestionnaire d'équilibrage des familles.

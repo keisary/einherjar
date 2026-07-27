@@ -31,7 +31,6 @@ from .relationships import RelationshipKind
 from .relationships import RelationshipStore
 from .similarity import SimilarityEngine
 from .similarity import SimilarityMatrix
-from .similarity import Similarityસ્કో as _unused  # type: ignore
 from .similarity import SimilarityScore
 from .similarity import SimilaritySettings
 from .taxonomy import TaxonomyClassification

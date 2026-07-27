@@ -16,16 +16,20 @@ partage avec l'ensemble du moteur.
 from __future__ import annotations
 
 import json
+import logging
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 
-from config.dataset_config import DatasetConfig
+from config.dataset import DatasetConfig
 
 from .contract import DatasetContract
+
+logger = logging.getLogger("einherjar.dataset")
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +65,17 @@ class DatasetSplit:
         return self.X.shape
 
 
+@dataclass(frozen=True, slots=True)
+class MidasArrays:
+    """
+    Arrays bruts MIDAS pour un actif donné.
+    """
+
+    X: NDArray
+    Y_ret: NDArray
+    ts: NDArray
+
+
 class DatasetLoader:
     """
     Charge et expose le dataset.
@@ -80,9 +95,9 @@ class DatasetLoader:
 
         self._config = config
 
-        self._contract = self._load_contract()
-
         self._splits: dict[str, DatasetSplit] = {}
+        self._midas: MidasArrays | None = None
+        self._contract: DatasetContract | None = None
 
         self._load()
 
@@ -91,6 +106,56 @@ class DatasetLoader:
     # ==================================================
 
     def _load(self) -> None:
+        # Mode MIDAS (asset / timeframe)
+        if self._config.midas_root and self._config.asset and self._config.asset_class and self._config.timeframe:
+            self._load_midas()
+            return
+
+        # Mode "splits" classique
+        if self._config.metadata_path:
+            self._contract = self._load_contract()
+            self._load_splits()
+            return
+
+        logger.warning(
+            "DatasetLoader : aucune configuration de chargement valide fournie. "
+            "Fournissez soit (midas_root + asset + asset_class + timeframe), "
+            "soit (metadata_path + x_train_path + ...)."
+        )
+
+    def _load_midas(self) -> None:
+        """Charge les arrays MIDAS pour un actif donné."""
+        midas_root = Path(self._config.midas_root)
+        asset = self._config.asset
+        asset_class = self._config.asset_class
+        timeframe = self._config.timeframe
+
+        base = midas_root / asset_class / timeframe
+        paths = {
+            "X": base / f"{asset}_X.npy",
+            "Y_ret": base / f"{asset}_Y_ret.npy",
+            "ts": base / f"{asset}_ts.npy",
+        }
+
+        arrays = {}
+        for key, p in paths.items():
+            if not p.exists():
+                raise FileNotFoundError(f"Fichier MIDAS manquant : {p}")
+            arrays[key] = np.load(p, mmap_mode="r", allow_pickle=False)
+
+        self._midas = MidasArrays(
+            X=arrays["X"],
+            Y_ret=arrays["Y_ret"],
+            ts=arrays["ts"],
+        )
+
+        meta_path = base / "metadata.json"
+        if meta_path.exists():
+            with meta_path.open("r", encoding="utf-8") as f:
+                metadata = json.load(f)
+            self._contract = DatasetContract.from_dict(metadata)
+
+    def _load_splits(self) -> None:
 
         self._splits["train"] = DatasetSplit(
             name="train",
@@ -126,7 +191,7 @@ class DatasetLoader:
         self,
     ) -> DatasetContract:
 
-        with self._config.metadata_path.open(
+        with Path(self._config.metadata_path).open(
             "r",
             encoding="utf-8",
         ) as file:
@@ -153,12 +218,20 @@ class DatasetLoader:
     # ==================================================
 
     @property
-    def contract(self) -> DatasetContract:
+    def contract(self) -> DatasetContract | None:
         return self._contract
 
     @property
     def splits(self) -> tuple[str, ...]:
         return tuple(self._splits.keys())
+
+    @property
+    def midas(self) -> MidasArrays | None:
+        return self._midas
+
+    @property
+    def is_midas_mode(self) -> bool:
+        return self._midas is not None
 
     # ==================================================
     # ACCESSORS
@@ -211,9 +284,11 @@ class DatasetLoader:
     def __repr__(self) -> str:
 
         splits = ", ".join(self.splits)
+        mode = "midas" if self.is_midas_mode else "splits"
 
         return (
             "DatasetLoader("
+            f"mode={mode}, "
             f"splits=[{splits}]"
             ")"
         )

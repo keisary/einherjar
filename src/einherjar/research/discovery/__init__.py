@@ -4,7 +4,7 @@ Discovery Package
 ==========================================================
 """
 
-from .budget import BudgetSnapshot
+from .search_budget import BudgetSnapshot
 from .diversity import DiversityAssessment
 from .diversity import DiversityEngine
 from .explorer import DiscoveryNode

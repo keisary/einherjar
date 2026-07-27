@@ -37,6 +37,11 @@ __all__ = [
 ]
 
 
+import logging
+
+logger = logging.getLogger("einherjar.archive")
+
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -186,6 +191,32 @@ class ArchiveExporter:
                         manifest_files.append(file_path.name)
 
                 if self._settings.include_parquet:
+                    if corpus is not None:
+                        try:
+                            file_path = tmpdir_path / f"{stem}_corpus.parquet"
+                            self._parquet.export_corpus(corpus, file_path)
+                            zf.write(file_path, arcname=file_path.name)
+                            manifest_files.append(file_path.name)
+                        except Exception as exc:
+                            logger.warning("Export Parquet corpus échoué : %s", exc)
+
+                    if rejected is not None:
+                        try:
+                            file_path = tmpdir_path / f"{stem}_rejected.parquet"
+                            self._parquet.export_rejected(rejected, file_path)
+                            zf.write(file_path, arcname=file_path.name)
+                            manifest_files.append(file_path.name)
+                        except Exception as exc:
+                            logger.warning("Export Parquet rejected échoué : %s", exc)
+
+                    if reports is not None:
+                        try:
+                            file_path = tmpdir_path / f"{stem}_reports.parquet"
+                            self._parquet.export_reports(reports, file_path)
+                            zf.write(file_path, arcname=file_path.name)
+                            manifest_files.append(file_path.name)
+                        except Exception as exc:
+                            logger.warning("Export Parquet reports échoué : %s", exc)
                     if corpus is not None:
                         try:
                             file_path = tmpdir_path / f"{stem}_corpus.parquet"

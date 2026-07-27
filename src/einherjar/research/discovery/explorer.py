@@ -39,7 +39,7 @@ from models.feature_registry import FeatureRegistry
 from models.fingerprint import fingerprint_model
 from models.hypothesis import Hypothesis
 
-from .budget import BudgetSnapshot
+from .search_budget import BudgetSnapshot
 from .diversity import DiversityAssessment
 from .diversity import DiversityEngine
 from .family_manager import FamilyManager

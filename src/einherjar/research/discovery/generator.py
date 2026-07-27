@@ -2654,7 +2654,6 @@ class DiscoveryGenerator:
             result = GenerationResult(
                 action=action,
                 hypothesis=hypothesis,
-                parent_fingerprint=parent_fingerprint,
                 attempts=attempt,
                 **payload,
             )

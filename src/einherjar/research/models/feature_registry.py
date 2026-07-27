@@ -20,10 +20,37 @@ registre puis de la partager avec tous les modules.
 from __future__ import annotations
 
 import json
+import logging
 
 from pathlib import Path
+from typing import Any
 
+from .enums import EconomicFamily
+from .enums import FeatureType
+from .enums import FeatureValueType
 from .feature import Feature
+
+logger = logging.getLogger("einherjar.registry")
+
+
+def _load_taxonomy(taxonomy_path: str | Path | None = None) -> dict[str, dict[str, str]]:
+    """Charge la taxonomie manuelle des features depuis le JSON."""
+    if taxonomy_path is None:
+        # Chemin relatif au package research
+        taxonomy_path = Path(__file__).resolve().parent.parent / "config" / "feature_taxonomy.json"
+
+    taxonomy_path = Path(taxonomy_path)
+    if not taxonomy_path.exists():
+        logger.warning("Fichier de taxonomie introuvable : %s", taxonomy_path)
+        return {}
+
+    try:
+        with taxonomy_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("features", {})
+    except Exception as exc:
+        logger.warning("Impossible de charger la taxonomie (%s) : %s", taxonomy_path, exc)
+        return {}
 
 
 class FeatureRegistry:
@@ -38,6 +65,7 @@ class FeatureRegistry:
     def __init__(
         self,
         metadata_path: str | Path,
+        taxonomy_path: str | Path | None = None,
     ) -> None:
 
         self._metadata_path = Path(metadata_path)
@@ -46,6 +74,8 @@ class FeatureRegistry:
             raise FileNotFoundError(
                 self._metadata_path
             )
+
+        self._taxonomy = _load_taxonomy(taxonomy_path)
 
         self._features: list[Feature] = []
 
@@ -82,10 +112,14 @@ class FeatureRegistry:
         for column_index, name in enumerate(
             feature_names
         ):
+            taxonomy = self._taxonomy.get(name, {})
 
             feature = Feature(
                 column_index=column_index,
                 name=name,
+                feature_type=self._resolve_feature_type(taxonomy.get("feature_type")),
+                economic_family=self._resolve_economic_family(taxonomy.get("economic_family")),
+                value_type=self._resolve_value_type(taxonomy.get("value_type")),
             )
 
             self._features.append(feature)
@@ -94,7 +128,45 @@ class FeatureRegistry:
 
         self._features = tuple(self._features)
 
+        n_taxonomized = sum(1 for f in self._features if f.economic_family != EconomicFamily.OTHER)
+        logger.info(
+            "FeatureRegistry : %d features, %d avec taxonomie explicite",
+            len(self._features),
+            n_taxonomized,
+        )
+
         self._validate()
+
+    # ==================================================
+    # TAXONOMY RESOLUTION
+    # ==================================================
+
+    @staticmethod
+    def _resolve_feature_type(value: str | None) -> FeatureType:
+        if not value:
+            return FeatureType.ATOMIC
+        try:
+            return FeatureType(value)
+        except ValueError:
+            return FeatureType.ATOMIC
+
+    @staticmethod
+    def _resolve_economic_family(value: str | None) -> EconomicFamily:
+        if not value:
+            return EconomicFamily.OTHER
+        try:
+            return EconomicFamily(value)
+        except ValueError:
+            return EconomicFamily.OTHER
+
+    @staticmethod
+    def _resolve_value_type(value: str | None) -> FeatureValueType:
+        if not value:
+            return FeatureValueType.FLOAT
+        try:
+            return FeatureValueType(value)
+        except ValueError:
+            return FeatureValueType.FLOAT
 
     # ==================================================
     # VALIDATION
@@ -163,6 +235,14 @@ class FeatureRegistry:
         name: str,
     ) -> Feature:
         return self._by_name[name]
+
+    def by_family(
+        self,
+        family: EconomicFamily | str,
+    ) -> tuple[Feature, ...]:
+        """Retourne toutes les features d'une famille économique donnée."""
+        target = family if isinstance(family, EconomicFamily) else EconomicFamily(family)
+        return tuple(f for f in self._features if f.economic_family == target)
 
     # ==================================================
     # PYTHON PROTOCOL
