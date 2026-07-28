@@ -1,0 +1,113 @@
+{
+  "target": {
+    "asset": "BTCUSD",
+    "timeframe": "15m",
+    "metadata": {},
+    "key": "BTCUSD@15m"
+  },
+  "index": "export",
+  "state": {
+    "current_phase": "export",
+    "success": false,
+    "error": null,
+    "started_at": "2026-07-28T01:23:24.710926+00:00",
+    "finished_at": null,
+    "phases": {
+      "initialization": {
+        "status": "success",
+        "started_at": "2026-07-28T01:23:24.710934+00:00",
+        "finished_at": "2026-07-28T01:23:24.710936+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "dataset": {
+        "status": "success",
+        "started_at": "2026-07-28T01:23:24.721622+00:00",
+        "finished_at": "2026-07-28T01:23:24.721716+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "contract": {
+        "status": "success",
+        "started_at": "2026-07-28T01:23:24.721719+00:00",
+        "finished_at": "2026-07-28T01:23:24.721721+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "discovery": {
+        "status": "success",
+        "started_at": "2026-07-28T01:23:24.721723+00:00",
+        "finished_at": "2026-07-28T01:23:28.433806+00:00",
+        "error": null,
+        "metadata": {
+          "candidates": 20
+        }
+      },
+      "validation": {
+        "status": "success",
+        "started_at": "2026-07-28T01:23:28.433809+00:00",
+        "finished_at": "2026-07-28T01:23:29.442432+00:00",
+        "error": null,
+        "metadata": {
+          "validated": 1,
+          "rejected": 19
+        }
+      },
+      "execution": {
+        "status": "success",
+        "started_at": "2026-07-28T01:23:29.442439+00:00",
+        "finished_at": "2026-07-28T01:23:37.577175+00:00",
+        "error": null,
+        "metadata": {
+          "results": 1
+        }
+      },
+      "portfolio": {
+        "status": "success",
+        "started_at": "2026-07-28T01:23:37.577181+00:00",
+        "finished_at": "2026-07-28T01:23:37.955929+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "memory": {
+        "status": "success",
+        "started_at": "2026-07-28T01:23:37.955931+00:00",
+        "finished_at": "2026-07-28T01:23:38.645287+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "knowledge": {
+        "status": "success",
+        "started_at": "2026-07-28T01:23:38.645291+00:00",
+        "finished_at": "2026-07-28T01:23:41.201983+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "export": {
+        "status": "running",
+        "started_at": "2026-07-28T01:23:41.201988+00:00",
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      },
+      "terminal": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      }
+    }
+  },
+  "success": false,
+  "errors": [],
+  "einher_count": 1,
+  "execution_count": 1,
+  "started_at": "2026-07-28T01:23:24.710926+00:00",
+  "finished_at": "2026-07-28T01:23:41.822095+00:00",
+  "metadata": {
+    "asset": "BTCUSD",
+    "timeframe": "15m",
+    "run_id": "run_20260728_012324"
+  }
+}

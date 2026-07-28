@@ -10,6 +10,9 @@ métier.
 
 Le Validator utilise ce contrat pour vérifier que les
 données chargées sont conformes.
+
+Toute violation du contrat doit interrompre immédiatement
+l'exécution.
 """
 
 from __future__ import annotations
@@ -17,11 +20,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from core.exceptions import DatasetContractError
+
 
 @dataclass(frozen=True, slots=True)
 class DatasetContract:
     """
     Contrat structurel d'un dataset.
+
+    Champs obligatoires :
+    - feature_count > 0
+    - feature_names cohérent avec feature_count
+    - label_names éventuellement vide
+    - horizons éventuellement vide en mode splits,
+      obligatoire (au moins un) en mode MIDAS
+    - dtype non vide
     """
 
     feature_count: int
@@ -41,13 +54,20 @@ class DatasetContract:
     def __post_init__(self) -> None:
 
         if self.feature_count <= 0:
-            raise ValueError(
+            raise DatasetContractError(
                 "feature_count must be > 0."
             )
 
         if len(self.feature_names) != self.feature_count:
-            raise ValueError(
-                "feature_names size mismatch."
+            raise DatasetContractError(
+                f"feature_names size mismatch: "
+                f"expected {self.feature_count}, "
+                f"got {len(self.feature_names)}."
+            )
+
+        if not self.dtype:
+            raise DatasetContractError(
+                "dtype must be a non-empty string."
             )
 
         object.__setattr__(
@@ -56,9 +76,77 @@ class DatasetContract:
             {} if self.metadata is None else dict(self.metadata),
         )
 
+    # ==================================================
+    # CONTRACT VERIFICATION
+    # ==================================================
+
+    def verify(self) -> None:
+        """
+        Vérifie le contrat de manière stricte.
+
+        Lève DatasetContractError dès qu'une information
+        obligatoire est absente.
+        """
+
+        if self.feature_count <= 0:
+            raise DatasetContractError(
+                f"contract.feature_count must be > 0 "
+                f"(got {self.feature_count})."
+            )
+
+        if len(self.feature_names) != self.feature_count:
+            raise DatasetContractError(
+                f"contract.feature_names inconsistent with "
+                f"feature_count: "
+                f"{len(self.feature_names)} != {self.feature_count}."
+            )
+
+        if not self.dtype:
+            raise DatasetContractError(
+                "contract.dtype is empty."
+            )
+
+    def verify_for_midas(self) -> None:
+        """
+        Vérifie le contrat pour le mode MIDAS.
+
+        En mode MIDAS, les horizons sont obligatoires : ils
+        sont nécessaires à la phase Discovery.
+        """
+
+        self.verify()
+
+        if not self.horizons:
+            raise DatasetContractError(
+                "contract.horizons is required in MIDAS mode "
+                "and must contain at least one entry."
+            )
+
+    def verify_for_splits(self) -> None:
+        """
+        Vérifie le contrat pour le mode splits (train/val/test).
+
+        En mode splits, les horizons sont optionnels : les
+        splits contiennent déjà la vérité-terrain.
+        """
+
+        self.verify()
+
+    # ==================================================
+    # PROPERTIES
+    # ==================================================
+
     @property
     def label_count(self) -> int:
         return len(self.label_names)
+
+    @property
+    def horizon_count(self) -> int:
+        return len(self.horizons)
+
+    # ==================================================
+    # SERIALIZATION
+    # ==================================================
 
     def to_dict(self) -> dict[str, Any]:
 

@@ -261,6 +261,13 @@ class PortfolioReport:
         self.rejected_count += 1
 
     def to_dict(self, *, summary_only: bool = False) -> dict[str, Any]:
+        """
+        Sérialise le PortfolioReport.
+
+        En mode summary_only=True, `selection` et `allocation`
+        sont eux-mêmes sérialisés en mode summary (donc le
+        `mae_mfe` complet de chaque entry n'est PAS dumpé).
+        """
         payload = {
             "name": self.name,
             "created_at": self.created_at.isoformat(),
@@ -276,7 +283,7 @@ class PortfolioReport:
             "family_counts": dict(self.family_counts),
             "profile_counts": dict(self.profile_counts),
             "allocation": None if self.allocation is None else self.allocation.to_dict(),
-            "selection": None if self.selection is None else self.selection.to_dict(),
+            "selection": None if self.selection is None else self.selection.to_dict(summary_only=summary_only),
             "risk": None if self.risk is None else self.risk.to_dict(),
             "diversification": None if self.diversification is None else self.diversification.to_dict(),
             "correlation": None if self.correlation is None else self.correlation.to_dict(),

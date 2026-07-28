@@ -120,6 +120,202 @@ def _result_key(result: ExecutionResult) -> str:
     return ""
 
 
+def _einher_fingerprint_from_result(result: ExecutionResult) -> str:
+    """
+    Calcule le fingerprint canonique d'un Einher partir d'un
+    ExecutionResult. Utilise `fingerprint_model` si possible
+    (le result contient un Einher), sinon fallback sur le
+    subject_fingerprint.
+    """
+    try:
+        from models.einher import Einher
+        from models.fingerprint import fingerprint_model
+        # Si l'ExecutionResult a un ExecutionResult dans
+        # .execution_result (cas d'un Einher), utiliser
+        # fingerprint_model pour avoir le hash canonique.
+        if isinstance(result, Einher):
+            return fingerprint_model(result)
+    except Exception:
+        pass
+    return _result_key(result)
+
+
+def _extract_conditions(result: ExecutionResult) -> tuple[dict[str, Any], ...]:
+    """
+    Extrait les conditions de l'hypothèse d'un
+    ExecutionResult sous forme de tuples de dicts
+    sérialisables.
+    """
+    conditions_list: list[dict[str, Any]] = []
+    candidate = getattr(result, "candidate", None)
+    hypothesis = getattr(candidate, "hypothesis", None) if candidate is not None else None
+    if hypothesis is None:
+        hypothesis = getattr(result, "hypothesis", None)
+
+    if hypothesis is None or not hasattr(hypothesis, "conditions"):
+        return ()
+
+    for cond in hypothesis.conditions:
+        try:
+            left = getattr(cond, "left", None)
+            op = getattr(cond, "operator", None)
+            right = getattr(cond, "right", None)
+
+            op_str = (
+                str(op.value) if hasattr(op, "value") else str(op)
+            )
+
+            # Left side : Feature
+            left_dict: dict[str, Any] = {}
+            if left is not None and hasattr(left, "name"):
+                left_dict = {
+                    "name": str(getattr(left, "name", "")),
+                    "column_index": int(
+                        getattr(left, "column_index", -1)
+                    ),
+                    "family": str(
+                        getattr(
+                            getattr(left, "economic_family", None),
+                            "value", "unknown",
+                        )
+                    ),
+                }
+
+            # Right side : constant or Feature
+            right_dict: dict[str, Any] = {}
+            if hasattr(right, "name"):
+                # Feature right
+                right_dict = {
+                    "type": "feature",
+                    "name": str(getattr(right, "name", "")),
+                    "column_index": int(
+                        getattr(right, "column_index", -1)
+                    ),
+                }
+            else:
+                # Constant right
+                right_dict = {
+                    "type": "constant",
+                    "value": repr(right),
+                }
+
+            conditions_list.append({
+                "left": left_dict,
+                "operator": op_str,
+                "right": right_dict,
+            })
+        except Exception:
+            # En cas d'erreur, on ajoute un placeholder
+            conditions_list.append({
+                "left": {"name": "unknown", "column_index": -1, "family": "unknown"},
+                "operator": "?",
+                "right": {"type": "constant", "value": "?"},
+            })
+
+    return tuple(conditions_list)
+
+
+def _build_edge_dict(result: ExecutionResult) -> dict[str, Any]:
+    """
+    Construit le dict d'edge metrics (PLAN 2.1) à partir d'un
+    ExecutionResult. Contient les agrégats d'exécution (pas le
+    détail des trades).
+    """
+    edge: dict[str, Any] = {}
+    metrics_obj = None
+    if hasattr(result, "replay") and result.replay is not None:
+        metrics_obj = getattr(result.replay, "metrics", None)
+
+    if metrics_obj is not None:
+        edge["score"] = float(getattr(metrics_obj, "score", 0.0) or 0.0)
+        edge["win_rate"] = float(getattr(metrics_obj, "win_rate", 0.0) or 0.0)
+        edge["profit_factor"] = float(
+            getattr(metrics_obj, "profit_factor", 0.0) or 0.0
+        )
+        edge["expectancy"] = float(
+            getattr(metrics_obj, "expectancy", 0.0) or 0.0
+        )
+        edge["total_pnl"] = float(
+            getattr(metrics_obj, "total_pnl", 0.0) or 0.0
+        )
+        edge["trade_count"] = int(
+            getattr(metrics_obj, "trade_count", 0) or 0
+        )
+        # Sharpe per trade (approximation)
+        pnl_std = float(
+            getattr(metrics_obj, "pnl_std", 0.0) or 0.0
+        )
+        if pnl_std > 0:
+            avg_pnl = edge["expectancy"]
+            edge["sharpe_per_trade"] = avg_pnl / pnl_std
+        else:
+            edge["sharpe_per_trade"] = 0.0
+        # p_value : non calculé ici (le validator le calcule).
+        # On le récupère depuis les assessment metrics si dispo.
+        try:
+            vc = getattr(result, "validated_candidate", None)
+            if vc is not None:
+                vm = vc.metrics.get("validation", {})
+                edge["p_value"] = float(vm.get("p_value", 0.0) or 0.0)
+        except Exception:
+            edge["p_value"] = 0.0
+
+    return edge
+
+
+def _build_calibration_dict(
+    result: ExecutionResult,
+    *,
+    direction: str = "long",
+) -> dict[str, Any]:
+    """
+    Construit le dict de calibration TP/SL (PLAN 2.3) à
+    partir d'un ExecutionResult.
+
+    Inclut :
+    - mfe_p50/p75/p90 et mae_p50/p75/p90 (depuis MAEMFESummary)
+    - best_horizon (1 par défaut, TODO: depuis discovery)
+    - tp_rule et sl_rule calibrés sur les percentiles 75/90
+      du MFE/MAE
+    """
+    calibration: dict[str, Any] = {
+        "direction": direction,
+        "best_horizon": 1,  # TODO : récupérer depuis discovery
+    }
+
+    mae_mfe = getattr(result, "mae_mfe", None)
+    if mae_mfe is not None:
+        # p50 / p75 / p90 du MFE/MAE
+        calibration["mfe_p50"] = float(getattr(mae_mfe, "median_mfe", 0.0) or 0.0)
+        calibration["mfe_p75"] = float(getattr(mae_mfe, "p75_mfe", 0.0) or 0.0)
+        calibration["mfe_p90"] = float(getattr(mae_mfe, "p90_mfe", 0.0) or 0.0)
+        calibration["mae_p50"] = float(getattr(mae_mfe, "median_mae", 0.0) or 0.0)
+        calibration["mae_p75"] = float(getattr(mae_mfe, "p75_mae", 0.0) or 0.0)
+        calibration["mae_p90"] = float(getattr(mae_mfe, "p90_mae", 0.0) or 0.0)
+
+        # p75/p90 en % de l'entry price
+        calibration["mfe_p75_pct"] = float(
+            getattr(mae_mfe, "p75_mfe_pct", 0.0) or 0.0
+        )
+        calibration["mae_p90_pct"] = float(
+            getattr(mae_mfe, "p90_mae_pct", 0.0) or 0.0
+        )
+
+        # Règles TP/SL calibrées (PLAN 2.3)
+        calibration["tp_rule"] = {
+            "type": "mfe_calibrated",
+            "percentile": 75,
+            "value": calibration["mfe_p75"],
+        }
+        calibration["sl_rule"] = {
+            "type": "mae_calibrated",
+            "percentile": 90,
+            "value": calibration["mae_p90"],
+        }
+
+    return calibration
+
+
 def _family_key(result: ExecutionResult) -> str:
     metadata = _to_mapping(result.metadata)
     for key in ("family", "target_family", "portfolio_family"):
@@ -238,174 +434,272 @@ def _entry_from_any(entry: Any) -> tuple[ExecutionResult, float, float, float, s
 @dataclass(frozen=True, slots=True)
 class CorpusEntry:
     """
-    Entrée canonique du corpus final.
+    Entrée canonique du corpus d'Einhers.
+
+    Conforme au PLAN_COMPLET_V2.md section 2.3 (découverte) et
+    section 2.1 (métriques d'edge).
+
+    Champs :
+
+    Identité
+    - subject_fingerprint
+    - execution_fingerprint
+    - einher_fingerprint (fingerprint canonique de l'Einher)
+
+    Cible (provenance de l'edge)
+    - asset
+    - timeframe
+    - direction (long / short / both)
+    - calibrated_on (période de calibration)
+
+    Profil (description)
+    - profile: {name, description, family}
+
+    Conditions (hypothèse)
+    - conditions: list[{left, op, right}, ...]
+
+    Edge (PLAN section 2.1)
+    - edge: {score, win_rate, profit_factor, expectancy,
+             total_pnl, trade_count, p_value, sharpe_per_trade}
+
+    Calibration (PLAN section 2.3)
+    - calibration: {mfe_p50/p75/p90, mae_p50/p75/p90,
+                   best_horizon, tp_rule, sl_rule}
+
+    Statut
+    - selected, weight, capital, rank
+    - rejection_reasons (tuple vide si sélectionné)
+
+    Le détail des trades (records, journal) n'est PAS dans
+    cette entrée. Il vit dans le corpus brut (parquet/csv).
     """
 
+    # Identité
     subject_fingerprint: str
     execution_fingerprint: str
+    einher_fingerprint: str = ""
 
-    family: str = "unknown"
-    profile_name: str = "unknown"
-    source_kind: str = "portfolio"
+    # Cible
+    asset: str = "unknown"
+    timeframe: str = "unknown"
+    direction: str = "long"
+    calibrated_on: str = ""
 
-    score: float = 0.0
+    # Profil
+    profile: dict[str, Any] = field(default_factory=dict)
+
+    # Conditions de l'hypothèse (sérialisées en dict)
+    conditions: tuple[dict[str, Any], ...] = ()
+
+    # Métriques d'edge (PLAN 2.1)
+    edge: dict[str, Any] = field(default_factory=dict)
+
+    # Calibration TP/SL (PLAN 2.3)
+    calibration: dict[str, Any] = field(default_factory=dict)
+
+    # Statut de sélection
+    selected: bool = False
     weight: float = 0.0
     capital: float = 0.0
-
-    trade_count: int = 0
-    total_pnl: float = 0.0
-    win_rate: float = 0.0
-    profit_factor: float = 0.0
-    expectancy: float = 0.0
-    max_drawdown: float = 0.0
-    exposure_ratio: float = 0.0
-    signal_coverage: float = 0.0
-
-    healthy: bool = True
-    issue_count: int = 0
-
-    mae_mfe: dict[str, Any] = field(default_factory=dict)
-    profile: dict[str, Any] = field(default_factory=dict)
-    diagnostics: dict[str, Any] = field(default_factory=dict)
-    risk: dict[str, Any] = field(default_factory=dict)
-    diversification: dict[str, Any] = field(default_factory=dict)
-    selection: dict[str, Any] = field(default_factory=dict)
-    allocation: dict[str, Any] = field(default_factory=dict)
-    metadata: dict[str, Any] = field(default_factory=dict)
-
     rank: int = 0
+    rejection_reasons: tuple[str, ...] = ()
+
+    # Provenance
+    source_kind: str = "portfolio_selection"
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=_utc_now)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "subject_fingerprint", str(self.subject_fingerprint))
         object.__setattr__(self, "execution_fingerprint", str(self.execution_fingerprint))
-        object.__setattr__(self, "family", str(self.family).strip().lower() or "unknown")
-        object.__setattr__(self, "profile_name", str(self.profile_name).strip().lower() or "unknown")
-        object.__setattr__(self, "source_kind", str(self.source_kind).strip().lower() or "portfolio")
-        object.__setattr__(self, "score", _bounded_unit(self.score))
+        object.__setattr__(self, "einher_fingerprint", str(self.einher_fingerprint))
+        object.__setattr__(self, "asset", str(self.asset).strip().lower() or "unknown")
+        object.__setattr__(self, "timeframe", str(self.timeframe).strip().lower() or "unknown")
+        object.__setattr__(self, "direction", str(self.direction).strip().lower() or "long")
+        object.__setattr__(self, "calibrated_on", str(self.calibrated_on).strip())
+        object.__setattr__(self, "profile", dict(self.profile))
+        object.__setattr__(self, "conditions", tuple(dict(c) for c in self.conditions))
+        object.__setattr__(self, "edge", dict(self.edge))
+        object.__setattr__(self, "calibration", dict(self.calibration))
+        object.__setattr__(self, "selected", _coerce_bool(self.selected, False))
         object.__setattr__(self, "weight", max(0.0, float(self.weight)))
         object.__setattr__(self, "capital", max(0.0, float(self.capital)))
-        object.__setattr__(self, "trade_count", max(0, _coerce_int(self.trade_count, 0)))
-        object.__setattr__(self, "total_pnl", float(self.total_pnl))
-        object.__setattr__(self, "win_rate", _bounded_unit(self.win_rate))
-        object.__setattr__(self, "profit_factor", float(self.profit_factor))
-        object.__setattr__(self, "expectancy", float(self.expectancy))
-        object.__setattr__(self, "max_drawdown", max(0.0, float(self.max_drawdown)))
-        object.__setattr__(self, "exposure_ratio", _bounded_unit(self.exposure_ratio))
-        object.__setattr__(self, "signal_coverage", _bounded_unit(self.signal_coverage))
-        object.__setattr__(self, "healthy", _coerce_bool(self.healthy, True))
-        object.__setattr__(self, "issue_count", max(0, _coerce_int(self.issue_count, 0)))
-        object.__setattr__(self, "mae_mfe", dict(self.mae_mfe))
-        object.__setattr__(self, "profile", dict(self.profile))
-        object.__setattr__(self, "diagnostics", dict(self.diagnostics))
-        object.__setattr__(self, "risk", dict(self.risk))
-        object.__setattr__(self, "diversification", dict(self.diversification))
-        object.__setattr__(self, "selection", dict(self.selection))
-        object.__setattr__(self, "allocation", dict(self.allocation))
-        object.__setattr__(self, "metadata", dict(self.metadata))
         object.__setattr__(self, "rank", max(0, _coerce_int(self.rank, 0)))
+        object.__setattr__(
+            self, "rejection_reasons",
+            tuple(str(r) for r in self.rejection_reasons),
+        )
+        object.__setattr__(self, "source_kind", str(self.source_kind).strip().lower() or "portfolio_selection")
+        object.__setattr__(self, "metadata", dict(self.metadata))
 
     @property
     def is_final(self) -> bool:
-        return self.capital > 0 and self.weight > 0
+        """Un Einher est final (= retenu par le portfolio) ssi
+        selected=True ET capital > 0 ET weight > 0."""
+        return self.selected and self.capital > 0 and self.weight > 0
+
+    @property
+    def is_rejected(self) -> bool:
+        """Un Einher est rejeté si non final (rejeté par le
+        selector ou par le risk model)."""
+        return not self.is_final
 
     @property
     def short_fingerprint(self) -> str:
         return self.subject_fingerprint[:12]
 
+    # ==================================================
+    # BACKWARD-COMPAT PROPERTIES
+    # ==================================================
+    # L'ancienne structure exposait ces champs en top-level.
+    # Le CorpusSummaryBuilder et les exporters les utilisent.
+    # On les dérive depuis la nouvelle structure pour ne pas
+    # avoir à réécrire tous les call-sites.
+
+    @property
+    def family(self) -> str:
+        return str(self.profile.get("family", "unknown"))
+
+    @property
+    def profile_name(self) -> str:
+        return str(self.profile.get("name", "unknown"))
+
+    @property
+    def score(self) -> float:
+        return float(self.edge.get("score", 0.0))
+
+    @property
+    def win_rate(self) -> float:
+        return float(self.edge.get("win_rate", 0.0))
+
+    @property
+    def profit_factor(self) -> float:
+        return float(self.edge.get("profit_factor", 0.0))
+
+    @property
+    def expectancy(self) -> float:
+        return float(self.edge.get("expectancy", 0.0))
+
+    @property
+    def total_pnl(self) -> float:
+        return float(self.edge.get("total_pnl", 0.0))
+
+    @property
+    def trade_count(self) -> int:
+        return int(self.edge.get("trade_count", 0))
+
+    @property
+    def max_drawdown(self) -> float:
+        """Pas dans edge ; recalculé depuis la calibration
+        MFE/MAE (max_drawdown = max mae - mfe en %)."""
+        mae_p90 = float(self.calibration.get("mae_p90", 0.0))
+        mfe_p90 = float(self.calibration.get("mfe_p90", 0.0))
+        return max(0.0, mae_p90 - mfe_p90)
+
+    @property
+    def healthy(self) -> bool:
+        """Un Einher est 'healthy' si son PF >= 1.0 (proxy
+        simplifié). Le diagnostic complet reste dans
+        ExecutionResult.diagnostics pour les consumers qui
+        en ont besoin."""
+        return self.profit_factor >= 1.0
+
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "subject_fingerprint": self.subject_fingerprint,
             "execution_fingerprint": self.execution_fingerprint,
-            "family": self.family,
-            "profile_name": self.profile_name,
-            "source_kind": self.source_kind,
-            "score": self.score,
+            "einher_fingerprint": self.einher_fingerprint,
+            "asset": self.asset,
+            "timeframe": self.timeframe,
+            "direction": self.direction,
+            "calibrated_on": self.calibrated_on,
+            "profile": dict(self.profile),
+            "conditions": list(self.conditions),
+            "edge": dict(self.edge),
+            "calibration": dict(self.calibration),
+            "selected": self.selected,
             "weight": self.weight,
             "capital": self.capital,
-            "trade_count": self.trade_count,
-            "total_pnl": self.total_pnl,
-            "win_rate": self.win_rate,
-            "profit_factor": self.profit_factor,
-            "expectancy": self.expectancy,
-            "max_drawdown": self.max_drawdown,
-            "exposure_ratio": self.exposure_ratio,
-            "signal_coverage": self.signal_coverage,
-            "healthy": self.healthy,
-            "issue_count": self.issue_count,
-            "mae_mfe": dict(self.mae_mfe),
-            "profile": dict(self.profile),
-            "diagnostics": dict(self.diagnostics),
-            "risk": dict(self.risk),
-            "diversification": dict(self.diversification),
-            "selection": dict(self.selection),
-            "allocation": dict(self.allocation),
-            "metadata": dict(self.metadata),
             "rank": self.rank,
+            "rejection_reasons": list(self.rejection_reasons),
+            "source_kind": self.source_kind,
+            "metadata": dict(self.metadata),
             "created_at": self.created_at.isoformat(),
         }
+        return payload
 
     @classmethod
     def from_result(
         cls,
         result: ExecutionResult,
         *,
+        asset: str = "unknown",
+        timeframe: str = "unknown",
+        direction: str = "long",
+        calibrated_on: str = "",
+        selected: bool = False,
         weight: float = 0.0,
         capital: float = 0.0,
-        score: float | None = None,
-        source_kind: str = "portfolio",
         rank: int = 0,
+        rejection_reasons: tuple[str, ...] = (),
+        source_kind: str = "portfolio_selection",
         metadata: Mapping[str, Any] | None = None,
     ) -> "CorpusEntry":
+        """
+        Construit un CorpusEntry à partir d'un ExecutionResult.
+
+        La sortie est conforme au plan :
+        - pas de mae_mfe.records (40 MB)
+        - pas de journal.trades
+        - pas de diagnostics verbose
+        - seulement les agrégats d'edge et la calibration
+        """
+
         execution_fp = getattr(result, "execution_fingerprint", None)
-        execution_fingerprint = getattr(execution_fp, "digest", None) if execution_fp is not None else None
+        execution_fingerprint = (
+            getattr(execution_fp, "digest", None) if execution_fp is not None else None
+        )
         if not execution_fingerprint:
             execution_fingerprint = _result_key(result)
 
-        profile = getattr(result, "profile", None)
-        diagnostics = getattr(result, "diagnostics", None)
-        mae_mfe = getattr(result, "mae_mfe", None)
+        # Profile descriptif
+        profile_obj = getattr(result, "profile", None)
+        profile_dict: dict[str, Any] = {}
+        if profile_obj is not None and hasattr(profile_obj, "name"):
+            profile_dict = {
+                "name": str(getattr(profile_obj, "name", "unknown")),
+                "description": str(getattr(profile_obj, "description", "")),
+                "family": _family_key(result),
+            }
 
-        trade_count = int(getattr(result.replay.metrics, "trade_count", 0))
-        total_pnl = float(getattr(result.replay.metrics, "total_pnl", 0.0))
-        win_rate = float(getattr(result.replay.metrics, "win_rate", 0.0))
-        profit_factor = float(getattr(result.replay.metrics, "profit_factor", 0.0))
-        expectancy = float(getattr(result.replay.metrics, "expectancy", 0.0))
-        max_drawdown = float(getattr(result.replay.metrics, "max_drawdown", 0.0))
-        exposure_ratio = float(getattr(result.replay.metrics, "exposure_ratio", 0.0))
-        signal_coverage = float(getattr(result.replay.metrics, "signal_coverage", 0.0))
+        # Conditions de l'hypothèse
+        conditions_list = _extract_conditions(result)
 
-        healthy = bool(getattr(diagnostics, "healthy", True)) if diagnostics is not None else True
-        issue_count = int(getattr(diagnostics, "issue_count", 0)) if diagnostics is not None else 0
+        # Edge metrics (PLAN 2.1)
+        edge = _build_edge_dict(result)
+
+        # Calibration (PLAN 2.3) : TP/SL via MFE/MAE percentiles
+        calibration = _build_calibration_dict(result, direction=direction)
 
         return cls(
             subject_fingerprint=_result_key(result),
             execution_fingerprint=str(execution_fingerprint),
-            family=_family_key(result),
-            profile_name=_profile_name(result),
-            source_kind=source_kind,
-            score=_coerce_float(score, float(getattr(diagnostics, "score", 0.0)) if diagnostics is not None else total_pnl),
+            einher_fingerprint=_einher_fingerprint_from_result(result),
+            asset=asset,
+            timeframe=timeframe,
+            direction=direction,
+            calibrated_on=calibrated_on,
+            profile=profile_dict,
+            conditions=conditions_list,
+            edge=edge,
+            calibration=calibration,
+            selected=selected,
             weight=weight,
             capital=capital,
-            trade_count=trade_count,
-            total_pnl=total_pnl,
-            win_rate=win_rate,
-            profit_factor=profit_factor,
-            expectancy=expectancy,
-            max_drawdown=max_drawdown,
-            exposure_ratio=exposure_ratio,
-            signal_coverage=signal_coverage,
-            healthy=healthy,
-            issue_count=issue_count,
-            mae_mfe=mae_mfe.to_dict() if mae_mfe is not None else {},
-            profile=profile.to_dict() if profile is not None else {},
-            diagnostics=diagnostics.to_dict() if diagnostics is not None else {},
-            risk=_to_mapping(metadata.get("risk") if metadata else None),
-            diversification=_to_mapping(metadata.get("diversification") if metadata else None),
-            selection=_to_mapping(metadata.get("selection") if metadata else None),
-            allocation=_to_mapping(metadata.get("allocation") if metadata else None),
-            metadata=dict(metadata or {}),
             rank=rank,
+            rejection_reasons=rejection_reasons,
+            source_kind=source_kind,
+            metadata=dict(metadata or {}),
         )
 
     @classmethod
@@ -806,48 +1100,110 @@ class CorpusBuilder:
     def from_portfolio_selection(
         selection: PortfolioSelection,
         *,
+        allocation: PortfolioAllocation | None = None,
         include_rejected: bool = True,
+        asset: str = "unknown",
+        timeframe: str = "unknown",
+        calibrated_on: str = "",
         metadata: Mapping[str, Any] | None = None,
     ) -> Corpus:
-        entries: list[CorpusEntry] = []
-        rejected: list[dict[str, Any]] = []
+        """
+        Construit un corpus à partir d'une PortfolioSelection.
 
+        Chaque PortfolioSelectionEntry (selected ou rejected)
+        devient un CorpusEntry conforme au PLAN_COMPLET_V2.md
+        section 2.3 :
+        - selected : capital/weight de l'allocation, is_final=True
+        - rejected : capital=0, weight=0, is_final=True
+          (= le Einher existe, il n'est juste pas dans le
+          portefeuille), rejection_reasons = liste des raisons
+        """
+
+        entries: list[CorpusEntry] = []
+        rejected_meta: list[dict[str, Any]] = []
+
+        # Index allocation par fingerprint pour récupérer
+        # le capital/weight effectif des Einhers retenus.
+        alloc_by_fp: dict[str, PortfolioAllocationEntry] = {}
+        if allocation is not None:
+            for alloc_entry in allocation.entries:
+                fp = getattr(alloc_entry, "subject_fingerprint", "")
+                if fp:
+                    alloc_by_fp[fp] = alloc_entry
+
+        # 1) Einhers retenus par le selector
         for idx, entry in enumerate(selection.selected):
+            fp = entry.subject_fingerprint
+            alloc_entry = alloc_by_fp.get(fp)
+            weight = (
+                _coerce_float(alloc_entry.target_weight, 0.0)
+                if alloc_entry is not None
+                else 0.0
+            )
+            capital = (
+                _coerce_float(alloc_entry.capital, 0.0)
+                if alloc_entry is not None
+                else 0.0
+            )
             entries.append(
                 CorpusEntry.from_result(
                     entry.result,
-                    weight=_coerce_float(getattr(entry, "score", 0.0), 0.0),
-                    capital=_coerce_float(getattr(entry, "capital", 0.0), 0.0),
-                    score=_coerce_float(entry.score, 0.0),
-                    source_kind="portfolio_selection",
+                    asset=asset,
+                    timeframe=timeframe,
+                    calibrated_on=calibrated_on,
+                    selected=True,
+                    weight=weight,
+                    capital=capital,
                     rank=idx,
+                    source_kind="portfolio_selection",
                     metadata={
-                        **_to_mapping(entry.metadata),
-                        "selection": entry.to_dict(),
+                        **_to_mapping(metadata or {}),
+                        "asset": asset,
+                        "timeframe": timeframe,
                     },
                 )
             )
 
+        # 2) Einhers rejetés par le selector
         if include_rejected:
-            for item in selection.rejected:
-                rejected.append(
+            for rejected_entry in selection.rejected:
+                entries.append(
+                    CorpusEntry.from_result(
+                        rejected_entry.result,
+                        asset=asset,
+                        timeframe=timeframe,
+                        calibrated_on=calibrated_on,
+                        selected=False,
+                        weight=0.0,
+                        capital=0.0,
+                        rank=0,
+                        source_kind="portfolio_selection_rejected",
+                        rejection_reasons=tuple(rejected_entry.reasons),
+                        metadata={
+                            **_to_mapping(metadata or {}),
+                            "asset": asset,
+                            "timeframe": timeframe,
+                        },
+                    )
+                )
+                rejected_meta.append(
                     {
-                        "subject_fingerprint": item.subject_fingerprint,
-                        "family": item.family,
-                        "profile_name": item.profile_name,
-                        "reason": list(item.reasons),
-                        "score": item.score,
-                        "accepted": item.accepted,
+                        "subject_fingerprint": rejected_entry.subject_fingerprint,
+                        "family": rejected_entry.family,
+                        "profile_name": rejected_entry.profile_name,
+                        "reasons": list(rejected_entry.reasons),
+                        "score": rejected_entry.score,
+                        "accepted": rejected_entry.accepted,
                     }
                 )
 
         summary = CorpusSummaryBuilder.build(entries, metadata={**_to_mapping(metadata)})
         return Corpus(
-            name="corpus",
+            name=f"{asset}__{timeframe}" if asset != "unknown" else "corpus",
             entries=entries,
             summary=summary,
             metadata={**_to_mapping(metadata)},
-            rejected=rejected,
+            rejected=rejected_meta,
         )
 
     @staticmethod

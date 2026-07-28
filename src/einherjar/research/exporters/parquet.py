@@ -103,10 +103,16 @@ class ParquetExporter:
         return path
 
     def export_corpus(self, corpus: Corpus, path: str | Path) -> Path:
-        return self.write_rows(corpus.to_records(), path)
+        # On aplatit les rows pour gérer les champs dict/list
+        # imbriqués. Sinon pyarrow lève "Cannot write struct type
+        # 'metadata' with no child field" quand un row a un dict vide
+        # ou un sous-struct non-uniforme.
+        rows = [_flatten(record) for record in corpus.to_records()]
+        return self.write_rows(rows, path)
 
     def export_rejected(self, rejected: RejectedCorpus, path: str | Path) -> Path:
-        return self.write_rows(rejected.to_records(), path)
+        rows = [_flatten(record) for record in rejected.to_records()]
+        return self.write_rows(rows, path)
 
     def export_reports(self, reports: ReportBundle, path: str | Path) -> Path:
         rows = [_flatten(record) for record in reports.to_records()]

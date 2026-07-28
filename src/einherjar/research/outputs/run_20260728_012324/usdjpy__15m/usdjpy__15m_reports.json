@@ -1,0 +1,469 @@
+{
+  "created_at": "2026-07-28T01:26:06.790111+00:00",
+  "validation": null,
+  "execution": {
+    "name": "execution",
+    "metadata": {},
+    "started_at": "2026-07-28T01:25:51.106297+00:00",
+    "finished_at": null,
+    "results": [
+      {
+        "subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+        "success": false,
+        "healthy": false,
+        "issue_count": 5,
+        "trade_count": 48707,
+        "total_pnl": -7.438234403065888,
+        "win_rate": 0.07378816186585091,
+        "created_at": "2026-07-28T01:26:02.796703+00:00",
+        "execution_fingerprint_digest": "cb2685a7e36c0b13af17135a86af66dec263b14adabca818719a757812b298de",
+        "execution_fingerprint_version": 1,
+        "execution_kind": "execution",
+        "metrics": {
+          "bar_count": 369290,
+          "signal_true_count": 220804,
+          "signal_coverage": 0.5979149178152672,
+          "trade_count": 48707,
+          "winning_trades": 3594,
+          "losing_trades": 45113,
+          "total_pnl": -7.438234403065888,
+          "gross_profit": 6.900933195915157,
+          "gross_loss": 14.339167598981044,
+          "profit_factor": 0.4812645607409976,
+          "average_trade_pnl": -0.00015271386870605638,
+          "median_trade_pnl": -0.00020012,
+          "pnl_std": 0.0008875856049055791,
+          "average_duration_seconds": 3957.3798427330776,
+          "average_duration_bars": 4.5333114336748315,
+          "max_drawdown": 7.440250563009139,
+          "exposure_ratio": 521.9546209066611,
+          "win_rate": 0.07378816186585091,
+          "expectancy": -0.00015271386870605638,
+          "direction": "long",
+          "quantity": 1.0
+        },
+        "profit_factor": 0.4812645607409976,
+        "expectancy": -0.00015271386870605638,
+        "max_drawdown": 7.440250563009139
+      }
+    ],
+    "total_executions": 1,
+    "total_trades": 48707,
+    "total_pnl": -7.438234403065888,
+    "healthy_count": 0,
+    "unhealthy_count": 1,
+    "diagnostic_issue_counts": {
+      "weak_win_rate": 1,
+      "weak_profit_factor": 1,
+      "negative_expectancy": 1,
+      "high_fee_pressure": 1,
+      "no_recovery": 1
+    },
+    "direction_counts": {
+      "long": 1
+    },
+    "best_total_pnl": -7.438234403065888,
+    "best_subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+    "best_execution_fingerprint": "cb2685a7e36c0b13af17135a86af66dec263b14adabca818719a757812b298de",
+    "last_reason": "no_recovery",
+    "stopped_reason": null,
+    "duration_seconds": 15.686513,
+    "healthy_rate": 0.0,
+    "summary": {
+      "name": "execution",
+      "total_executions": 1,
+      "total_trades": 48707,
+      "total_pnl": -7.438234403065888,
+      "average_pnl_per_execution": -7.438234403065888,
+      "average_trades_per_execution": 48707.0,
+      "healthy_count": 0,
+      "unhealthy_count": 1,
+      "healthy_rate": 0.0,
+      "duration_seconds": 15.686522,
+      "best_total_pnl": -7.438234403065888,
+      "best_subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+      "best_execution_fingerprint": "cb2685a7e36c0b13af17135a86af66dec263b14adabca818719a757812b298de",
+      "diagnostic_issue_counts": {
+        "weak_win_rate": 1,
+        "weak_profit_factor": 1,
+        "negative_expectancy": 1,
+        "high_fee_pressure": 1,
+        "no_recovery": 1
+      },
+      "direction_counts": {
+        "long": 1
+      }
+    }
+  },
+  "portfolio": {
+    "name": "usdjpy__15m",
+    "created_at": "2026-07-28T01:26:03.053373+00:00",
+    "entries": [],
+    "rejected": [],
+    "selected_count": 0,
+    "rejected_count": 0,
+    "total_capital": 0.0,
+    "total_weight": 0.0,
+    "average_score": 0.0,
+    "best_score": null,
+    "best_subject_fingerprint": null,
+    "family_counts": {},
+    "profile_counts": {},
+    "allocation": {
+      "entries": [],
+      "capital_plan": {
+        "total_capital": 1.0,
+        "reserve_capital": 0.0,
+        "investable_capital": 1.0,
+        "allocated_capital": 0.0,
+        "residual_capital": 1.0,
+        "utilization_ratio": 0.0,
+        "entries": [],
+        "settings": {
+          "total_capital": 1.0,
+          "reserve_ratio": 0.0,
+          "min_position_ratio": 0.0,
+          "max_position_ratio": 0.35,
+          "min_position_value": 0.0,
+          "max_position_value": Infinity,
+          "min_positions": 1,
+          "max_positions": 12,
+          "allow_residual": true
+        },
+        "metadata": {
+          "asset": "USDJPY",
+          "timeframe": "15m"
+        }
+      },
+      "risk": {
+        "acceptable": false,
+        "score": 0.0,
+        "selected_count": 0,
+        "total_weight": 0.0,
+        "max_weight": 0.0,
+        "hhi": 1.0,
+        "effective_bets": 0.0,
+        "expected_total_pnl": 0.0,
+        "expected_win_rate": 0.0,
+        "expected_profit_factor": 0.0,
+        "weighted_drawdown": 1.0,
+        "average_abs_correlation": 1.0,
+        "max_abs_correlation": 1.0,
+        "family_concentration": 1.0,
+        "profile_concentration": 1.0,
+        "concentration_penalty": 1.0,
+        "correlation_penalty": 1.0,
+        "drawdown_penalty": 1.0,
+        "reasons": [
+          "empty_portfolio"
+        ],
+        "recommendations": [
+          "add_candidates"
+        ],
+        "correlation": {
+          "labels": [],
+          "matrix": [],
+          "pairs": [],
+          "average_correlation": 0.0,
+          "average_absolute_correlation": 0.0,
+          "max_absolute_correlation": 0.0,
+          "min_correlation": 0.0,
+          "max_correlation": 0.0
+        },
+        "diversification": {
+          "diversified": false,
+          "score": 0.0,
+          "selected_count": 0,
+          "unique_family_count": 0,
+          "unique_profile_count": 0,
+          "family_entropy": 0.0,
+          "profile_entropy": 0.0,
+          "same_family_share": 0.0,
+          "average_abs_correlation": 0.0,
+          "max_abs_correlation": 0.0,
+          "redundancy_score": 1.0,
+          "coverage_score": 0.0,
+          "reasons": [
+            "empty_portfolio"
+          ],
+          "recommendations": [
+            "add_candidates"
+          ],
+          "correlation": {
+            "labels": [],
+            "matrix": [],
+            "pairs": [],
+            "average_correlation": 0.0,
+            "average_absolute_correlation": 0.0,
+            "max_absolute_correlation": 0.0,
+            "min_correlation": 0.0,
+            "max_correlation": 0.0
+          },
+          "metadata": {
+            "asset": "USDJPY",
+            "timeframe": "15m"
+          }
+        },
+        "metadata": {
+          "asset": "USDJPY",
+          "timeframe": "15m"
+        }
+      },
+      "diversification": {
+        "diversified": false,
+        "score": 0.0,
+        "selected_count": 0,
+        "unique_family_count": 0,
+        "unique_profile_count": 0,
+        "family_entropy": 0.0,
+        "profile_entropy": 0.0,
+        "same_family_share": 0.0,
+        "average_abs_correlation": 0.0,
+        "max_abs_correlation": 0.0,
+        "redundancy_score": 1.0,
+        "coverage_score": 0.0,
+        "reasons": [
+          "empty_portfolio"
+        ],
+        "recommendations": [
+          "add_candidates"
+        ],
+        "correlation": {
+          "labels": [],
+          "matrix": [],
+          "pairs": [],
+          "average_correlation": 0.0,
+          "average_absolute_correlation": 0.0,
+          "max_absolute_correlation": 0.0,
+          "min_correlation": 0.0,
+          "max_correlation": 0.0
+        },
+        "metadata": {
+          "asset": "USDJPY",
+          "timeframe": "15m"
+        }
+      },
+      "correlation": {
+        "labels": [],
+        "matrix": [],
+        "pairs": [],
+        "average_correlation": 0.0,
+        "average_absolute_correlation": 0.0,
+        "max_absolute_correlation": 0.0,
+        "min_correlation": 0.0,
+        "max_correlation": 0.0
+      },
+      "score": 0.0,
+      "total_weight": 0.0,
+      "total_capital": 0.0,
+      "metadata": {
+        "asset": "USDJPY",
+        "timeframe": "15m"
+      }
+    },
+    "selection": {
+      "selected": [],
+      "rejected": [
+        {
+          "subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+          "execution_fingerprint": "cb2685a7e36c0b13af17135a86af66dec263b14adabca818719a757812b298de",
+          "score": 0.1749358455325678,
+          "accepted": false,
+          "reasons": [
+            "win_rate_too_low",
+            "profit_factor_too_low",
+            "expectancy_too_low",
+            "total_pnl_too_low"
+          ],
+          "family": "momentum",
+          "profile_name": "execution_profile",
+          "rank_hint": 0,
+          "result": {
+            "subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+            "success": false,
+            "healthy": false,
+            "issue_count": 5,
+            "trade_count": 48707,
+            "total_pnl": -7.438234403065888,
+            "win_rate": 0.07378816186585091,
+            "created_at": "2026-07-28T01:26:02.796703+00:00",
+            "execution_fingerprint_digest": "cb2685a7e36c0b13af17135a86af66dec263b14adabca818719a757812b298de",
+            "execution_fingerprint_version": 1,
+            "execution_kind": "execution",
+            "metrics": {
+              "bar_count": 369290,
+              "signal_true_count": 220804,
+              "signal_coverage": 0.5979149178152672,
+              "trade_count": 48707,
+              "winning_trades": 3594,
+              "losing_trades": 45113,
+              "total_pnl": -7.438234403065888,
+              "gross_profit": 6.900933195915157,
+              "gross_loss": 14.339167598981044,
+              "profit_factor": 0.4812645607409976,
+              "average_trade_pnl": -0.00015271386870605638,
+              "median_trade_pnl": -0.00020012,
+              "pnl_std": 0.0008875856049055791,
+              "average_duration_seconds": 3957.3798427330776,
+              "average_duration_bars": 4.5333114336748315,
+              "max_drawdown": 7.440250563009139,
+              "exposure_ratio": 521.9546209066611,
+              "win_rate": 0.07378816186585091,
+              "expectancy": -0.00015271386870605638,
+              "direction": "long",
+              "quantity": 1.0
+            },
+            "profit_factor": 0.4812645607409976,
+            "expectancy": -0.00015271386870605638,
+            "max_drawdown": 7.440250563009139
+          }
+        }
+      ],
+      "settings": {
+        "max_selected": 12,
+        "min_trade_count": 3,
+        "min_win_rate": 0.4,
+        "min_profit_factor": 1.0,
+        "min_expectancy": 0.0,
+        "min_total_pnl": 0.0,
+        "require_healthy": false,
+        "exclude_duplicates": true,
+        "keep_best_per_family": 3,
+        "max_same_profile": 2,
+        "max_same_family": 4
+      },
+      "metadata": {
+        "asset": "USDJPY",
+        "timeframe": "15m",
+        "run_id": "run_20260728_012324"
+      }
+    },
+    "risk": {
+      "acceptable": false,
+      "score": 0.0,
+      "selected_count": 0,
+      "total_weight": 0.0,
+      "max_weight": 0.0,
+      "hhi": 1.0,
+      "effective_bets": 0.0,
+      "expected_total_pnl": 0.0,
+      "expected_win_rate": 0.0,
+      "expected_profit_factor": 0.0,
+      "weighted_drawdown": 1.0,
+      "average_abs_correlation": 1.0,
+      "max_abs_correlation": 1.0,
+      "family_concentration": 1.0,
+      "profile_concentration": 1.0,
+      "concentration_penalty": 1.0,
+      "correlation_penalty": 1.0,
+      "drawdown_penalty": 1.0,
+      "reasons": [
+        "empty_portfolio"
+      ],
+      "recommendations": [
+        "add_candidates"
+      ],
+      "correlation": {
+        "labels": [],
+        "matrix": [],
+        "pairs": [],
+        "average_correlation": 0.0,
+        "average_absolute_correlation": 0.0,
+        "max_absolute_correlation": 0.0,
+        "min_correlation": 0.0,
+        "max_correlation": 0.0
+      },
+      "diversification": {
+        "diversified": false,
+        "score": 0.0,
+        "selected_count": 0,
+        "unique_family_count": 0,
+        "unique_profile_count": 0,
+        "family_entropy": 0.0,
+        "profile_entropy": 0.0,
+        "same_family_share": 0.0,
+        "average_abs_correlation": 0.0,
+        "max_abs_correlation": 0.0,
+        "redundancy_score": 1.0,
+        "coverage_score": 0.0,
+        "reasons": [
+          "empty_portfolio"
+        ],
+        "recommendations": [
+          "add_candidates"
+        ],
+        "correlation": {
+          "labels": [],
+          "matrix": [],
+          "pairs": [],
+          "average_correlation": 0.0,
+          "average_absolute_correlation": 0.0,
+          "max_absolute_correlation": 0.0,
+          "min_correlation": 0.0,
+          "max_correlation": 0.0
+        },
+        "metadata": {
+          "asset": "USDJPY",
+          "timeframe": "15m"
+        }
+      },
+      "metadata": {
+        "asset": "USDJPY",
+        "timeframe": "15m"
+      }
+    },
+    "diversification": {
+      "diversified": false,
+      "score": 0.0,
+      "selected_count": 0,
+      "unique_family_count": 0,
+      "unique_profile_count": 0,
+      "family_entropy": 0.0,
+      "profile_entropy": 0.0,
+      "same_family_share": 0.0,
+      "average_abs_correlation": 0.0,
+      "max_abs_correlation": 0.0,
+      "redundancy_score": 1.0,
+      "coverage_score": 0.0,
+      "reasons": [
+        "empty_portfolio"
+      ],
+      "recommendations": [
+        "add_candidates"
+      ],
+      "correlation": {
+        "labels": [],
+        "matrix": [],
+        "pairs": [],
+        "average_correlation": 0.0,
+        "average_absolute_correlation": 0.0,
+        "max_absolute_correlation": 0.0,
+        "min_correlation": 0.0,
+        "max_correlation": 0.0
+      },
+      "metadata": {
+        "asset": "USDJPY",
+        "timeframe": "15m"
+      }
+    },
+    "correlation": {
+      "labels": [],
+      "matrix": [],
+      "pairs": [],
+      "average_correlation": 0.0,
+      "average_absolute_correlation": 0.0,
+      "max_absolute_correlation": 0.0,
+      "min_correlation": 0.0,
+      "max_correlation": 0.0
+    },
+    "capital_plan": null,
+    "metadata": {
+      "asset": "USDJPY",
+      "timeframe": "15m",
+      "run_id": "run_20260728_012324"
+    }
+  },
+  "metadata": {
+    "run_id": "run_20260728_012324"
+  }
+}

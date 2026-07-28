@@ -1,0 +1,113 @@
+{
+  "target": {
+    "asset": "AAPL",
+    "timeframe": "15m",
+    "metadata": {},
+    "key": "AAPL@15m"
+  },
+  "index": "export",
+  "state": {
+    "current_phase": "export",
+    "success": false,
+    "error": null,
+    "started_at": "2026-07-28T01:28:59.810192+00:00",
+    "finished_at": null,
+    "phases": {
+      "initialization": {
+        "status": "success",
+        "started_at": "2026-07-28T01:28:59.810197+00:00",
+        "finished_at": "2026-07-28T01:28:59.810198+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "dataset": {
+        "status": "success",
+        "started_at": "2026-07-28T01:28:59.819265+00:00",
+        "finished_at": "2026-07-28T01:28:59.819292+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "contract": {
+        "status": "success",
+        "started_at": "2026-07-28T01:28:59.819293+00:00",
+        "finished_at": "2026-07-28T01:28:59.819294+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "discovery": {
+        "status": "success",
+        "started_at": "2026-07-28T01:28:59.819294+00:00",
+        "finished_at": "2026-07-28T01:29:00.498897+00:00",
+        "error": null,
+        "metadata": {
+          "candidates": 20
+        }
+      },
+      "validation": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:00.498899+00:00",
+        "finished_at": "2026-07-28T01:29:00.751124+00:00",
+        "error": null,
+        "metadata": {
+          "validated": 1,
+          "rejected": 19
+        }
+      },
+      "execution": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:00.751128+00:00",
+        "finished_at": "2026-07-28T01:29:02.402455+00:00",
+        "error": null,
+        "metadata": {
+          "results": 1
+        }
+      },
+      "portfolio": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:02.402458+00:00",
+        "finished_at": "2026-07-28T01:29:02.450805+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "memory": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:02.450807+00:00",
+        "finished_at": "2026-07-28T01:29:02.633576+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "knowledge": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:02.633578+00:00",
+        "finished_at": "2026-07-28T01:29:03.196509+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "export": {
+        "status": "running",
+        "started_at": "2026-07-28T01:29:03.196512+00:00",
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      },
+      "terminal": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      }
+    }
+  },
+  "success": false,
+  "errors": [],
+  "einher_count": 1,
+  "execution_count": 1,
+  "started_at": "2026-07-28T01:28:59.810192+00:00",
+  "finished_at": "2026-07-28T01:29:03.197772+00:00",
+  "metadata": {
+    "asset": "AAPL",
+    "timeframe": "15m",
+    "run_id": "run_20260728_012324"
+  }
+}

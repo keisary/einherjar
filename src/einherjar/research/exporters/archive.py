@@ -187,7 +187,12 @@ class ArchiveExporter:
                     if reports is not None:
                         try:
                             file_path = tmpdir_path / f"{stem}_reports.json"
-                            self._json.export_reports(reports, file_path)
+                            # On respecte le mode summary_only par
+                            # défaut de JSONExporter (True) pour
+                            # éviter le dump de plusieurs GB.
+                            self._json.export_reports(
+                                reports, file_path, summary_only=True,
+                            )
                             _add_to_zip(zf, file_path)
                         except Exception as exc:
                             errors.append(f"json_reports: {exc}")

@@ -631,25 +631,62 @@ class ReplayResult:
     def win_rate(self) -> float:
         return self.metrics.win_rate
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
+    def to_dict(self, *, summary_only: bool = False) -> dict[str, Any]:
+        """
+        Sérialise le ReplayResult.
+
+        En mode summary_only=True (défaut pour les reports), on
+        NE sort PAS les champs volumineux :
+        - records (43K+ ExecutedTradeRecord avec metadata)
+        - signal_mask (383K+ booléens)
+        - prices (383K+ floats)
+        - timestamps (383K+ datetime)
+        - journal, trades (listes détaillées)
+
+        Ces données restent accessibles via la propriété directe
+        (self.records, self.signal_mask, etc.) et via le corpus
+        compressé (parquet/csv).
+        """
+        payload = {
             "subject_fingerprint": self.subject_fingerprint,
             "execution_fingerprint": self.execution_fingerprint.to_dict(),
+            "metrics": self.metrics.to_dict(),
+            "trade_count": self.trade_count,
+            "total_pnl": self.total_pnl,
+            "win_rate": self.win_rate,
+            "profit_factor": self.profit_factor,
+            "expectancy": self.expectancy,
+            "max_drawdown": self.max_drawdown,
+        }
+
+        if summary_only:
+            return payload
+
+        payload.update({
             "validated_candidate": (
-                None if self.validated_candidate is None else self.validated_candidate.to_dict()
+                None if self.validated_candidate is None
+                else self.validated_candidate.to_dict()
             ),
-            "candidate": self.candidate.to_dict() if hasattr(self.candidate, "to_dict") else repr(self.candidate),
-            "hypothesis": self.hypothesis.to_dict() if hasattr(self.hypothesis, "to_dict") else repr(self.hypothesis),
+            "candidate": (
+                self.candidate.to_dict()
+                if hasattr(self.candidate, "to_dict")
+                else repr(self.candidate)
+            ),
+            "hypothesis": (
+                self.hypothesis.to_dict()
+                if hasattr(self.hypothesis, "to_dict")
+                else repr(self.hypothesis)
+            ),
             "journal": self.journal.to_dict(),
             "trades": [trade.to_dict() for trade in self.trades],
             "records": [record.to_dict() for record in self.records],
             "signal_mask": self.signal_mask.astype(bool).tolist(),
             "prices": self.prices.tolist(),
             "timestamps": [ts.isoformat() for ts in self.timestamps],
-            "metrics": self.metrics.to_dict(),
             "diagnostics": dict(self.diagnostics),
             "metadata": dict(self.metadata),
-        }
+        })
+        return payload
 
     def __repr__(self) -> str:
         return (
@@ -754,6 +791,13 @@ class ReplayEngine:
         else:
             if len(timestamps) != prices.size:
                 raise ValueError("Timestamps length must match price series length.")
+            # Coerce every timestamp to datetime, regardless of the
+            # source type (numpy int64, seconds/ms, etc.). The
+            # ReplayResult contract requires tuple[datetime, ...].
+            timestamps = tuple(
+                _coerce_datetime(item, fallback_index=index)
+                for index, item in enumerate(timestamps)
+            )
 
         signal_mask = _evaluate_hypothesis_matrix(hypothesis, matrix)
 

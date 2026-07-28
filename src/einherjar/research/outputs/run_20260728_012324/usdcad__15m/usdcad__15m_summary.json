@@ -1,0 +1,113 @@
+{
+  "target": {
+    "asset": "USDCAD",
+    "timeframe": "15m",
+    "metadata": {},
+    "key": "USDCAD@15m"
+  },
+  "index": "export",
+  "state": {
+    "current_phase": "export",
+    "success": false,
+    "error": null,
+    "started_at": "2026-07-28T01:26:47.559133+00:00",
+    "finished_at": null,
+    "phases": {
+      "initialization": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:47.559136+00:00",
+        "finished_at": "2026-07-28T01:26:47.559137+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "dataset": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:47.565520+00:00",
+        "finished_at": "2026-07-28T01:26:47.565542+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "contract": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:47.565543+00:00",
+        "finished_at": "2026-07-28T01:26:47.565543+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "discovery": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:47.565544+00:00",
+        "finished_at": "2026-07-28T01:26:51.488468+00:00",
+        "error": null,
+        "metadata": {
+          "candidates": 20
+        }
+      },
+      "validation": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:51.488471+00:00",
+        "finished_at": "2026-07-28T01:26:53.524666+00:00",
+        "error": null,
+        "metadata": {
+          "validated": 2,
+          "rejected": 18
+        }
+      },
+      "execution": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:53.524670+00:00",
+        "finished_at": "2026-07-28T01:27:11.308325+00:00",
+        "error": null,
+        "metadata": {
+          "results": 2
+        }
+      },
+      "portfolio": {
+        "status": "success",
+        "started_at": "2026-07-28T01:27:11.308328+00:00",
+        "finished_at": "2026-07-28T01:27:11.710980+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "memory": {
+        "status": "success",
+        "started_at": "2026-07-28T01:27:11.710983+00:00",
+        "finished_at": "2026-07-28T01:27:12.939233+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "knowledge": {
+        "status": "success",
+        "started_at": "2026-07-28T01:27:12.939236+00:00",
+        "finished_at": "2026-07-28T01:27:22.617012+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "export": {
+        "status": "running",
+        "started_at": "2026-07-28T01:27:22.617016+00:00",
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      },
+      "terminal": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      }
+    }
+  },
+  "success": false,
+  "errors": [],
+  "einher_count": 2,
+  "execution_count": 2,
+  "started_at": "2026-07-28T01:26:47.559133+00:00",
+  "finished_at": "2026-07-28T01:27:22.618491+00:00",
+  "metadata": {
+    "asset": "USDCAD",
+    "timeframe": "15m",
+    "run_id": "run_20260728_012324"
+  }
+}

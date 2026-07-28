@@ -414,8 +414,15 @@ class PortfolioSelectionEntry:
     def profit_factor(self) -> float:
         return float(self.result.replay.metrics.profit_factor)
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
+    def to_dict(self, *, summary_only: bool = False) -> dict[str, Any]:
+        """
+        Sérialise une PortfolioSelectionEntry.
+
+        En mode summary_only=True, le champ `metadata` (qui
+        peut contenir le mae_mfe complet, ~40 MB par entry)
+        est omis. Le `result` est sérialisé en summary_only.
+        """
+        payload = {
             "subject_fingerprint": self.subject_fingerprint,
             "execution_fingerprint": self.execution_fingerprint,
             "score": self.score,
@@ -425,8 +432,10 @@ class PortfolioSelectionEntry:
             "profile_name": self.profile_name,
             "rank_hint": self.rank_hint,
             "result": self.result.to_dict(summary_only=True),
-            "metadata": dict(self.metadata),
         }
+        if not summary_only:
+            payload["metadata"] = dict(self.metadata)
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -465,10 +474,23 @@ class PortfolioSelection:
     def profile_names(self) -> tuple[str, ...]:
         return tuple(sorted({entry.profile_name for entry in self.selected}))
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self, *, summary_only: bool = False) -> dict[str, Any]:
+        """
+        Sérialise la sélection.
+
+        En mode summary_only=True, chaque entry (selected et
+        rejected) est sérialisée en mode summary pour éviter
+        le dump du mae_mfe complet.
+        """
         return {
-            "selected": [entry.to_dict() for entry in self.selected],
-            "rejected": [entry.to_dict() for entry in self.rejected],
+            "selected": [
+                entry.to_dict(summary_only=summary_only)
+                for entry in self.selected
+            ],
+            "rejected": [
+                entry.to_dict(summary_only=summary_only)
+                for entry in self.rejected
+            ],
             "settings": {
                 "max_selected": self.settings.max_selected,
                 "min_trade_count": self.settings.min_trade_count,

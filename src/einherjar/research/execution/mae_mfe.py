@@ -96,6 +96,16 @@ def _safe_median(values: np.ndarray) -> float:
     return float(np.median(values)) if values.size else 0.0
 
 
+def _safe_percentile(values: np.ndarray, percentile: float) -> float:
+    """
+    Calcule un percentile de manière safe (retourne 0.0 si vide).
+    percentile en [0, 100] (style numpy, pas [0, 1]).
+    """
+    if values.size == 0:
+        return 0.0
+    return float(np.percentile(values, percentile))
+
+
 def _safe_max(values: np.ndarray) -> float:
     return float(np.max(values)) if values.size else 0.0
 
@@ -218,6 +228,11 @@ class MAEMFERecord:
 class MAEMFESummary:
     """
     Résumé des excursions de tous les trades.
+
+    Les percentiles p75 et p90 sont calculés pour permettre
+    la calibration dynamique des TP/SL (cf. PLAN_COMPLET_V2.md
+    section 2.3 : tp_rule avec percentile=75, sl_rule avec
+    percentile=90).
     """
 
     trade_count: int
@@ -240,6 +255,16 @@ class MAEMFESummary:
     avg_mfe_to_mae_ratio: float
     favorable_trade_rate: float
 
+    # Percentiles optionnels (p75 / p90) pour calibration TP/SL
+    p75_mae: float = 0.0
+    p75_mfe: float = 0.0
+    p90_mae: float = 0.0
+    p90_mfe: float = 0.0
+    p75_mae_pct: float = 0.0
+    p75_mfe_pct: float = 0.0
+    p90_mae_pct: float = 0.0
+    p90_mfe_pct: float = 0.0
+
     records: tuple[MAEMFERecord, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -249,12 +274,20 @@ class MAEMFESummary:
         object.__setattr__(self, "avg_mfe", max(0.0, float(self.avg_mfe)))
         object.__setattr__(self, "median_mae", max(0.0, float(self.median_mae)))
         object.__setattr__(self, "median_mfe", max(0.0, float(self.median_mfe)))
+        object.__setattr__(self, "p75_mae", max(0.0, float(self.p75_mae)))
+        object.__setattr__(self, "p75_mfe", max(0.0, float(self.p75_mfe)))
+        object.__setattr__(self, "p90_mae", max(0.0, float(self.p90_mae)))
+        object.__setattr__(self, "p90_mfe", max(0.0, float(self.p90_mfe)))
         object.__setattr__(self, "max_mae", max(0.0, float(self.max_mae)))
         object.__setattr__(self, "max_mfe", max(0.0, float(self.max_mfe)))
         object.__setattr__(self, "avg_mae_pct", max(0.0, float(self.avg_mae_pct)))
         object.__setattr__(self, "avg_mfe_pct", max(0.0, float(self.avg_mfe_pct)))
         object.__setattr__(self, "median_mae_pct", max(0.0, float(self.median_mae_pct)))
         object.__setattr__(self, "median_mfe_pct", max(0.0, float(self.median_mfe_pct)))
+        object.__setattr__(self, "p75_mae_pct", max(0.0, float(self.p75_mae_pct)))
+        object.__setattr__(self, "p75_mfe_pct", max(0.0, float(self.p75_mfe_pct)))
+        object.__setattr__(self, "p90_mae_pct", max(0.0, float(self.p90_mae_pct)))
+        object.__setattr__(self, "p90_mfe_pct", max(0.0, float(self.p90_mfe_pct)))
         object.__setattr__(self, "avg_mfe_to_mae_ratio", float(self.avg_mfe_to_mae_ratio))
         object.__setattr__(self, "favorable_trade_rate", min(1.0, max(0.0, float(self.favorable_trade_rate))))
         object.__setattr__(self, "records", tuple(self.records))
@@ -267,12 +300,20 @@ class MAEMFESummary:
             "avg_mfe": self.avg_mfe,
             "median_mae": self.median_mae,
             "median_mfe": self.median_mfe,
+            "p75_mae": self.p75_mae,
+            "p75_mfe": self.p75_mfe,
+            "p90_mae": self.p90_mae,
+            "p90_mfe": self.p90_mfe,
             "max_mae": self.max_mae,
             "max_mfe": self.max_mfe,
             "avg_mae_pct": self.avg_mae_pct,
             "avg_mfe_pct": self.avg_mfe_pct,
             "median_mae_pct": self.median_mae_pct,
             "median_mfe_pct": self.median_mfe_pct,
+            "p75_mae_pct": self.p75_mae_pct,
+            "p75_mfe_pct": self.p75_mfe_pct,
+            "p90_mae_pct": self.p90_mae_pct,
+            "p90_mfe_pct": self.p90_mfe_pct,
             "avg_mfe_to_mae_ratio": self.avg_mfe_to_mae_ratio,
             "favorable_trade_rate": self.favorable_trade_rate,
             "records": [record.to_dict() for record in self.records],
@@ -391,18 +432,31 @@ class MAEMFEAnalyzer:
             if item.mfe > item.mae:
                 favorable += 1
 
+        maes_arr = np.asarray(maes, dtype=float)
+        mfes_arr = np.asarray(mfes, dtype=float)
+        maes_pct_arr = np.asarray(maes_pct, dtype=float)
+        mfes_pct_arr = np.asarray(mfes_pct, dtype=float)
+
         summary = MAEMFESummary(
             trade_count=len(recs),
-            avg_mae=_safe_mean(np.asarray(maes, dtype=float)),
-            avg_mfe=_safe_mean(np.asarray(mfes, dtype=float)),
-            median_mae=_safe_median(np.asarray(maes, dtype=float)),
-            median_mfe=_safe_median(np.asarray(mfes, dtype=float)),
-            max_mae=_safe_max(np.asarray(maes, dtype=float)),
-            max_mfe=_safe_max(np.asarray(mfes, dtype=float)),
-            avg_mae_pct=_safe_mean(np.asarray(maes_pct, dtype=float)),
-            avg_mfe_pct=_safe_mean(np.asarray(mfes_pct, dtype=float)),
-            median_mae_pct=_safe_median(np.asarray(maes_pct, dtype=float)),
-            median_mfe_pct=_safe_median(np.asarray(mfes_pct, dtype=float)),
+            avg_mae=_safe_mean(maes_arr),
+            avg_mfe=_safe_mean(mfes_arr),
+            median_mae=_safe_median(maes_arr),
+            median_mfe=_safe_median(mfes_arr),
+            p75_mae=_safe_percentile(maes_arr, 75.0),
+            p75_mfe=_safe_percentile(mfes_arr, 75.0),
+            p90_mae=_safe_percentile(maes_arr, 90.0),
+            p90_mfe=_safe_percentile(mfes_arr, 90.0),
+            max_mae=_safe_max(maes_arr),
+            max_mfe=_safe_max(mfes_arr),
+            avg_mae_pct=_safe_mean(maes_pct_arr),
+            avg_mfe_pct=_safe_mean(mfes_pct_arr),
+            median_mae_pct=_safe_median(maes_pct_arr),
+            median_mfe_pct=_safe_median(mfes_pct_arr),
+            p75_mae_pct=_safe_percentile(maes_pct_arr, 75.0),
+            p75_mfe_pct=_safe_percentile(mfes_pct_arr, 75.0),
+            p90_mae_pct=_safe_percentile(maes_pct_arr, 90.0),
+            p90_mfe_pct=_safe_percentile(mfes_pct_arr, 90.0),
             avg_mfe_to_mae_ratio=_safe_mean(np.asarray(ratios, dtype=float)) if ratios else 0.0,
             favorable_trade_rate=favorable / max(1, len(recs)),
             records=tuple(recs),

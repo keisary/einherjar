@@ -105,8 +105,22 @@ class JSONExporter:
     def export_rejected(self, rejected: RejectedCorpus, path: str | Path) -> Path:
         return self.dump(rejected.to_dict(), path)
 
-    def export_reports(self, reports: ReportBundle, path: str | Path) -> Path:
-        return self.dump(reports.to_dict(), path)
+    def export_reports(
+        self,
+        reports: ReportBundle,
+        path: str | Path,
+        *,
+        summary_only: bool = True,
+    ) -> Path:
+        """
+        Exporte un ReportBundle en JSON.
+
+        Par défaut, n'exporte que le résumé (compteurs,
+        métriques agrégées) pour éviter les fichiers de
+        plusieurs GB. Passer summary_only=False pour obtenir
+        le dump complet (records, signal_mask, prices, etc.).
+        """
+        return self.dump(reports.to_dict(summary_only=summary_only), path)
 
     def export(self, obj: Any, path: str | Path) -> Path:
         return self.dump(obj, path)

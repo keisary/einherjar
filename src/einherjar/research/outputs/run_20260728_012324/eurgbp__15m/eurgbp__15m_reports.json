@@ -1,0 +1,564 @@
+{
+  "created_at": "2026-07-28T01:28:40.243038+00:00",
+  "validation": null,
+  "execution": {
+    "name": "execution",
+    "metadata": {},
+    "started_at": "2026-07-28T01:28:09.395639+00:00",
+    "finished_at": null,
+    "results": [
+      {
+        "subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+        "success": false,
+        "healthy": false,
+        "issue_count": 5,
+        "trade_count": 38276,
+        "total_pnl": -5.998976154035242,
+        "win_rate": 0.0657069704253318,
+        "created_at": "2026-07-28T01:28:20.943102+00:00",
+        "execution_fingerprint_digest": "3cf17281cecb3cbbee5ff8956a1cb3978e33fbb6b63326204eb12a60396f6b2f",
+        "execution_fingerprint_version": 1,
+        "execution_kind": "execution",
+        "metrics": {
+          "bar_count": 368898,
+          "signal_true_count": 246864,
+          "signal_coverage": 0.6691931102906494,
+          "trade_count": 38276,
+          "winning_trades": 2515,
+          "losing_trades": 35761,
+          "total_pnl": -5.998976154035242,
+          "gross_profit": 4.459143995914555,
+          "gross_loss": 10.4581201499498,
+          "profit_factor": 0.42638102565076763,
+          "average_trade_pnl": -0.00015672944283716278,
+          "median_trade_pnl": -0.00020012,
+          "pnl_std": 0.0007387694521593042,
+          "average_duration_seconds": 6390.362106803219,
+          "average_duration_bars": 6.449576758281952,
+          "max_drawdown": 6.000230314005318,
+          "exposure_ratio": 663.050932916234,
+          "win_rate": 0.0657069704253318,
+          "expectancy": -0.00015672944283716278,
+          "direction": "long",
+          "quantity": 1.0
+        },
+        "profit_factor": 0.42638102565076763,
+        "expectancy": -0.00015672944283716278,
+        "max_drawdown": 6.000230314005318
+      },
+      {
+        "subject_fingerprint": "a8b9c91edce9927390259cbda6f34564879055bc6a9d2a1f2e4bc95b8fa7f959",
+        "success": false,
+        "healthy": false,
+        "issue_count": 6,
+        "trade_count": 35793,
+        "total_pnl": -12.985521070886278,
+        "win_rate": 0.027295839968708966,
+        "created_at": "2026-07-28T01:28:28.800509+00:00",
+        "execution_fingerprint_digest": "6ea7508bea5cfa092306e6a883979f28edac070740bc5aac3f2bd1154f7060bc",
+        "execution_fingerprint_version": 1,
+        "execution_kind": "execution",
+        "metrics": {
+          "bar_count": 368898,
+          "signal_true_count": 175727,
+          "signal_coverage": 0.47635660805968044,
+          "trade_count": 35793,
+          "winning_trades": 977,
+          "losing_trades": 34816,
+          "total_pnl": -12.985521070886278,
+          "gross_profit": 1.7203556659515773,
+          "gross_loss": 14.705876736837855,
+          "profit_factor": 0.11698422996040278,
+          "average_trade_pnl": -0.00036279498982723656,
+          "median_trade_pnl": -0.00020012,
+          "pnl_std": 0.000897537906077071,
+          "average_duration_seconds": 3833.215991953734,
+          "average_duration_bars": 4.909535384013634,
+          "max_drawdown": 12.985320950892065,
+          "exposure_ratio": 371.9257678972721,
+          "win_rate": 0.027295839968708966,
+          "expectancy": -0.00036279498982723656,
+          "direction": "long",
+          "quantity": 1.0
+        },
+        "profit_factor": 0.11698422996040278,
+        "expectancy": -0.00036279498982723656,
+        "max_drawdown": 12.985320950892065
+      }
+    ],
+    "total_executions": 2,
+    "total_trades": 74069,
+    "total_pnl": -18.98449722492152,
+    "healthy_count": 0,
+    "unhealthy_count": 2,
+    "diagnostic_issue_counts": {
+      "weak_win_rate": 2,
+      "weak_profit_factor": 2,
+      "negative_expectancy": 2,
+      "high_fee_pressure": 2,
+      "no_recovery": 2,
+      "weak_excursion_profile": 1
+    },
+    "direction_counts": {
+      "long": 2
+    },
+    "best_total_pnl": -5.998976154035242,
+    "best_subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+    "best_execution_fingerprint": "3cf17281cecb3cbbee5ff8956a1cb3978e33fbb6b63326204eb12a60396f6b2f",
+    "last_reason": "no_recovery",
+    "stopped_reason": null,
+    "duration_seconds": 30.850021,
+    "healthy_rate": 0.0,
+    "summary": {
+      "name": "execution",
+      "total_executions": 2,
+      "total_trades": 74069,
+      "total_pnl": -18.98449722492152,
+      "average_pnl_per_execution": -9.49224861246076,
+      "average_trades_per_execution": 37034.5,
+      "healthy_count": 0,
+      "unhealthy_count": 2,
+      "healthy_rate": 0.0,
+      "duration_seconds": 30.850034,
+      "best_total_pnl": -5.998976154035242,
+      "best_subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+      "best_execution_fingerprint": "3cf17281cecb3cbbee5ff8956a1cb3978e33fbb6b63326204eb12a60396f6b2f",
+      "diagnostic_issue_counts": {
+        "weak_win_rate": 2,
+        "weak_profit_factor": 2,
+        "negative_expectancy": 2,
+        "high_fee_pressure": 2,
+        "no_recovery": 2,
+        "weak_excursion_profile": 1
+      },
+      "direction_counts": {
+        "long": 2
+      }
+    }
+  },
+  "portfolio": {
+    "name": "eurgbp__15m",
+    "created_at": "2026-07-28T01:28:29.235430+00:00",
+    "entries": [],
+    "rejected": [],
+    "selected_count": 0,
+    "rejected_count": 0,
+    "total_capital": 0.0,
+    "total_weight": 0.0,
+    "average_score": 0.0,
+    "best_score": null,
+    "best_subject_fingerprint": null,
+    "family_counts": {},
+    "profile_counts": {},
+    "allocation": {
+      "entries": [],
+      "capital_plan": {
+        "total_capital": 1.0,
+        "reserve_capital": 0.0,
+        "investable_capital": 1.0,
+        "allocated_capital": 0.0,
+        "residual_capital": 1.0,
+        "utilization_ratio": 0.0,
+        "entries": [],
+        "settings": {
+          "total_capital": 1.0,
+          "reserve_ratio": 0.0,
+          "min_position_ratio": 0.0,
+          "max_position_ratio": 0.35,
+          "min_position_value": 0.0,
+          "max_position_value": Infinity,
+          "min_positions": 1,
+          "max_positions": 12,
+          "allow_residual": true
+        },
+        "metadata": {
+          "asset": "EURGBP",
+          "timeframe": "15m"
+        }
+      },
+      "risk": {
+        "acceptable": false,
+        "score": 0.0,
+        "selected_count": 0,
+        "total_weight": 0.0,
+        "max_weight": 0.0,
+        "hhi": 1.0,
+        "effective_bets": 0.0,
+        "expected_total_pnl": 0.0,
+        "expected_win_rate": 0.0,
+        "expected_profit_factor": 0.0,
+        "weighted_drawdown": 1.0,
+        "average_abs_correlation": 1.0,
+        "max_abs_correlation": 1.0,
+        "family_concentration": 1.0,
+        "profile_concentration": 1.0,
+        "concentration_penalty": 1.0,
+        "correlation_penalty": 1.0,
+        "drawdown_penalty": 1.0,
+        "reasons": [
+          "empty_portfolio"
+        ],
+        "recommendations": [
+          "add_candidates"
+        ],
+        "correlation": {
+          "labels": [],
+          "matrix": [],
+          "pairs": [],
+          "average_correlation": 0.0,
+          "average_absolute_correlation": 0.0,
+          "max_absolute_correlation": 0.0,
+          "min_correlation": 0.0,
+          "max_correlation": 0.0
+        },
+        "diversification": {
+          "diversified": false,
+          "score": 0.0,
+          "selected_count": 0,
+          "unique_family_count": 0,
+          "unique_profile_count": 0,
+          "family_entropy": 0.0,
+          "profile_entropy": 0.0,
+          "same_family_share": 0.0,
+          "average_abs_correlation": 0.0,
+          "max_abs_correlation": 0.0,
+          "redundancy_score": 1.0,
+          "coverage_score": 0.0,
+          "reasons": [
+            "empty_portfolio"
+          ],
+          "recommendations": [
+            "add_candidates"
+          ],
+          "correlation": {
+            "labels": [],
+            "matrix": [],
+            "pairs": [],
+            "average_correlation": 0.0,
+            "average_absolute_correlation": 0.0,
+            "max_absolute_correlation": 0.0,
+            "min_correlation": 0.0,
+            "max_correlation": 0.0
+          },
+          "metadata": {
+            "asset": "EURGBP",
+            "timeframe": "15m"
+          }
+        },
+        "metadata": {
+          "asset": "EURGBP",
+          "timeframe": "15m"
+        }
+      },
+      "diversification": {
+        "diversified": false,
+        "score": 0.0,
+        "selected_count": 0,
+        "unique_family_count": 0,
+        "unique_profile_count": 0,
+        "family_entropy": 0.0,
+        "profile_entropy": 0.0,
+        "same_family_share": 0.0,
+        "average_abs_correlation": 0.0,
+        "max_abs_correlation": 0.0,
+        "redundancy_score": 1.0,
+        "coverage_score": 0.0,
+        "reasons": [
+          "empty_portfolio"
+        ],
+        "recommendations": [
+          "add_candidates"
+        ],
+        "correlation": {
+          "labels": [],
+          "matrix": [],
+          "pairs": [],
+          "average_correlation": 0.0,
+          "average_absolute_correlation": 0.0,
+          "max_absolute_correlation": 0.0,
+          "min_correlation": 0.0,
+          "max_correlation": 0.0
+        },
+        "metadata": {
+          "asset": "EURGBP",
+          "timeframe": "15m"
+        }
+      },
+      "correlation": {
+        "labels": [],
+        "matrix": [],
+        "pairs": [],
+        "average_correlation": 0.0,
+        "average_absolute_correlation": 0.0,
+        "max_absolute_correlation": 0.0,
+        "min_correlation": 0.0,
+        "max_correlation": 0.0
+      },
+      "score": 0.0,
+      "total_weight": 0.0,
+      "total_capital": 0.0,
+      "metadata": {
+        "asset": "EURGBP",
+        "timeframe": "15m"
+      }
+    },
+    "selection": {
+      "selected": [],
+      "rejected": [
+        {
+          "subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+          "execution_fingerprint": "3cf17281cecb3cbbee5ff8956a1cb3978e33fbb6b63326204eb12a60396f6b2f",
+          "score": 0.17658608905649592,
+          "accepted": false,
+          "reasons": [
+            "win_rate_too_low",
+            "profit_factor_too_low",
+            "expectancy_too_low",
+            "total_pnl_too_low"
+          ],
+          "family": "momentum",
+          "profile_name": "execution_profile",
+          "rank_hint": 0,
+          "result": {
+            "subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+            "success": false,
+            "healthy": false,
+            "issue_count": 5,
+            "trade_count": 38276,
+            "total_pnl": -5.998976154035242,
+            "win_rate": 0.0657069704253318,
+            "created_at": "2026-07-28T01:28:20.943102+00:00",
+            "execution_fingerprint_digest": "3cf17281cecb3cbbee5ff8956a1cb3978e33fbb6b63326204eb12a60396f6b2f",
+            "execution_fingerprint_version": 1,
+            "execution_kind": "execution",
+            "metrics": {
+              "bar_count": 368898,
+              "signal_true_count": 246864,
+              "signal_coverage": 0.6691931102906494,
+              "trade_count": 38276,
+              "winning_trades": 2515,
+              "losing_trades": 35761,
+              "total_pnl": -5.998976154035242,
+              "gross_profit": 4.459143995914555,
+              "gross_loss": 10.4581201499498,
+              "profit_factor": 0.42638102565076763,
+              "average_trade_pnl": -0.00015672944283716278,
+              "median_trade_pnl": -0.00020012,
+              "pnl_std": 0.0007387694521593042,
+              "average_duration_seconds": 6390.362106803219,
+              "average_duration_bars": 6.449576758281952,
+              "max_drawdown": 6.000230314005318,
+              "exposure_ratio": 663.050932916234,
+              "win_rate": 0.0657069704253318,
+              "expectancy": -0.00015672944283716278,
+              "direction": "long",
+              "quantity": 1.0
+            },
+            "profit_factor": 0.42638102565076763,
+            "expectancy": -0.00015672944283716278,
+            "max_drawdown": 6.000230314005318
+          }
+        },
+        {
+          "subject_fingerprint": "a8b9c91edce9927390259cbda6f34564879055bc6a9d2a1f2e4bc95b8fa7f959",
+          "execution_fingerprint": "6ea7508bea5cfa092306e6a883979f28edac070740bc5aac3f2bd1154f7060bc",
+          "score": 0.1450699840382894,
+          "accepted": false,
+          "reasons": [
+            "win_rate_too_low",
+            "profit_factor_too_low",
+            "expectancy_too_low",
+            "total_pnl_too_low"
+          ],
+          "family": "microstructure",
+          "profile_name": "execution_profile",
+          "rank_hint": 1,
+          "result": {
+            "subject_fingerprint": "a8b9c91edce9927390259cbda6f34564879055bc6a9d2a1f2e4bc95b8fa7f959",
+            "success": false,
+            "healthy": false,
+            "issue_count": 6,
+            "trade_count": 35793,
+            "total_pnl": -12.985521070886278,
+            "win_rate": 0.027295839968708966,
+            "created_at": "2026-07-28T01:28:28.800509+00:00",
+            "execution_fingerprint_digest": "6ea7508bea5cfa092306e6a883979f28edac070740bc5aac3f2bd1154f7060bc",
+            "execution_fingerprint_version": 1,
+            "execution_kind": "execution",
+            "metrics": {
+              "bar_count": 368898,
+              "signal_true_count": 175727,
+              "signal_coverage": 0.47635660805968044,
+              "trade_count": 35793,
+              "winning_trades": 977,
+              "losing_trades": 34816,
+              "total_pnl": -12.985521070886278,
+              "gross_profit": 1.7203556659515773,
+              "gross_loss": 14.705876736837855,
+              "profit_factor": 0.11698422996040278,
+              "average_trade_pnl": -0.00036279498982723656,
+              "median_trade_pnl": -0.00020012,
+              "pnl_std": 0.000897537906077071,
+              "average_duration_seconds": 3833.215991953734,
+              "average_duration_bars": 4.909535384013634,
+              "max_drawdown": 12.985320950892065,
+              "exposure_ratio": 371.9257678972721,
+              "win_rate": 0.027295839968708966,
+              "expectancy": -0.00036279498982723656,
+              "direction": "long",
+              "quantity": 1.0
+            },
+            "profit_factor": 0.11698422996040278,
+            "expectancy": -0.00036279498982723656,
+            "max_drawdown": 12.985320950892065
+          }
+        }
+      ],
+      "settings": {
+        "max_selected": 12,
+        "min_trade_count": 3,
+        "min_win_rate": 0.4,
+        "min_profit_factor": 1.0,
+        "min_expectancy": 0.0,
+        "min_total_pnl": 0.0,
+        "require_healthy": false,
+        "exclude_duplicates": true,
+        "keep_best_per_family": 3,
+        "max_same_profile": 2,
+        "max_same_family": 4
+      },
+      "metadata": {
+        "asset": "EURGBP",
+        "timeframe": "15m",
+        "run_id": "run_20260728_012324"
+      }
+    },
+    "risk": {
+      "acceptable": false,
+      "score": 0.0,
+      "selected_count": 0,
+      "total_weight": 0.0,
+      "max_weight": 0.0,
+      "hhi": 1.0,
+      "effective_bets": 0.0,
+      "expected_total_pnl": 0.0,
+      "expected_win_rate": 0.0,
+      "expected_profit_factor": 0.0,
+      "weighted_drawdown": 1.0,
+      "average_abs_correlation": 1.0,
+      "max_abs_correlation": 1.0,
+      "family_concentration": 1.0,
+      "profile_concentration": 1.0,
+      "concentration_penalty": 1.0,
+      "correlation_penalty": 1.0,
+      "drawdown_penalty": 1.0,
+      "reasons": [
+        "empty_portfolio"
+      ],
+      "recommendations": [
+        "add_candidates"
+      ],
+      "correlation": {
+        "labels": [],
+        "matrix": [],
+        "pairs": [],
+        "average_correlation": 0.0,
+        "average_absolute_correlation": 0.0,
+        "max_absolute_correlation": 0.0,
+        "min_correlation": 0.0,
+        "max_correlation": 0.0
+      },
+      "diversification": {
+        "diversified": false,
+        "score": 0.0,
+        "selected_count": 0,
+        "unique_family_count": 0,
+        "unique_profile_count": 0,
+        "family_entropy": 0.0,
+        "profile_entropy": 0.0,
+        "same_family_share": 0.0,
+        "average_abs_correlation": 0.0,
+        "max_abs_correlation": 0.0,
+        "redundancy_score": 1.0,
+        "coverage_score": 0.0,
+        "reasons": [
+          "empty_portfolio"
+        ],
+        "recommendations": [
+          "add_candidates"
+        ],
+        "correlation": {
+          "labels": [],
+          "matrix": [],
+          "pairs": [],
+          "average_correlation": 0.0,
+          "average_absolute_correlation": 0.0,
+          "max_absolute_correlation": 0.0,
+          "min_correlation": 0.0,
+          "max_correlation": 0.0
+        },
+        "metadata": {
+          "asset": "EURGBP",
+          "timeframe": "15m"
+        }
+      },
+      "metadata": {
+        "asset": "EURGBP",
+        "timeframe": "15m"
+      }
+    },
+    "diversification": {
+      "diversified": false,
+      "score": 0.0,
+      "selected_count": 0,
+      "unique_family_count": 0,
+      "unique_profile_count": 0,
+      "family_entropy": 0.0,
+      "profile_entropy": 0.0,
+      "same_family_share": 0.0,
+      "average_abs_correlation": 0.0,
+      "max_abs_correlation": 0.0,
+      "redundancy_score": 1.0,
+      "coverage_score": 0.0,
+      "reasons": [
+        "empty_portfolio"
+      ],
+      "recommendations": [
+        "add_candidates"
+      ],
+      "correlation": {
+        "labels": [],
+        "matrix": [],
+        "pairs": [],
+        "average_correlation": 0.0,
+        "average_absolute_correlation": 0.0,
+        "max_absolute_correlation": 0.0,
+        "min_correlation": 0.0,
+        "max_correlation": 0.0
+      },
+      "metadata": {
+        "asset": "EURGBP",
+        "timeframe": "15m"
+      }
+    },
+    "correlation": {
+      "labels": [],
+      "matrix": [],
+      "pairs": [],
+      "average_correlation": 0.0,
+      "average_absolute_correlation": 0.0,
+      "max_absolute_correlation": 0.0,
+      "min_correlation": 0.0,
+      "max_correlation": 0.0
+    },
+    "capital_plan": null,
+    "metadata": {
+      "asset": "EURGBP",
+      "timeframe": "15m",
+      "run_id": "run_20260728_012324"
+    }
+  },
+  "metadata": {
+    "run_id": "run_20260728_012324"
+  }
+}

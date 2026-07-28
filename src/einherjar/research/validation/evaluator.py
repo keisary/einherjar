@@ -1360,6 +1360,12 @@ class ValidationEvaluator:
 
         signal_targets: list[np.ndarray] = []
         baseline_targets: list[np.ndarray] = []
+        # IMPORTANT : on accumule le mask COMPLET par batch
+        # (full-size) pour pouvoir reconstruire un mask global
+        # aligné avec baseline_array lors du calcul des métriques
+        # binaires. Avant ce fix, le mask était mal aligné et
+        # provoquait un crash en mode MIDAS.
+        signal_masks: list[np.ndarray] = []
 
         positive_total = 0
         positive_signal = 0
@@ -1401,6 +1407,11 @@ class ValidationEvaluator:
             total_sum += float(np.sum(y_batch))
             total_sq_sum += float(np.sum(y_batch ** 2))
             total_support += support
+
+            # On stocke TOUJOURS le mask complet du batch (True =
+            # sample qui matche l'hypothèse, False = sample qui
+            # ne matche pas). Il sert aux métriques binaires.
+            signal_masks.append(np.asarray(batch_mask, dtype=bool))
 
             if support > 0:
                 signal_values = y_batch[batch_mask]
@@ -1460,6 +1471,10 @@ class ValidationEvaluator:
 
         signal_array = np.concatenate(signal_targets) if signal_targets else np.array([], dtype=float)
         baseline_array = np.concatenate(baseline_targets) if baseline_targets else np.array([], dtype=float)
+        # mask complet aligné avec baseline_array : True si
+        # l'hypothèse matche le sample, False sinon. C'est ce
+        # mask qu'on passe aux métriques binaires.
+        signal_mask_full = np.concatenate(signal_masks) if signal_masks else np.zeros(baseline_array.size, dtype=bool)
 
         t_stat = _t_statistic(signal_array, baseline_array)
         effect_size = _cohen_d(signal_array, baseline_array)
@@ -1504,9 +1519,14 @@ class ValidationEvaluator:
         signal_positive_rate = positive_signal / total_support if total_support > 0 else 0.0
 
         if self._settings.enable_binary_metrics and total_support > 0:
+            # signal_mask_full est maintenant aligné avec
+            # baseline_array (True = sample qui matche l'hypothèse).
+            # Avant ce fix, le mask était mal aligné (taille
+            # différente) et _binary_classification_metrics levait
+            # un ValueError sur les opérations booléennes.
             binary_metrics = _binary_classification_metrics(
                 baseline_array,
-                self._signal_mask_from_array(signal_targets, baseline_array, total_support),
+                signal_mask_full,
                 target_threshold,
             )
             binary_precision = binary_metrics["precision"]
@@ -1740,14 +1760,34 @@ class ValidationEvaluator:
         baseline: np.ndarray,
         support: int,
     ) -> np.ndarray:
+        """
+        Conservé pour rétro-compatibilité externe.
+
+        Le calcul correct des métriques binaires se fait
+        désormais via `signal_mask_full` accumulé directement
+        dans `_evaluate_on_split`. Cette méthode n'est plus
+        utilisée par l'Engine et n'est PAS appelée.
+
+        Sa signature est préservée pour ne pas casser
+        d'éventuels imports externes, mais elle lève une
+        DeprecationWarning si elle est appelée.
+        """
+        import warnings
+        warnings.warn(
+            "_signal_mask_from_array is deprecated and no "
+            "longer used by the Engine. Binary metrics are now "
+            "computed via the proper signal_mask_full accumulated "
+            "in _evaluate_on_split.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if baseline.size == 0:
             return np.zeros(0, dtype=bool)
-
         if not signal_targets:
             return np.zeros(baseline.size, dtype=bool)
-
-        # On reconstruit un masque approximatif aligné sur le dernier bloc.
-        # Utilisé uniquement pour les métriques binaires.
+        # Comportement historique (incorrect) conservé pour
+        # rétro-compat : retourne un mask basé sur le dernier
+        # batch. NE PAS UTILISER.
         last = signal_targets[-1]
         return last > self._settings.positive_target_threshold
 

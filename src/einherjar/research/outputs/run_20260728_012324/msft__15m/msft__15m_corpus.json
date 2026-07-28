@@ -1,0 +1,129 @@
+{
+  "name": "MSFT__15m",
+  "created_at": "2026-07-28T01:29:10.478327+00:00",
+  "entries": [
+    {
+      "subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+      "execution_fingerprint": "36cbbc6d04724c659a05be4ef44ed707ea1a1d496ae7f1a51e0247314f9a1d03",
+      "einher_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+      "asset": "msft",
+      "timeframe": "15m",
+      "direction": "long",
+      "calibrated_on": "",
+      "profile": {
+        "name": "execution_profile",
+        "description": "long | trades=7143 | win_rate=21.74% | pf=1.13",
+        "family": "momentum"
+      },
+      "conditions": [
+        {
+          "left": {
+            "name": "stoch_k_norm",
+            "column_index": 195,
+            "family": "momentum"
+          },
+          "operator": ">=",
+          "right": {
+            "type": "feature",
+            "name": "momentum_20_norm",
+            "column_index": 201
+          }
+        }
+      ],
+      "edge": {
+        "score": 0.0,
+        "win_rate": 0.21741565168696625,
+        "profit_factor": 1.127831756681172,
+        "expectancy": 0.00014646738470926532,
+        "total_pnl": 1.046216528978282,
+        "trade_count": 7143,
+        "sharpe_per_trade": 0.027640456591946284,
+        "p_value": 0.0
+      },
+      "calibration": {
+        "direction": "long",
+        "best_horizon": 1,
+        "mfe_p50": 0.0,
+        "mfe_p75": 0.001125885231886059,
+        "mfe_p90": 0.0062354752793908124,
+        "mae_p50": 0.0,
+        "mae_p75": 0.0009052404202520847,
+        "mae_p90": 0.005202205013483765,
+        "mfe_p75_pct": 0.00442564906552434,
+        "mae_p90_pct": 0.8636449511798499,
+        "tp_rule": {
+          "type": "mfe_calibrated",
+          "percentile": 75,
+          "value": 0.001125885231886059
+        },
+        "sl_rule": {
+          "type": "mae_calibrated",
+          "percentile": 90,
+          "value": 0.005202205013483765
+        }
+      },
+      "selected": false,
+      "weight": 0.0,
+      "capital": 0.0,
+      "rank": 0,
+      "rejection_reasons": [
+        "win_rate_too_low"
+      ],
+      "source_kind": "portfolio_selection_rejected",
+      "metadata": {
+        "run_id": "run_20260728_012324",
+        "asset": "MSFT",
+        "timeframe": "15m"
+      },
+      "created_at": "2026-07-28T01:29:10.478086+00:00"
+    }
+  ],
+  "rejected": [
+    {
+      "subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+      "family": "momentum",
+      "profile_name": "execution_profile",
+      "reasons": [
+        "win_rate_too_low"
+      ],
+      "score": 0.48863736271570135,
+      "accepted": false
+    }
+  ],
+  "summary": {
+    "entry_count": 1,
+    "selected_count": 0,
+    "total_capital": 0.0,
+    "total_weight": 0.0,
+    "total_pnl": 1.046216528978282,
+    "average_score": 0.0,
+    "best_score": 0.0,
+    "best_subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+    "average_win_rate": 0.21741565168696625,
+    "average_profit_factor": 1.127831756681172,
+    "average_expectancy": 0.00014646738470926532,
+    "average_drawdown": 0.0,
+    "healthy_count": 1,
+    "unhealthy_count": 0,
+    "unique_family_count": 1,
+    "unique_profile_count": 1,
+    "family_counts": {
+      "momentum": 1
+    },
+    "profile_counts": {
+      "execution_profile": 1
+    },
+    "min_weight": 0.0,
+    "max_weight": 0.0,
+    "mean_weight": 0.0,
+    "min_capital": 0.0,
+    "max_capital": 0.0,
+    "mean_capital": 0.0,
+    "metadata": {
+      "run_id": "run_20260728_012324"
+    }
+  },
+  "metadata": {
+    "run_id": "run_20260728_012324"
+  }
+}

@@ -151,28 +151,102 @@ class ExecutionResult:
         return self.diagnostics.issue_count
 
     def to_dict(self, *, summary_only: bool = False) -> dict[str, Any]:
+        """
+        Sérialise un ExecutionResult.
+
+        En mode summary_only=True (défaut pour les reports),
+        on garde uniquement les métriques agrégées et les
+        compteurs. On drop :
+        - replay (volumineux, détaillé)
+        - journal (liste de trades)
+        - trades (liste de Trade détaillés)
+        - records (43K+ ExecutedTradeRecord)
+        - mae_mfe (détails des excursions)
+        - profile (sub-objets détaillés)
+        - diagnostics (verbose)
+        - validated_candidate / candidate / hypothesis
+          (les métriques de l'Einher sont déjà dans le corpus)
+
+        Le détail reste accessible via les attributs directs
+        (self.replay, self.records, etc.) et via le corpus
+        compressé (parquet/csv).
+        """
         payload = {
             "subject_fingerprint": self.subject_fingerprint,
-            "execution_fingerprint": self.execution_fingerprint.to_dict(),
-            "validated_candidate": (
-                None if self.validated_candidate is None else self.validated_candidate.to_dict()
+            "success": self.success,
+            "healthy": self.healthy,
+            "issue_count": self.issue_count,
+            "trade_count": self.trade_count,
+            "total_pnl": self.total_pnl,
+            "win_rate": self.win_rate,
+            "created_at": self.created_at.isoformat(),
+        }
+
+        # En mode summary_only, on ne garde que le digest du
+        # fingerprint (le components/metadata peut peser plusieurs
+        # centaines de MB si l'embedder/contexte est inclus).
+        if self.execution_fingerprint is not None:
+            digest = (
+                self.execution_fingerprint.fingerprint.digest
+                if hasattr(self.execution_fingerprint, "fingerprint")
+                and self.execution_fingerprint.fingerprint is not None
+                else None
+            )
+            payload["execution_fingerprint_digest"] = digest
+            payload["execution_fingerprint_version"] = (
+                self.execution_fingerprint.version
+            )
+            payload["execution_kind"] = (
+                self.execution_fingerprint.execution_kind
+            )
+        else:
+            payload["execution_fingerprint_digest"] = None
+
+        # Métriques complètes issues du replay (si disponible)
+        if self.replay is not None:
+            metrics = self.replay.metrics.to_dict()
+            payload["metrics"] = metrics
+            payload["profit_factor"] = float(metrics.get("profit_factor", 0.0))
+            payload["expectancy"] = float(metrics.get("expectancy", 0.0))
+            payload["max_drawdown"] = float(metrics.get("max_drawdown", 0.0))
+        else:
+            payload["metrics"] = {}
+            payload["profit_factor"] = 0.0
+            payload["expectancy"] = 0.0
+            payload["max_drawdown"] = 0.0
+
+        if summary_only:
+            return payload
+
+        payload.update({
+            "execution_fingerprint": (
+                self.execution_fingerprint.to_dict()
+                if self.execution_fingerprint is not None
+                else None
             ),
-            "candidate": self.candidate.to_dict() if hasattr(self.candidate, "to_dict") else repr(self.candidate),
-            "hypothesis": self.hypothesis.to_dict() if hasattr(self.hypothesis, "to_dict") else repr(self.hypothesis),
-            "replay": None if summary_only else self.replay.to_dict(),
+            "validated_candidate": (
+                None if self.validated_candidate is None
+                else self.validated_candidate.to_dict()
+            ),
+            "candidate": (
+                self.candidate.to_dict()
+                if hasattr(self.candidate, "to_dict")
+                else repr(self.candidate)
+            ),
+            "hypothesis": (
+                self.hypothesis.to_dict()
+                if hasattr(self.hypothesis, "to_dict")
+                else repr(self.hypothesis)
+            ),
+            "replay": self.replay.to_dict(summary_only=False),
             "journal": self.journal.to_dict(),
             "trades": [trade.to_dict() for trade in self.trades],
             "records": [record.to_dict() for record in self.records],
             "mae_mfe": None if self.mae_mfe is None else self.mae_mfe.to_dict(),
             "profile": None if self.profile is None else self.profile.to_dict(),
             "diagnostics": None if self.diagnostics is None else self.diagnostics.to_dict(),
-            "success": self.success,
             "metadata": dict(self.metadata),
-            "created_at": self.created_at.isoformat(),
-        }
-
-        if summary_only:
-            payload["replay_metrics"] = self.replay.metrics.to_dict()
+        })
         return payload
 
     def __repr__(self) -> str:
@@ -361,7 +435,10 @@ class ExecutionReport:
             "metadata": dict(self.metadata),
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "finished_at": self.finished_at.isoformat() if self.finished_at else None,
-            "results": [] if summary_only else [result.to_dict() for result in self.results],
+            "results": [
+                result.to_dict(summary_only=summary_only)
+                for result in self.results
+            ],
             "total_executions": self.total_executions,
             "total_trades": self.total_trades,
             "total_pnl": self.total_pnl,

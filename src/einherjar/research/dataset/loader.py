@@ -9,8 +9,9 @@ Le DatasetLoader ne charge jamais entièrement les tableaux
 en mémoire. Tous les fichiers .npy sont ouverts en mode
 memory-mapped afin de limiter la consommation de RAM.
 
-Le System crée une seule instance du DatasetLoader et la
-partage avec l'ensemble du moteur.
+Le moteur de découverte crée une instance de DatasetLoader
+PAR PAIRE asset/timeframe traitée, dans Engine.run_pair().
+Une instance n'est jamais partagée entre paires.
 """
 
 from __future__ import annotations
@@ -69,11 +70,31 @@ class DatasetSplit:
 class MidasArrays:
     """
     Arrays bruts MIDAS pour un actif donné.
+
+    Champs :
+    - X       : matrice des features (n_samples, n_features)
+    - Y_ret   : vecteur des rendements futurs (n_samples,) ou
+                matrice multi-horizons (n_samples, n_horizons)
+    - ts      : vecteur des timestamps (n_samples,)
     """
 
     X: NDArray
     Y_ret: NDArray
     ts: NDArray
+
+    @property
+    def sample_count(self) -> int:
+        return int(self.X.shape[0])
+
+    @property
+    def feature_count(self) -> int:
+        return int(self.X.shape[1])
+
+    @property
+    def horizon_count(self) -> int:
+        if self.Y_ret.ndim == 1:
+            return 1
+        return int(self.Y_ret.shape[1])
 
 
 class DatasetLoader:
@@ -82,6 +103,14 @@ class DatasetLoader:
 
     Les tableaux sont ouverts en lecture seule via
     numpy.memmap.
+
+    Deux modes de chargement :
+
+    - Mode "splits" : trois DatasetSplit explicites
+      (train, validation, test) + un metadata.json.
+
+    - Mode "MIDAS"  : tableaux bruts X / Y_ret / ts pour
+      un couple (asset, timeframe).
     """
 
     # ==================================================
@@ -100,7 +129,7 @@ class DatasetLoader:
         self._contract: DatasetContract | None = None
 
         self._load()
-    
+
     @classmethod
     def from_config(cls, config: Any | None) -> "DatasetLoader":
         if isinstance(config, DatasetConfig):
@@ -108,6 +137,31 @@ class DatasetLoader:
         if hasattr(config, "dataset") and isinstance(config.dataset, DatasetConfig):
             return cls(config.dataset)
         raise TypeError("config must be a DatasetConfig or have a .dataset attribute")
+
+    @classmethod
+    def for_pair(
+        cls,
+        *,
+        midas_root: str | Path,
+        asset: str,
+        asset_class: str,
+        timeframe: str,
+    ) -> "DatasetLoader":
+        """
+        Construit un DatasetLoader pour une paire (asset, timeframe).
+
+        Le loader est strictement lié à cette paire.
+        """
+
+        from config.dataset import DatasetConfig
+
+        dataset_cfg = DatasetConfig(
+            midas_root=str(midas_root),
+            asset=asset,
+            asset_class=asset_class,
+            timeframe=timeframe,
+        )
+        return cls(dataset_cfg)
 
     # ==================================================
     # PRIVATE
@@ -125,7 +179,7 @@ class DatasetLoader:
             self._load_splits()
             return
 
-        logger.warning(
+        raise RuntimeError(
             "DatasetLoader : aucune configuration de chargement valide fournie. "
             "Fournissez soit (midas_root + asset + asset_class + timeframe), "
             "soit (metadata_path + x_train_path + ...)."
@@ -162,6 +216,24 @@ class DatasetLoader:
             with meta_path.open("r", encoding="utf-8") as f:
                 metadata = json.load(f)
             self._contract = DatasetContract.from_dict(metadata)
+
+        if self._contract is None:
+            raise RuntimeError(
+                f"metadata.json introuvable pour {asset}/{timeframe} "
+                f"(cherché : {base / 'metadata.json'}). "
+                f"Le contrat de données est obligatoire."
+            )
+
+        # Vérification immédiate : on refuse un dataset sans contrat exploitable
+        self._contract.verify_for_midas()
+
+        if self._midas.feature_count != self._contract.feature_count:
+            raise RuntimeError(
+                f"MIDAS dataset shape / contract mismatch pour "
+                f"{asset}/{timeframe} : "
+                f"X.shape[1]={self._midas.feature_count} "
+                f"vs contract.feature_count={self._contract.feature_count}."
+            )
 
     def _load_splits(self) -> None:
 
@@ -226,7 +298,18 @@ class DatasetLoader:
     # ==================================================
 
     @property
-    def contract(self) -> DatasetContract | None:
+    def contract(self) -> DatasetContract:
+        """
+        Contrat du dataset.
+
+        Lève RuntimeError si le contrat n'a pas pu être
+        chargé — il est obligatoire dans les deux modes.
+        """
+
+        if self._contract is None:
+            raise RuntimeError(
+                "DatasetLoader : aucun contrat de données n'a été chargé."
+            )
         return self._contract
 
     @property
@@ -234,12 +317,26 @@ class DatasetLoader:
         return tuple(self._splits.keys())
 
     @property
-    def midas(self) -> MidasArrays | None:
+    def midas(self) -> MidasArrays:
+        """
+        Arrays MIDAS du dataset.
+
+        Lève RuntimeError si le loader n'est pas en mode MIDAS.
+        """
+
+        if self._midas is None:
+            raise RuntimeError(
+                "DatasetLoader : pas de tableaux MIDAS (mode splits)."
+            )
         return self._midas
 
     @property
     def is_midas_mode(self) -> bool:
         return self._midas is not None
+
+    @property
+    def is_splits_mode(self) -> bool:
+        return bool(self._splits) and self._midas is None
 
     # ==================================================
     # ACCESSORS
@@ -292,7 +389,7 @@ class DatasetLoader:
     def __repr__(self) -> str:
 
         splits = ", ".join(self.splits)
-        mode = "midas" if self.is_midas_mode else "splits"
+        mode = "midas" if self.is_midas_mode else ("splits" if self.is_splits_mode else "empty")
 
         return (
             "DatasetLoader("

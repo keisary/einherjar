@@ -1,0 +1,113 @@
+{
+  "target": {
+    "asset": "AUDUSD",
+    "timeframe": "15m",
+    "metadata": {},
+    "key": "AUDUSD@15m"
+  },
+  "index": "export",
+  "state": {
+    "current_phase": "export",
+    "success": false,
+    "error": null,
+    "started_at": "2026-07-28T01:26:06.916507+00:00",
+    "finished_at": null,
+    "phases": {
+      "initialization": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:06.916512+00:00",
+        "finished_at": "2026-07-28T01:26:06.916512+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "dataset": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:06.922349+00:00",
+        "finished_at": "2026-07-28T01:26:06.922371+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "contract": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:06.922373+00:00",
+        "finished_at": "2026-07-28T01:26:06.922373+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "discovery": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:06.922374+00:00",
+        "finished_at": "2026-07-28T01:26:10.879455+00:00",
+        "error": null,
+        "metadata": {
+          "candidates": 20
+        }
+      },
+      "validation": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:10.879457+00:00",
+        "finished_at": "2026-07-28T01:26:12.761102+00:00",
+        "error": null,
+        "metadata": {
+          "validated": 2,
+          "rejected": 18
+        }
+      },
+      "execution": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:12.761106+00:00",
+        "finished_at": "2026-07-28T01:26:34.508903+00:00",
+        "error": null,
+        "metadata": {
+          "results": 2
+        }
+      },
+      "portfolio": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:34.508907+00:00",
+        "finished_at": "2026-07-28T01:26:34.975048+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "memory": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:34.975050+00:00",
+        "finished_at": "2026-07-28T01:26:36.417018+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "knowledge": {
+        "status": "success",
+        "started_at": "2026-07-28T01:26:36.417021+00:00",
+        "finished_at": "2026-07-28T01:26:47.423197+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "export": {
+        "status": "running",
+        "started_at": "2026-07-28T01:26:47.423199+00:00",
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      },
+      "terminal": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      }
+    }
+  },
+  "success": false,
+  "errors": [],
+  "einher_count": 2,
+  "execution_count": 2,
+  "started_at": "2026-07-28T01:26:06.916507+00:00",
+  "finished_at": "2026-07-28T01:26:47.424737+00:00",
+  "metadata": {
+    "asset": "AUDUSD",
+    "timeframe": "15m",
+    "run_id": "run_20260728_012324"
+  }
+}

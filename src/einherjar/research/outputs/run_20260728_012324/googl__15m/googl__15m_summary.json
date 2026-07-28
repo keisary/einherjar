@@ -1,0 +1,113 @@
+{
+  "target": {
+    "asset": "GOOGL",
+    "timeframe": "15m",
+    "metadata": {},
+    "key": "GOOGL@15m"
+  },
+  "index": "export",
+  "state": {
+    "current_phase": "export",
+    "success": false,
+    "error": null,
+    "started_at": "2026-07-28T01:29:15.076929+00:00",
+    "finished_at": null,
+    "phases": {
+      "initialization": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:15.076940+00:00",
+        "finished_at": "2026-07-28T01:29:15.076942+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "dataset": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:15.084767+00:00",
+        "finished_at": "2026-07-28T01:29:15.084796+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "contract": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:15.084797+00:00",
+        "finished_at": "2026-07-28T01:29:15.084797+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "discovery": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:15.084798+00:00",
+        "finished_at": "2026-07-28T01:29:15.743629+00:00",
+        "error": null,
+        "metadata": {
+          "candidates": 20
+        }
+      },
+      "validation": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:15.743632+00:00",
+        "finished_at": "2026-07-28T01:29:16.050663+00:00",
+        "error": null,
+        "metadata": {
+          "validated": 1,
+          "rejected": 19
+        }
+      },
+      "execution": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:16.050666+00:00",
+        "finished_at": "2026-07-28T01:29:17.932382+00:00",
+        "error": null,
+        "metadata": {
+          "results": 1
+        }
+      },
+      "portfolio": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:17.932392+00:00",
+        "finished_at": "2026-07-28T01:29:17.983964+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "memory": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:17.983966+00:00",
+        "finished_at": "2026-07-28T01:29:18.145280+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "knowledge": {
+        "status": "success",
+        "started_at": "2026-07-28T01:29:18.145283+00:00",
+        "finished_at": "2026-07-28T01:29:18.718666+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "export": {
+        "status": "running",
+        "started_at": "2026-07-28T01:29:18.718668+00:00",
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      },
+      "terminal": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      }
+    }
+  },
+  "success": false,
+  "errors": [],
+  "einher_count": 1,
+  "execution_count": 1,
+  "started_at": "2026-07-28T01:29:15.076929+00:00",
+  "finished_at": "2026-07-28T01:29:18.719534+00:00",
+  "metadata": {
+    "asset": "GOOGL",
+    "timeframe": "15m",
+    "run_id": "run_20260728_012324"
+  }
+}

@@ -1,0 +1,152 @@
+{
+  "run_id": "run_20260728_012151",
+  "settings": {
+    "pairs": [],
+    "assets": [],
+    "timeframes": [],
+    "output_root": "outputs",
+    "run_name": "",
+    "max_pairs": 0,
+    "export_run_summary": true,
+    "continue_on_error": true,
+    "build_knowledge": true,
+    "build_memory": true
+  },
+  "pair_results": [
+    {
+      "target": {
+        "asset": "XAUUSD",
+        "timeframe": "15m",
+        "metadata": {},
+        "key": "XAUUSD@15m"
+      },
+      "index": 0,
+      "success": true,
+      "errors": [],
+      "execution_count": 1,
+      "einher_count": 1,
+      "validated_count": 1,
+      "rejected_count": 19,
+      "state": {
+        "current_phase": "terminal",
+        "success": true,
+        "error": null,
+        "started_at": "2026-07-28T01:21:51.152021+00:00",
+        "finished_at": "2026-07-28T01:22:11.097504+00:00",
+        "phases": {
+          "initialization": {
+            "status": "success",
+            "started_at": "2026-07-28T01:21:51.152031+00:00",
+            "finished_at": "2026-07-28T01:21:51.152034+00:00",
+            "error": null,
+            "metadata": {}
+          },
+          "dataset": {
+            "status": "success",
+            "started_at": "2026-07-28T01:21:51.161930+00:00",
+            "finished_at": "2026-07-28T01:21:51.162053+00:00",
+            "error": null,
+            "metadata": {}
+          },
+          "contract": {
+            "status": "success",
+            "started_at": "2026-07-28T01:21:51.162055+00:00",
+            "finished_at": "2026-07-28T01:21:51.162056+00:00",
+            "error": null,
+            "metadata": {}
+          },
+          "discovery": {
+            "status": "success",
+            "started_at": "2026-07-28T01:21:51.162057+00:00",
+            "finished_at": "2026-07-28T01:21:55.486366+00:00",
+            "error": null,
+            "metadata": {
+              "candidates": 20
+            }
+          },
+          "validation": {
+            "status": "success",
+            "started_at": "2026-07-28T01:21:55.486372+00:00",
+            "finished_at": "2026-07-28T01:21:56.877502+00:00",
+            "error": null,
+            "metadata": {
+              "validated": 1,
+              "rejected": 19
+            }
+          },
+          "execution": {
+            "status": "success",
+            "started_at": "2026-07-28T01:21:56.877508+00:00",
+            "finished_at": "2026-07-28T01:22:06.333415+00:00",
+            "error": null,
+            "metadata": {
+              "results": 1
+            }
+          },
+          "portfolio": {
+            "status": "success",
+            "started_at": "2026-07-28T01:22:06.333420+00:00",
+            "finished_at": "2026-07-28T01:22:06.559214+00:00",
+            "error": null,
+            "metadata": {}
+          },
+          "memory": {
+            "status": "success",
+            "started_at": "2026-07-28T01:22:06.559216+00:00",
+            "finished_at": "2026-07-28T01:22:07.320744+00:00",
+            "error": null,
+            "metadata": {}
+          },
+          "knowledge": {
+            "status": "success",
+            "started_at": "2026-07-28T01:22:07.320748+00:00",
+            "finished_at": "2026-07-28T01:22:10.027370+00:00",
+            "error": null,
+            "metadata": {}
+          },
+          "export": {
+            "status": "success",
+            "started_at": "2026-07-28T01:22:10.027382+00:00",
+            "finished_at": "2026-07-28T01:22:11.097498+00:00",
+            "error": null,
+            "metadata": {}
+          },
+          "terminal": {
+            "status": "pending",
+            "started_at": null,
+            "finished_at": null,
+            "error": null,
+            "metadata": {}
+          }
+        }
+      },
+      "metadata": {},
+      "export_paths": {
+        "summary_json": "outputs\\run_20260728_012151\\xauusd__15m\\xauusd__15m_summary.json",
+        "corpus_json": "outputs\\run_20260728_012151\\xauusd__15m\\xauusd__15m_corpus.json",
+        "rejected_json": "outputs\\run_20260728_012151\\xauusd__15m\\xauusd__15m_rejected.json",
+        "reports_json": "outputs\\run_20260728_012151\\xauusd__15m\\xauusd__15m_reports.json",
+        "corpus_csv": "outputs\\run_20260728_012151\\xauusd__15m\\xauusd__15m_corpus.csv",
+        "corpus_parquet": "outputs\\run_20260728_012151\\xauusd__15m\\xauusd__15m_corpus.parquet",
+        "archive": "outputs\\run_20260728_012151\\xauusd__15m\\xauusd__15m.zip"
+      },
+      "started_at": "2026-07-28T01:21:51.152021+00:00",
+      "finished_at": "2026-07-28T01:22:11.097504+00:00"
+    }
+  ],
+  "errors": [],
+  "started_at": "2026-07-28T01:21:51.151998+00:00",
+  "finished_at": "2026-07-28T01:22:11.097585+00:00",
+  "export_paths": {},
+  "metadata": {},
+  "summary": {
+    "run_id": "run_20260728_012151",
+    "pair_count": 1,
+    "success_count": 1,
+    "failure_count": 0,
+    "total_einher_count": 1,
+    "errors": [],
+    "started_at": "2026-07-28T01:21:51.151998+00:00",
+    "finished_at": "2026-07-28T01:22:11.097585+00:00"
+  }
+}
