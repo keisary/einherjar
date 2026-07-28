@@ -1,0 +1,38 @@
+{
+  "name": "XOM__15m",
+  "created_at": "2026-07-28T01:59:29.867632+00:00",
+  "entries": [],
+  "rejected": [],
+  "summary": {
+    "entry_count": 0,
+    "selected_count": 0,
+    "total_capital": 0.0,
+    "total_weight": 0.0,
+    "total_pnl": 0.0,
+    "average_score": 0.0,
+    "best_score": 0.0,
+    "best_subject_fingerprint": null,
+    "average_win_rate": 0.0,
+    "average_profit_factor": 0.0,
+    "average_expectancy": 0.0,
+    "average_drawdown": 0.0,
+    "healthy_count": 0,
+    "unhealthy_count": 0,
+    "unique_family_count": 0,
+    "unique_profile_count": 0,
+    "family_counts": {},
+    "profile_counts": {},
+    "min_weight": 0.0,
+    "max_weight": 0.0,
+    "mean_weight": 0.0,
+    "min_capital": 0.0,
+    "max_capital": 0.0,
+    "mean_capital": 0.0,
+    "metadata": {
+      "run_id": "run_20260728_015927"
+    }
+  },
+  "metadata": {
+    "run_id": "run_20260728_015927"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "target": {
+    "asset": "TSLA",
+    "timeframe": "15m",
+    "metadata": {
+      "run_id": "run_20260728_015927"
+    },
+    "key": "TSLA@15m"
+  },
+  "index": 1,
+  "state": {
+    "current_phase": "terminal",
+    "success": true,
+    "error": null,
+    "started_at": "2026-07-28T01:59:28.249299+00:00",
+    "finished_at": "2026-07-28T01:59:29.054296+00:00",
+    "phases": {
+      "initialization": {
+        "status": "success",
+        "started_at": "2026-07-28T01:59:28.249309+00:00",
+        "finished_at": "2026-07-28T01:59:28.249312+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "dataset": {
+        "status": "success",
+        "started_at": "2026-07-28T01:59:28.254364+00:00",
+        "finished_at": "2026-07-28T01:59:28.254399+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "contract": {
+        "status": "success",
+        "started_at": "2026-07-28T01:59:28.254400+00:00",
+        "finished_at": "2026-07-28T01:59:28.254401+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "discovery": {
+        "status": "success",
+        "started_at": "2026-07-28T01:59:28.254402+00:00",
+        "finished_at": "2026-07-28T01:59:28.750056+00:00",
+        "error": null,
+        "metadata": {
+          "candidates": 20
+        }
+      },
+      "validation": {
+        "status": "success",
+        "started_at": "2026-07-28T01:59:28.750059+00:00",
+        "finished_at": "2026-07-28T01:59:29.053730+00:00",
+        "error": null,
+        "metadata": {
+          "validated": 0,
+          "rejected": 20
+        }
+      },
+      "execution": {
+        "status": "success",
+        "started_at": "2026-07-28T01:59:29.053734+00:00",
+        "finished_at": "2026-07-28T01:59:29.053756+00:00",
+        "error": null,
+        "metadata": {
+          "results": 0
+        }
+      },
+      "portfolio": {
+        "status": "success",
+        "started_at": "2026-07-28T01:59:29.053758+00:00",
+        "finished_at": "2026-07-28T01:59:29.053858+00:00",
+        "error": null,
+        "metadata": {
+          "einhers": 0,
+          "selected": 0
+        }
+      },
+      "memory": {
+        "status": "success",
+        "started_at": "2026-07-28T01:59:29.053860+00:00",
+        "finished_at": "2026-07-28T01:59:29.054281+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "knowledge": {
+        "status": "success",
+        "started_at": "2026-07-28T01:59:29.054282+00:00",
+        "finished_at": "2026-07-28T01:59:29.054295+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "export": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      },
+      "terminal": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      }
+    }
+  },
+  "success": true,
+  "errors": [],
+  "einher_count": 0,
+  "execution_count": 0,
+  "validated_count": 0,
+  "rejected_count": 20,
+  "started_at": "2026-07-28T01:59:28.249299+00:00",
+  "finished_at": "2026-07-28T01:59:29.054296+00:00",
+  "metadata": {
+    "asset": "TSLA",
+    "timeframe": "15m",
+    "run_id": "run_20260728_015927"
+  }
+}

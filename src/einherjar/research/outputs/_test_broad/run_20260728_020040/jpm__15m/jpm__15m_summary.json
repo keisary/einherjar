@@ -1,0 +1,120 @@
+{
+  "target": {
+    "asset": "JPM",
+    "timeframe": "15m",
+    "metadata": {
+      "run_id": "run_20260728_020040"
+    },
+    "key": "JPM@15m"
+  },
+  "index": 5,
+  "state": {
+    "current_phase": "terminal",
+    "success": true,
+    "error": null,
+    "started_at": "2026-07-28T02:01:58.102458+00:00",
+    "finished_at": "2026-07-28T02:01:58.856676+00:00",
+    "phases": {
+      "initialization": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:58.102465+00:00",
+        "finished_at": "2026-07-28T02:01:58.102467+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "dataset": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:58.108666+00:00",
+        "finished_at": "2026-07-28T02:01:58.108687+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "contract": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:58.108688+00:00",
+        "finished_at": "2026-07-28T02:01:58.108689+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "discovery": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:58.108689+00:00",
+        "finished_at": "2026-07-28T02:01:58.632391+00:00",
+        "error": null,
+        "metadata": {
+          "candidates": 20
+        }
+      },
+      "validation": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:58.632395+00:00",
+        "finished_at": "2026-07-28T02:01:58.856137+00:00",
+        "error": null,
+        "metadata": {
+          "validated": 0,
+          "rejected": 20
+        }
+      },
+      "execution": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:58.856140+00:00",
+        "finished_at": "2026-07-28T02:01:58.856160+00:00",
+        "error": null,
+        "metadata": {
+          "results": 0
+        }
+      },
+      "portfolio": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:58.856161+00:00",
+        "finished_at": "2026-07-28T02:01:58.856247+00:00",
+        "error": null,
+        "metadata": {
+          "einhers": 0,
+          "selected": 0
+        }
+      },
+      "memory": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:58.856249+00:00",
+        "finished_at": "2026-07-28T02:01:58.856662+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "knowledge": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:58.856663+00:00",
+        "finished_at": "2026-07-28T02:01:58.856675+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "export": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      },
+      "terminal": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      }
+    }
+  },
+  "success": true,
+  "errors": [],
+  "einher_count": 0,
+  "execution_count": 0,
+  "validated_count": 0,
+  "rejected_count": 20,
+  "started_at": "2026-07-28T02:01:58.102458+00:00",
+  "finished_at": "2026-07-28T02:01:58.856676+00:00",
+  "metadata": {
+    "asset": "JPM",
+    "timeframe": "15m",
+    "run_id": "run_20260728_020040"
+  }
+}

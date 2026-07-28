@@ -1,0 +1,120 @@
+{
+  "target": {
+    "asset": "EURUSD",
+    "timeframe": "15m",
+    "metadata": {
+      "run_id": "run_20260728_020040"
+    },
+    "key": "EURUSD@15m"
+  },
+  "index": 1,
+  "state": {
+    "current_phase": "terminal",
+    "success": true,
+    "error": null,
+    "started_at": "2026-07-28T02:00:59.395131+00:00",
+    "finished_at": "2026-07-28T02:01:38.890319+00:00",
+    "phases": {
+      "initialization": {
+        "status": "success",
+        "started_at": "2026-07-28T02:00:59.395139+00:00",
+        "finished_at": "2026-07-28T02:00:59.395141+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "dataset": {
+        "status": "success",
+        "started_at": "2026-07-28T02:00:59.400899+00:00",
+        "finished_at": "2026-07-28T02:00:59.400937+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "contract": {
+        "status": "success",
+        "started_at": "2026-07-28T02:00:59.400938+00:00",
+        "finished_at": "2026-07-28T02:00:59.400939+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "discovery": {
+        "status": "success",
+        "started_at": "2026-07-28T02:00:59.400940+00:00",
+        "finished_at": "2026-07-28T02:01:03.042400+00:00",
+        "error": null,
+        "metadata": {
+          "candidates": 20
+        }
+      },
+      "validation": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:03.042402+00:00",
+        "finished_at": "2026-07-28T02:01:04.510475+00:00",
+        "error": null,
+        "metadata": {
+          "validated": 2,
+          "rejected": 18
+        }
+      },
+      "execution": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:04.510479+00:00",
+        "finished_at": "2026-07-28T02:01:24.873316+00:00",
+        "error": null,
+        "metadata": {
+          "results": 2
+        }
+      },
+      "portfolio": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:24.873320+00:00",
+        "finished_at": "2026-07-28T02:01:25.993819+00:00",
+        "error": null,
+        "metadata": {
+          "einhers": 2,
+          "selected": 0
+        }
+      },
+      "memory": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:25.993822+00:00",
+        "finished_at": "2026-07-28T02:01:27.488571+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "knowledge": {
+        "status": "success",
+        "started_at": "2026-07-28T02:01:27.488576+00:00",
+        "finished_at": "2026-07-28T02:01:38.890316+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "export": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      },
+      "terminal": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      }
+    }
+  },
+  "success": true,
+  "errors": [],
+  "einher_count": 2,
+  "execution_count": 2,
+  "validated_count": 2,
+  "rejected_count": 18,
+  "started_at": "2026-07-28T02:00:59.395131+00:00",
+  "finished_at": "2026-07-28T02:01:38.890319+00:00",
+  "metadata": {
+    "asset": "EURUSD",
+    "timeframe": "15m",
+    "run_id": "run_20260728_020040"
+  }
+}

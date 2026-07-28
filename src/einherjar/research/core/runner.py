@@ -3,20 +3,31 @@
 Core Runner
 ==========================================================
 
-Le runner est le bootstrap du pipeline. Il NE CONTIENT
-AUCUNE logique métier.
+Le runner est le **point d'entrée Discovery**. Il est le
+SEUL à connaître la liste des paires, le run_id, le
+chemin de sortie, et la politique de poursuite sur
+erreur. L'Engine (per-pair) ne sait rien de tout ça.
 
 Responsabilités :
-- construire la liste de cibles asset / timeframe,
-- instancier un core.Engine,
-- itérer sur les cibles via Engine.run_pair(),
-- agréger les DiscoveryPairResult dans un DiscoveryRunResult,
-- exporter le résumé global,
-- respecter la politique de poursuite sur erreur.
 
-Toute l'orchestration intra-paire est déléguée à
-core.Engine. Toute la logique algorithmique vit dans les
-packages discovery/, validation/, execution/, portfolio/.
+1. Construire la liste résolue de cibles
+   (asset / timeframe).
+2. Générer le ``run_id`` (timestamp UTC).
+3. Instancier un ``core.Engine`` (pure per-pair).
+4. Instancier un ``core.exporter.PairExporter``
+   (run-level, gestion de l'écriture disque).
+5. Pour chaque cible :
+   - appeler ``engine.run_pair(target)`` ;
+   - si l'export est activé, appeler
+     ``exporter.export_pair(result)`` ;
+   - respecter la politique ``continue_on_error``.
+6. Agréger les ``DiscoveryPairResult`` dans un
+   ``DiscoveryRunResult``.
+7. Écrire le résumé global du run (run_summary.json).
+
+Le runner ne contient AUCUNE logique métier d'algo. Il
+délègue tout : Engine pour la pipeline per-pair,
+PairExporter pour la persistance.
 """
 
 from __future__ import annotations
@@ -33,6 +44,7 @@ from typing import Sequence
 
 from .engine import Engine
 from .exceptions import DiscoveryError
+from .exporter import PairExporter
 from .types import DiscoveryPairResult
 from .types import DiscoveryTarget
 
@@ -135,10 +147,10 @@ class DiscoverySettings:
     run_name: str = ""
     max_pairs: int = 0
 
+    export_pair_results: bool = True
     export_run_summary: bool = True
+    export_full_reports: bool = False
     continue_on_error: bool = True
-    build_knowledge: bool = True
-    build_memory: bool = True
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -165,20 +177,20 @@ class DiscoverySettings:
             self, "max_pairs", max(0, _coerce_int(self.max_pairs, 0)),
         )
         object.__setattr__(
+            self, "export_pair_results",
+            _coerce_bool(self.export_pair_results, True),
+        )
+        object.__setattr__(
             self, "export_run_summary",
             _coerce_bool(self.export_run_summary, True),
         )
         object.__setattr__(
+            self, "export_full_reports",
+            _coerce_bool(self.export_full_reports, False),
+        )
+        object.__setattr__(
             self, "continue_on_error",
             _coerce_bool(self.continue_on_error, True),
-        )
-        object.__setattr__(
-            self, "build_knowledge",
-            _coerce_bool(self.build_knowledge, True),
-        )
-        object.__setattr__(
-            self, "build_memory",
-            _coerce_bool(self.build_memory, True),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -189,10 +201,10 @@ class DiscoverySettings:
             "output_root": str(self.output_root),
             "run_name": self.run_name,
             "max_pairs": self.max_pairs,
+            "export_pair_results": self.export_pair_results,
             "export_run_summary": self.export_run_summary,
+            "export_full_reports": self.export_full_reports,
             "continue_on_error": self.continue_on_error,
-            "build_knowledge": self.build_knowledge,
-            "build_memory": self.build_memory,
         }
 
 
@@ -343,6 +355,14 @@ class DiscoveryOrchestrator:
     ) -> DiscoveryRunResult:
         """
         Lance le run sur la liste résolue de cibles.
+
+        Pipeline :
+        1. Résout les cibles.
+        2. Crée le run_id (timestamp UTC).
+        3. Instancie un Engine et un PairExporter.
+        4. Pour chaque cible : engine.run_pair puis
+           exporter.export_pair.
+        5. Agrège et exporte le résumé global.
         """
 
         targets = self.resolve_targets(
@@ -356,15 +376,11 @@ class DiscoveryOrchestrator:
 
         self._run_id = _utc_now().strftime("run_%Y%m%d_%H%M%S")
 
-        engine = Engine(
-            self._config,
-            run_id=self._run_id,
+        engine = Engine(self._config)
+        exporter = PairExporter(
             output_root=self._settings.output_root,
-            run_name=self._settings.run_name,
-            continue_on_error=self._settings.continue_on_error,
-            export_run_summary=self._settings.export_run_summary,
-            build_knowledge=self._settings.build_knowledge,
-            build_memory=self._settings.build_memory,
+            run_id=self._run_id,
+            export_full_reports=self._settings.export_full_reports,
         )
 
         started_at = _utc_now()
@@ -375,16 +391,48 @@ class DiscoveryOrchestrator:
             if self._settings.max_pairs and index >= self._settings.max_pairs:
                 break
 
+            # L'Engine reçoit le run_id via target.metadata
+            # pour les champs informatifs (memory, knowledge,
+            # portfolio metadata) ; mais le run_id n'est PAS
+            # utilisé pour décider quoi que ce soit côté Engine.
+            target_with_meta = DiscoveryTarget(
+                asset=target.asset,
+                timeframe=target.timeframe,
+                metadata={
+                    **dict(getattr(target, "metadata", {}) or {}),
+                    "run_id": self._run_id,
+                },
+            )
+
             try:
                 result = engine.run_pair(
-                    target, index=index, metadata=metadata,
+                    target_with_meta, index=index, metadata=metadata,
                 )
-                pair_results.append(result)
             except DiscoveryError as exc:
                 if not self._settings.continue_on_error:
                     raise
                 errors.append(f"{target.key}: {exc!r}")
                 logger.error("Pair %s failed: %r", target.key, exc)
+                # On construit un failure result minimal pour
+                # que l'exporter puisse quand même écrire un
+                # summary de l'échec.
+                result = self._make_minimal_failure_result(
+                    target_with_meta, index, exc, metadata,
+                )
+
+            # Export best-effort : l'exporter écrit au moins
+            # un summary même en cas d'échec de pipeline.
+            if self._settings.export_pair_results:
+                try:
+                    export_paths = exporter.export_pair(result)
+                    result.export_paths.update(export_paths)
+                except Exception as exc:
+                    logger.error(
+                        "[%s] export failed: %r", target.key, exc,
+                    )
+                    errors.append(f"{target.key} export: {exc!r}")
+
+            pair_results.append(result)
 
         run_result = DiscoveryRunResult(
             run_id=self._run_id,
@@ -401,6 +449,50 @@ class DiscoveryOrchestrator:
             run_result.export_paths.update(export_paths)
 
         return run_result
+
+    def _make_minimal_failure_result(
+        self,
+        target: DiscoveryTarget,
+        index: int,
+        exc: BaseException,
+        metadata: Mapping[str, Any] | None,
+    ) -> DiscoveryPairResult:
+        """
+        Construit un DiscoveryPairResult minimal pour qu'un
+        échec d'engine.run_pair soit quand même exportable
+        (summary traçant l'erreur).
+        """
+
+        from .state import EngineState
+
+        state = EngineState()
+        state.start()
+        state.fail(repr(exc))
+        state.finish(success=False)
+
+        return DiscoveryPairResult(
+            target=target,
+            index=index,
+            state=state,
+            dataset=None,
+            candidates=(),
+            validated=(),
+            rejected=(),
+            execution_results=(),
+            execution_report=None,
+            einhers=(),
+            selection=None,
+            allocation=None,
+            portfolio_report=None,
+            memory_snapshot={},
+            knowledge_snapshot={},
+            export_paths={},
+            metadata=dict(metadata or {}),
+            started_at=state.started_at or _utc_now(),
+            finished_at=state.finished_at or _utc_now(),
+            success=False,
+            errors=(repr(exc),),
+        )
 
     # ==================================================
     # TARGET RESOLUTION

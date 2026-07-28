@@ -1,0 +1,120 @@
+{
+  "target": {
+    "asset": "XOM",
+    "timeframe": "15m",
+    "metadata": {
+      "run_id": "run_20260728_015048"
+    },
+    "key": "XOM@15m"
+  },
+  "index": 2,
+  "state": {
+    "current_phase": "terminal",
+    "success": false,
+    "error": "no einhers produced",
+    "started_at": "2026-07-28T01:50:49.905590+00:00",
+    "finished_at": "2026-07-28T01:50:50.631121+00:00",
+    "phases": {
+      "initialization": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:49.905599+00:00",
+        "finished_at": "2026-07-28T01:50:49.905601+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "dataset": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:49.910807+00:00",
+        "finished_at": "2026-07-28T01:50:49.910836+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "contract": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:49.910838+00:00",
+        "finished_at": "2026-07-28T01:50:49.910838+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "discovery": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:49.910839+00:00",
+        "finished_at": "2026-07-28T01:50:50.409466+00:00",
+        "error": null,
+        "metadata": {
+          "candidates": 20
+        }
+      },
+      "validation": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:50.409471+00:00",
+        "finished_at": "2026-07-28T01:50:50.630646+00:00",
+        "error": null,
+        "metadata": {
+          "validated": 0,
+          "rejected": 20
+        }
+      },
+      "execution": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:50.630649+00:00",
+        "finished_at": "2026-07-28T01:50:50.630667+00:00",
+        "error": null,
+        "metadata": {
+          "results": 0
+        }
+      },
+      "portfolio": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:50.630669+00:00",
+        "finished_at": "2026-07-28T01:50:50.630747+00:00",
+        "error": null,
+        "metadata": {
+          "einhers": 0,
+          "selected": 0
+        }
+      },
+      "memory": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:50.630748+00:00",
+        "finished_at": "2026-07-28T01:50:50.631110+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "knowledge": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:50.631111+00:00",
+        "finished_at": "2026-07-28T01:50:50.631121+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "export": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      },
+      "terminal": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      }
+    }
+  },
+  "success": false,
+  "errors": [],
+  "einher_count": 0,
+  "execution_count": 0,
+  "validated_count": 0,
+  "rejected_count": 20,
+  "started_at": "2026-07-28T01:50:49.905590+00:00",
+  "finished_at": "2026-07-28T01:50:50.631121+00:00",
+  "metadata": {
+    "asset": "XOM",
+    "timeframe": "15m",
+    "run_id": "run_20260728_015048"
+  }
+}

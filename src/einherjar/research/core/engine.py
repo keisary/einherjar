@@ -3,21 +3,38 @@
 Engine
 ==========================================================
 
-Orchestrateur principal du pipeline de découverte.
+Orchestrateur **per-pair** du pipeline de découverte.
 
-L'Engine est le SEUL responsable de la séquence des phases
-pour une paire asset / timeframe. Pour chaque paire :
+L'Engine est responsable de la séquence des phases pour
+**une** paire asset / timeframe reçue en argument :
 
     1. charger le dataset
     2. vérifier le contrat de données
     3. lancer Discovery
     4. lancer Validation
     5. lancer Execution
-    6. construire le Portfolio
-    7. mettre à jour Memory
-    8. mettre à jour Knowledge
-    9. exporter les résultats
+    6. construire les Einhers
+    7. construire le Portfolio
+    8. mettre à jour Memory (par-paire)
+    9. mettre à jour Knowledge (par-paire)
    10. produire le DiscoveryPairResult
+
+L'Engine NE CONNAÎT PAS :
+
+- le ``run_id`` (responsabilité du runner) ;
+- le ``output_root`` (responsabilité de l'exporter) ;
+- la liste des autres paires (responsabilité du runner).
+
+L'Engine agit comme une boîte noire qui reçoit
+``(target, dataset)`` et renvoie un ``DiscoveryPairResult``.
+C'est le point d'entrée Discovery (typiquement
+``core.runner.DiscoveryOrchestrator``) qui :
+
+- résout la liste des paires ;
+- crée un Engine par run ;
+- appelle ``engine.run_pair(target)`` pour chaque paire ;
+- délègue l'export à ``core.exporter.PairExporter`` ;
+- remonte les erreurs graves.
 
 Chaque étape est strictement obligatoire. La violation d'un
 contrat entre phases lève une exception explicite ; aucun
@@ -76,7 +93,6 @@ from .context import EngineContext
 from .exceptions import DatasetContractError
 from .exceptions import DiscoveryContractError
 from .exceptions import ExecutionContractError
-from .exceptions import ExportContractError
 from .exceptions import PhaseContractError
 from .state import EngineState
 from .types import DiscoveryPairResult
@@ -91,6 +107,26 @@ logger = logging.getLogger("einherjar.engine")
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _read_run_id(context: EngineContext) -> str:
+    """
+    Lit le run_id depuis les métadonnées du target.
+
+    L'Engine ne possède pas de run_id. Si le caller en
+    a placé un dans ``target.metadata["run_id"]``, on le
+    récupère ; sinon on renvoie "" — c'est juste
+    informationnel (les fichiers sont gérés par le
+    PairExporter, run-level).
+    """
+
+    target = getattr(context, "target", None)
+    if target is None:
+        return ""
+    md = getattr(target, "metadata", None)
+    if not isinstance(md, dict):
+        return ""
+    return str(md.get("run_id", "") or "").strip()
 
 
 # ==========================================================
@@ -113,35 +149,8 @@ class Engine:
     # INITIALIZATION
     # ==================================================
 
-    def __init__(
-        self,
-        config: Config,
-        *,
-        run_id: str = "",
-        output_root: str | Path = "outputs",
-        run_name: str = "",
-        continue_on_error: bool = True,
-        export_pair_results: bool = True,
-        export_run_summary: bool = True,
-        export_full_reports: bool = False,
-        build_knowledge: bool = True,
-        build_memory: bool = True,
-    ) -> None:
-
+    def __init__(self, config: Config) -> None:
         self._config = config
-        self._run_id = (
-            run_id.strip()
-            if run_id
-            else _utc_now().strftime("run_%Y%m%d_%H%M%S")
-        )
-        self._output_root = Path(output_root)
-        self._run_name = run_name
-        self._continue_on_error = bool(continue_on_error)
-        self._export_pair_results = bool(export_pair_results)
-        self._export_run_summary = bool(export_run_summary)
-        self._export_full_reports = bool(export_full_reports)
-        self._build_knowledge = bool(build_knowledge)
-        self._build_memory = bool(build_memory)
 
     # ==================================================
     # PROPERTIES
@@ -150,38 +159,6 @@ class Engine:
     @property
     def config(self) -> Config:
         return self._config
-
-    @property
-    def run_id(self) -> str:
-        return self._run_id
-
-    @property
-    def output_root(self) -> Path:
-        return self._output_root
-
-    @property
-    def continue_on_error(self) -> bool:
-        return self._continue_on_error
-
-    @property
-    def export_pair_results(self) -> bool:
-        return self._export_pair_results
-
-    @property
-    def export_run_summary(self) -> bool:
-        return self._export_run_summary
-
-    @property
-    def export_full_reports(self) -> bool:
-        return self._export_full_reports
-
-    @property
-    def build_knowledge(self) -> bool:
-        return self._build_knowledge
-
-    @property
-    def build_memory(self) -> bool:
-        return self._build_memory
 
     # ==================================================
     # PUBLIC ENTRY POINTS
@@ -196,15 +173,22 @@ class Engine:
         metadata: Mapping[str, Any] | None = None,
     ) -> DiscoveryPairResult:
         """
-        Exécute le pipeline complet pour une paire.
+        Exécute le pipeline per-pair pour une cible.
 
-        Cette méthode est le seul point d'entrée de
-        l'orchestration par paire. Elle :
+        Cette méthode est le SEUL point d'entrée de
+        l'orchestration per-pair. Elle :
 
         1. construit un EngineContext par paire,
-        2. exécute chaque phase en séquence,
+        2. exécute chaque phase en séquence (dataset,
+           discovery, validation, execution, einhers,
+           portfolio, memory, knowledge),
         3. met à jour l'EngineState à chaque transition,
         4. produit un DiscoveryPairResult.
+
+        L'Engine NE FAIT PAS D'EXPORT. C'est le
+        ``PairExporter`` (run-level) qui écrit les
+        fichiers à partir du ``DiscoveryPairResult``
+        retourné.
 
         Toute violation de contrat interrompt l'exécution.
         """
@@ -223,8 +207,9 @@ class Engine:
             )
         except Exception as exc:
             state.fail(repr(exc))
-            if not self._continue_on_error:
-                raise
+            logger.error(
+                "[%s] context build failed: %r", pair_target.key, exc,
+            )
             return self._make_failure_result(
                 pair_target, index, state, metadata, exc,
             )
@@ -287,6 +272,12 @@ class Engine:
         )
 
         # 6) Einhers + Portfolio
+        # NOTE : _build_portfolio retourne des objets VIDES
+        # (pas une exception) si pas d'execution_results.
+        # On continue toujours le pipeline pour qu'un
+        # DiscoveryPairResult soit produit et que l'export
+        # (par le PairExporter) puisse écrire au moins
+        # un summary traçant l'absence d'einhers.
         state.begin_phase("portfolio")
         try:
             einhers = self._build_einhers(execution_results)
@@ -299,7 +290,16 @@ class Engine:
             return self._make_failure_result(
                 pair_target, index, state, metadata, exc,
             )
-        state.complete_phase("portfolio")
+        state.complete_phase(
+            "portfolio",
+            metadata={
+                "einhers": len(einhers),
+                "selected": (
+                    selection.selected_count
+                    if selection is not None else 0
+                ),
+            },
+        )
 
         # 7) Memory
         state.begin_phase("memory")
@@ -329,37 +329,16 @@ class Engine:
             )
         state.complete_phase("knowledge")
 
-        # 9) Export
-        export_paths: dict[str, str] = {}
-        if self._export_pair_results:
-            state.begin_phase("export")
-            try:
-                export_paths = self._export_pair(
-                    context,
-                    einhers=einhers,
-                    execution_results=execution_results,
-                    execution_report=execution_report,
-                    validation_output=validated,
-                    selection=selection,
-                    allocation=allocation,
-                    portfolio_report=portfolio_report,
-                )
-            except Exception as exc:
-                state.fail_phase("export", repr(exc))
-                logger.error("[%s] export phase failed: %r", pair_target.key, exc)
-                return self._make_failure_result(
-                    pair_target, index, state, metadata, exc,
-                )
-            state.complete_phase("export")
-
-        # 10) Résultat final
-        if not einhers:
-            state.success = False
-            state.error = "no einhers produced"
-            state.finish(success=False)
-        else:
-            state.success = True
-            state.finish(success=True)
+        # 9) Résultat final
+        # NOTE : ``state.success`` reflète ici la capacité du
+        # pipeline à s'exécuter jusqu'au bout, PAS la présence
+        # d'einhers. Un pipeline qui produit 0 einhers (par
+        # exemple parce que la validation rejette tout) est
+        # un succès : la pipeline a tourné sans erreur. Le
+        # nombre d'einhers est dans ``state.einher_count`` /
+        # ``result.einher_count``.
+        state.success = True
+        state.finish(success=True)
 
         return DiscoveryPairResult(
             target=pair_target,
@@ -377,7 +356,7 @@ class Engine:
             portfolio_report=portfolio_report,
             memory_snapshot=dict(memory_snapshot),
             knowledge_snapshot=dict(knowledge_snapshot),
-            export_paths=dict(export_paths),
+            export_paths={},
             metadata=dict(metadata or {}),
             started_at=state.started_at or _utc_now(),
             finished_at=state.finished_at or _utc_now(),
@@ -856,15 +835,19 @@ class Engine:
         Lance la phase Portfolio.
 
         Contrat de sortie :
-        - (PortfolioSelection, PortfolioAllocation, PortfolioReport)
-        - lève PortfolioContractError si la phase ne peut pas
-          produire un rapport.
+        - ``(PortfolioSelection, PortfolioAllocation, PortfolioReport)``
+        - si ``execution_results`` est vide, renvoie des
+          objets **vides** (pas une exception) ; le pipeline
+          continue et un DiscoveryPairResult avec
+          ``einhers=()`` est produit. C'est le PairExporter
+          qui écrira au moins un summary traçant l'absence
+          d'einhers.
+        - lève ``PhaseContractError`` uniquement si une étape
+          du portfolio retourne un objet du mauvais type.
         """
 
         if not execution_results:
-            raise PhaseContractError(
-                "Cannot build portfolio: no execution results."
-            )
+            return self._empty_portfolio(context)
 
         selector = PortfolioSelector(config=self._config)
         selection = selector.select(
@@ -872,7 +855,7 @@ class Engine:
             metadata={
                 "asset": context.target.asset,
                 "timeframe": context.target.timeframe,
-                "run_id": self._run_id,
+                "run_id": _read_run_id(context),
             },
         )
         if not isinstance(selection, PortfolioSelection):
@@ -956,7 +939,7 @@ class Engine:
             metadata={
                 "asset": context.target.asset,
                 "timeframe": context.target.timeframe,
-                "run_id": self._run_id,
+                "run_id": _read_run_id(context),
             },
         )
         if not isinstance(portfolio_report, PortfolioReport):
@@ -967,6 +950,87 @@ class Engine:
             )
 
         return selection, allocation, portfolio_report
+
+    @staticmethod
+    def _empty_portfolio(
+        context: EngineContext,
+    ) -> tuple[PortfolioSelection, PortfolioAllocation, PortfolioReport]:
+        """
+        Construit un portfolio strictement vide (utilisé
+        quand ``execution_results`` est vide).
+
+        Renvoie trois objets qui seérialisent en dict
+        minimal : pas de crash, pas d'exception, le
+        pipeline continue.
+        """
+
+        from portfolio.allocator import PortfolioAllocation
+        from portfolio.allocator import PortfolioAllocatorSettings
+        from portfolio.capital import CapitalPlan
+        from portfolio.capital import CapitalSettings
+        from portfolio.portfolio_report import PortfolioReport
+        from portfolio.selector import PortfolioSelection
+        from portfolio.selector import PortfolioSelectorSettings
+
+        run_id = _read_run_id(context)
+        slug = context.target.slug
+
+        empty_selection = PortfolioSelection(
+            selected=(),
+            rejected=(),
+            settings=PortfolioSelectorSettings(),
+            metadata={
+                "asset": context.target.asset,
+                "timeframe": context.target.timeframe,
+                "run_id": run_id,
+                "empty": True,
+            },
+        )
+
+        capital_settings = CapitalSettings(total_capital=0.0)
+        empty_capital_plan = CapitalPlan(
+            total_capital=0.0,
+            reserve_capital=0.0,
+            investable_capital=0.0,
+            entries=(),
+            settings=capital_settings,
+            metadata={"empty": True},
+        )
+        empty_allocation = PortfolioAllocation(
+            entries=(),
+            capital_plan=empty_capital_plan,
+            risk=None,
+            diversification=None,
+            correlation=None,
+            score=0.0,
+            metadata={
+                "asset": context.target.asset,
+                "timeframe": context.target.timeframe,
+                "run_id": run_id,
+                "empty": True,
+            },
+        )
+
+        empty_report = PortfolioReport(
+            name=slug,
+            entries=[],
+            rejected=[],
+            allocation=empty_allocation,
+            selection=empty_selection,
+            risk=None,
+            diversification=None,
+            correlation=None,
+            capital_plan=empty_capital_plan,
+            metadata={
+                "asset": context.target.asset,
+                "timeframe": context.target.timeframe,
+                "run_id": run_id,
+                "empty": True,
+            },
+            selected_count=0,
+            rejected_count=0,
+        )
+        return empty_selection, empty_allocation, empty_report
 
     # ==================================================
     # PHASE 7 : MEMORY
@@ -981,15 +1045,12 @@ class Engine:
         portfolio_report: PortfolioReport,
     ) -> dict[str, Any]:
         """
-        Met à jour la mémoire du moteur.
+        Met à jour la mémoire du moteur (per-pair).
 
-        Si la mémoire est désactivée, renvoie {}.
-
-        Toute erreur de la phase est propagée.
+        Toute erreur de la phase est propagée. L'Engine
+        ne porte pas de run_id — il lit celui du target
+        metadata si le caller l'y a placé.
         """
-
-        if not self._build_memory:
-            return {}
 
         from memory.corpus_history import CorpusHistory
         from memory.explored_regions import ExploredRegions
@@ -1001,10 +1062,11 @@ class Engine:
         from memory.successful_regions import SuccessfulRegions
 
         target = context.target
+        run_id = _read_run_id(context)
         run_meta = {
             "asset": target.asset,
             "timeframe": target.timeframe,
-            "run_id": self._run_id,
+            "run_id": run_id,
         }
 
         # 1) search_history
@@ -1017,7 +1079,7 @@ class Engine:
             features=(),
             families=(target.asset,),
             regions=(target.timeframe,),
-            parameters={"run_id": self._run_id},
+            parameters={"run_id": run_id},
             result_count=len(einhers),
             accepted_count=len(einhers),
             rejected_count=0,
@@ -1040,7 +1102,7 @@ class Engine:
             size=len(einhers),
             attempts=1,
             score=float(getattr(portfolio_report, "average_score", 0.0) or 0.0),
-            metadata={"run_id": self._run_id},
+            metadata={"run_id": run_id},
         )
 
         # 3) successful_regions
@@ -1054,7 +1116,7 @@ class Engine:
             success_count=1 if einhers else 0,
             score=float(getattr(portfolio_report, "average_score", 0.0) or 0.0),
             yield_rate=1.0 if einhers else 0.0,
-            metadata={"run_id": self._run_id},
+            metadata={"run_id": run_id},
         )
 
         # 4) failed_regions
@@ -1068,7 +1130,7 @@ class Engine:
             failure_count=0 if einhers else 1,
             score=float(getattr(portfolio_report, "average_score", 0.0) or 0.0),
             reason="" if einhers else "no_result",
-            metadata={"run_id": self._run_id},
+            metadata={"run_id": run_id},
         )
 
         # 5) feature_history
@@ -1080,7 +1142,7 @@ class Engine:
                 phase="execution",
                 success=True,
                 score=float(self._score(einher)),
-                metadata={"run_id": self._run_id},
+                metadata={"run_id": run_id},
             )
 
         # 6) family_history
@@ -1090,7 +1152,7 @@ class Engine:
                 self._family_key(einher),
                 success=True,
                 score=float(self._score(einher)),
-                metadata={"run_id": self._run_id},
+                metadata={"run_id": run_id},
             )
 
         # 7) corpus_history
@@ -1105,7 +1167,7 @@ class Engine:
             total_pnl=0.0,
             fingerprints=tuple(e.fingerprint for e in einhers),
             summary={},
-            metadata={"run_id": self._run_id},
+            metadata={"run_id": run_id},
         )
 
         # 8) learning — synthèse à partir de TOUTES les mémoires
@@ -1163,13 +1225,10 @@ class Engine:
         portfolio_report: PortfolioReport,
     ) -> dict[str, Any]:
         """
-        Met à jour la base de connaissance.
+        Met à jour la base de connaissance (per-pair).
 
-        Si la connaissance est désactivée, renvoie {}.
+        Si aucun Einher, renvoie un snapshot vide.
         """
-
-        if not self._build_knowledge:
-            return {}
 
         from knowledge.clustering import ClusterEngine
         from knowledge.fingerprints import FingerprintRegistry
@@ -1179,10 +1238,11 @@ class Engine:
         from knowledge.taxonomy import TaxonomyEngine
 
         target = context.target
+        run_id = _read_run_id(context)
         run_meta = {
             "asset": target.asset,
             "timeframe": target.timeframe,
-            "run_id": self._run_id,
+            "run_id": run_id,
         }
         snapshot: dict[str, Any] = {}
 
@@ -1225,188 +1285,6 @@ class Engine:
         snapshot["ontology"] = OntologyEngine().to_dict()
 
         return snapshot
-
-    # ==================================================
-    # PHASE 9 : EXPORT
-    # ==================================================
-
-    def _export_pair(
-        self,
-        context: EngineContext,
-        *,
-        einhers: Sequence[Einher],
-        execution_results: Sequence[ExecutionResult],
-        execution_report: ExecutionReport,
-        validation_output: Sequence[Any],
-        selection: Any,
-        allocation: Any,
-        portfolio_report: PortfolioReport,
-    ) -> dict[str, str]:
-        """
-        Exporte les résultats d'une paire sur disque.
-
-        Contrat : renvoie un dict {format: path}. Lève
-        ExportContractError si l'export ne peut pas être
-        produit.
-        """
-
-        from exporters.archive import ArchiveExporter
-        from exporters.corpus import CorpusBuilder
-        from exporters.csv import CSVExporter
-        from exporters.json import JSONExporter
-        from exporters.parquet import ParquetExporter
-        from exporters.rejected import RejectedBuilder
-        from exporters.reports import ReportBundleBuilder
-
-        pair_dir = self._output_root / self._run_id / context.target.slug
-        pair_dir.mkdir(parents=True, exist_ok=True)
-        stem = context.target.slug
-
-        run_meta = {
-            "asset": context.target.asset,
-            "timeframe": context.target.timeframe,
-            "run_id": self._run_id,
-        }
-
-        # 1) Build corpus / rejected / reports via builders
-        # NOTE : on utilise from_portfolio_selection (pas
-        # from_portfolio_report) pour que les Einhers rejetés
-        # par le selector (ex: PF < 1) soient inclus dans
-        # corpus.entries avec is_final=False, plutôt que perdus.
-        corpus = CorpusBuilder.from_portfolio_selection(
-            selection,
-            allocation=allocation,
-            include_rejected=True,
-            asset=context.target.asset,
-            timeframe=context.target.timeframe,
-            calibrated_on=context.target.metadata.get(
-                "calibrated_on", "",
-            ) if hasattr(context.target, "metadata") else "",
-            metadata={
-                "run_id": self._run_id,
-            },
-        )
-        rejected = RejectedBuilder.from_report(
-            portfolio_report,
-            metadata={"run_id": self._run_id},
-        )
-        bundle = ReportBundleBuilder.build(
-            validation=None,
-            execution=execution_report,
-            portfolio=portfolio_report,
-            metadata={"run_id": self._run_id},
-        )
-
-        # 2) Summary dict (what the JSON summary exporter will write)
-        summary = {
-            "target": context.target.to_dict(),
-            "index": context.state.current_phase,
-            "state": context.state.to_dict(),
-            "success": context.state.success,
-            "errors": [context.state.error] if context.state.error else [],
-            "einher_count": len(einhers),
-            "execution_count": len(execution_results),
-            "started_at": (
-                context.state.started_at or _utc_now()
-            ).isoformat(),
-            "finished_at": (
-                context.state.finished_at or _utc_now()
-            ).isoformat(),
-            "metadata": dict(run_meta),
-        }
-
-        json_exporter = JSONExporter()
-        csv_exporter = CSVExporter()
-        parquet_exporter = ParquetExporter()
-        archive_exporter = ArchiveExporter()
-
-        paths: dict[str, str] = {}
-
-        # JSON
-        try:
-            paths["summary_json"] = str(
-                json_exporter.export(summary, pair_dir / f"{stem}_summary.json")
-            )
-        except Exception as exc:
-            raise ExportContractError(
-                f"JSON summary export failed for {context.target.key}: {exc!r}"
-            ) from exc
-
-        try:
-            paths["corpus_json"] = str(
-                json_exporter.export_corpus(corpus, pair_dir / f"{stem}_corpus.json")
-            )
-        except Exception as exc:
-            raise ExportContractError(
-                f"JSON corpus export failed for {context.target.key}: {exc!r}"
-            ) from exc
-
-        try:
-            paths["rejected_json"] = str(
-                json_exporter.export_rejected(rejected, pair_dir / f"{stem}_rejected.json")
-            )
-        except Exception as exc:
-            raise ExportContractError(
-                f"JSON rejected export failed for {context.target.key}: {exc!r}"
-            ) from exc
-
-        # Reports : on exporte en mode summary_only par défaut
-        # pour éviter le dump de 1.4 GB (records, signal_mask, prices).
-        # Pour un dump complet, passer export_full_reports=True
-        # à l'Engine.
-        try:
-            paths["reports_json"] = str(
-                json_exporter.export_reports(
-                    bundle,
-                    pair_dir / f"{stem}_reports.json",
-                    summary_only=not self._export_full_reports,
-                )
-            )
-        except Exception as exc:
-            raise ExportContractError(
-                f"JSON reports export failed for {context.target.key}: {exc!r}"
-            ) from exc
-
-        # CSV
-        try:
-            paths["corpus_csv"] = str(
-                csv_exporter.export_corpus(corpus, pair_dir / f"{stem}_corpus.csv")
-            )
-        except Exception as exc:
-            raise ExportContractError(
-                f"CSV corpus export failed for {context.target.key}: {exc!r}"
-            ) from exc
-
-        # Parquet
-        try:
-            paths["corpus_parquet"] = str(
-                parquet_exporter.export_corpus(
-                    corpus, pair_dir / f"{stem}_corpus.parquet",
-                )
-            )
-        except Exception as exc:
-            raise ExportContractError(
-                f"Parquet corpus export failed for {context.target.key}: {exc!r}"
-            ) from exc
-
-        # Archive
-        try:
-            paths["archive"] = str(
-                archive_exporter.build(
-                    corpus=corpus,
-                    rejected=rejected,
-                    reports=bundle,
-                    path=pair_dir / f"{stem}.zip",
-                    stem=stem,
-                    metadata=run_meta,
-                )
-            )
-        except Exception as exc:
-            raise ExportContractError(
-                f"Archive export failed for {context.target.key}: {exc!r}"
-            ) from exc
-
-        return paths
 
     # ==================================================
     # HELPERS
@@ -1473,9 +1351,6 @@ class Engine:
         exc: BaseException,
     ) -> DiscoveryPairResult:
 
-        if not self._continue_on_error:
-            raise exc
-
         return DiscoveryPairResult(
             target=target,
             index=index,
@@ -1505,9 +1380,4 @@ class Engine:
     # ==================================================
 
     def __repr__(self) -> str:
-        return (
-            "Engine("
-            f"run_id='{self._run_id}', "
-            f"output_root='{self._output_root}'"
-            ")"
-        )
+        return "Engine()"

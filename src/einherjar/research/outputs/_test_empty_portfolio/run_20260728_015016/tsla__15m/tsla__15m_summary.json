@@ -1,0 +1,119 @@
+{
+  "target": {
+    "asset": "TSLA",
+    "timeframe": "15m",
+    "metadata": {
+      "run_id": "run_20260728_015016"
+    },
+    "key": "TSLA@15m"
+  },
+  "index": 1,
+  "state": {
+    "current_phase": "terminal",
+    "success": false,
+    "error": "TypeError(\"CapitalSettings.__init__() got an unexpected keyword argument 'investable_capital'\")",
+    "started_at": "2026-07-28T01:50:17.725885+00:00",
+    "finished_at": null,
+    "phases": {
+      "initialization": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:17.725892+00:00",
+        "finished_at": "2026-07-28T01:50:17.725893+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "dataset": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:17.731902+00:00",
+        "finished_at": "2026-07-28T01:50:17.731930+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "contract": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:17.731931+00:00",
+        "finished_at": "2026-07-28T01:50:17.731932+00:00",
+        "error": null,
+        "metadata": {}
+      },
+      "discovery": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:17.731932+00:00",
+        "finished_at": "2026-07-28T01:50:18.288189+00:00",
+        "error": null,
+        "metadata": {
+          "candidates": 20
+        }
+      },
+      "validation": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:18.288194+00:00",
+        "finished_at": "2026-07-28T01:50:18.568677+00:00",
+        "error": null,
+        "metadata": {
+          "validated": 0,
+          "rejected": 20
+        }
+      },
+      "execution": {
+        "status": "success",
+        "started_at": "2026-07-28T01:50:18.568707+00:00",
+        "finished_at": "2026-07-28T01:50:18.568744+00:00",
+        "error": null,
+        "metadata": {
+          "results": 0
+        }
+      },
+      "portfolio": {
+        "status": "failed",
+        "started_at": "2026-07-28T01:50:18.568745+00:00",
+        "finished_at": "2026-07-28T01:50:18.568838+00:00",
+        "error": "TypeError(\"CapitalSettings.__init__() got an unexpected keyword argument 'investable_capital'\")",
+        "metadata": {}
+      },
+      "memory": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      },
+      "knowledge": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      },
+      "export": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      },
+      "terminal": {
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "error": null,
+        "metadata": {}
+      }
+    }
+  },
+  "success": false,
+  "errors": [
+    "TypeError(\"CapitalSettings.__init__() got an unexpected keyword argument 'investable_capital'\")"
+  ],
+  "einher_count": 0,
+  "execution_count": 0,
+  "validated_count": 0,
+  "rejected_count": 0,
+  "started_at": "2026-07-28T01:50:17.725885+00:00",
+  "finished_at": "2026-07-28T01:50:18.569004+00:00",
+  "metadata": {
+    "asset": "TSLA",
+    "timeframe": "15m",
+    "run_id": "run_20260728_015016"
+  }
+}

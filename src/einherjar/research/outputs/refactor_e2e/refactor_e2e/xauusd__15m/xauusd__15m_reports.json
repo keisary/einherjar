@@ -1,10 +1,10 @@
 {
-  "created_at": "2026-07-28T00:55:11.475115+00:00",
+  "created_at": "2026-07-28T02:00:02.617756+00:00",
   "validation": null,
   "execution": {
     "name": "execution",
     "metadata": {},
-    "started_at": "2026-07-28T00:54:53.946273+00:00",
+    "started_at": "2026-07-28T01:59:49.041331+00:00",
     "finished_at": null,
     "results": [
       {
@@ -15,7 +15,7 @@
         "trade_count": 43663,
         "total_pnl": -4.129844713886279,
         "win_rate": 0.14930261319652796,
-        "created_at": "2026-07-28T00:55:06.264073+00:00",
+        "created_at": "2026-07-28T01:59:58.823215+00:00",
         "execution_fingerprint_digest": "40de9fbb13dc838d0294b42817ef54aafa179946cf8cd1ce1b8af6a076877423",
         "execution_fingerprint_version": 1,
         "execution_kind": "execution",
@@ -67,7 +67,7 @@
     "best_execution_fingerprint": "40de9fbb13dc838d0294b42817ef54aafa179946cf8cd1ce1b8af6a076877423",
     "last_reason": "no_recovery",
     "stopped_reason": null,
-    "duration_seconds": 17.531916,
+    "duration_seconds": 13.612527,
     "healthy_rate": 0.0,
     "summary": {
       "name": "execution",
@@ -79,7 +79,7 @@
       "healthy_count": 0,
       "unhealthy_count": 1,
       "healthy_rate": 0.0,
-      "duration_seconds": 17.531928,
+      "duration_seconds": 13.612544,
       "best_total_pnl": -4.129844713886279,
       "best_subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
       "best_execution_fingerprint": "40de9fbb13dc838d0294b42817ef54aafa179946cf8cd1ce1b8af6a076877423",
@@ -97,7 +97,7 @@
   },
   "portfolio": {
     "name": "xauusd__15m",
-    "created_at": "2026-07-28T00:55:06.556131+00:00",
+    "created_at": "2026-07-28T01:59:59.087271+00:00",
     "entries": [],
     "rejected": [],
     "selected_count": 0,
@@ -286,7 +286,7 @@
             "trade_count": 43663,
             "total_pnl": -4.129844713886279,
             "win_rate": 0.14930261319652796,
-            "created_at": "2026-07-28T00:55:06.264073+00:00",
+            "created_at": "2026-07-28T01:59:58.823215+00:00",
             "execution_fingerprint_digest": "40de9fbb13dc838d0294b42817ef54aafa179946cf8cd1ce1b8af6a076877423",
             "execution_fingerprint_version": 1,
             "execution_kind": "execution",

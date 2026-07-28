@@ -1,8 +1,9 @@
 """
-E2E test du refactoring ORCH-001 / CORE-001.
+E2E test du refactoring ORCH-001 / CORE-001 / Architecture.
 
 Lance un run réel sur XAUUSD / 15m via la nouvelle
-architecture (core.Engine + core.runner).
+architecture (core.Engine + core.runner +
+core.exporter.PairExporter).
 """
 
 from __future__ import annotations
@@ -39,8 +40,9 @@ def main() -> int:
 
     from config.config import Config
     from config.dataset import DatasetConfig
-    from core import Engine
-    from core import DiscoveryTarget
+    from core.engine import Engine
+    from core.types import DiscoveryTarget
+    from core.exporter import PairExporter
     from core.exceptions import DatasetContractError
 
     config = Config()
@@ -52,25 +54,39 @@ def main() -> int:
     )
 
     target = DiscoveryTarget(asset="XAUUSD", timeframe="15m")
+    run_id = "refactor_e2e"
+    output_root = Path("outputs/refactor_e2e")
 
-    engine = Engine(
-        config,
-        run_id="refactor_e2e",
-        output_root=Path("outputs/refactor_e2e"),
-        continue_on_error=True,
-        export_pair_results=not args.skip_export,
-    )
+    engine = Engine(config)
 
     print()
     print(f"Engine       : {engine}")
     print(f"Target       : {target.key}")
-    print(f"Output       : {engine.output_root}")
-    print(f"Export pair  : {engine.export_pair_results}")
+    print(f"Output root  : {output_root}")
+    print(f"Run ID       : {run_id}")
+    print(f"Export pair  : {not args.skip_export}")
     print()
 
     t0 = time.time()
-    result = engine.run_pair(target, index=0)
+    target_with_meta = DiscoveryTarget(
+        asset=target.asset,
+        timeframe=target.timeframe,
+        metadata={"run_id": run_id},
+    )
+    result = engine.run_pair(target_with_meta, index=0)
     elapsed = time.time() - t0
+
+    if not args.skip_export:
+        exporter = PairExporter(
+            output_root=output_root,
+            run_id=run_id,
+            export_full_reports=False,
+        )
+        try:
+            export_paths = exporter.export_pair(result)
+            result.export_paths.update(export_paths)
+        except Exception as exc:
+            print(f"!!! Export failed: {exc!r}")
 
     print()
     print("=" * 70)
