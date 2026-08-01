@@ -340,21 +340,198 @@ def handle_select(args: argparse.Namespace) -> int:
 
 
 def handle_refine(args: argparse.Namespace) -> int:
-    """Step 4 — Raffinement beam local."""
+    """Step 4 — Raffinement beam local des hypothèses du générateur sélectionné.
+
+    Pour V1 : consomme la sélection produite par 'select', génère N
+    hypothèses via le générateur sélectionné, calibre+test_on(val) sur
+    chaque, garde le top M (par Sharpe val), applique BeamRefiner sur
+    chacun, persiste les meilleurs dans outputs/refined.json.
+
+    Contrainte dure : SL/TP figés depuis le train (jamais recalibrés).
+    """
     logger.info("[STEP 4] Raffinement beam local")
-    logger.info("  → contrainte dure : SL/TP figés depuis le train (jamais recalibrés)")
-    logger.info("  → pour V1 : nécessite qu'un Einher viable soit disponible.")
-    logger.info("  → V2 : intégration via corpus.json (à implémenter).")
+    if not args.selection_path.exists():
+        logger.error("Selection absente : %s — lance d'abord 'discovery select'", args.selection_path)
+        return 2
+    config = load_config(args.config)
+    from einherjar.research.engine.evaluator import EvaluationEngine
+    from einherjar.research.refinement.beam import make_default_refiner
+    from einherjar.research.selection.selector import GeneratorSelector
+    selected = GeneratorSelector.load(args.selection_path)
+    logger.info("Generateur selectionne : %s (rank=%d, score=%.4f)",
+                selected.generator_name, selected.rank, selected.score)
+    # Charge les données réelles.
+    try:
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
+            config=config, data_root=args.data_root,
+            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Impossible de charger les données réelles : %s", exc)
+        return 2
+    # Instancie le générateur avec un budget limité.
+    import dataclasses
+    n_eval = args.n_eval or 20
+    protocol = dataclasses.replace(selected.protocol, n_eval_budget=n_eval)
+    generator = GeneratorSelector.instantiate(selected, config)
+    # Patche le protocol sur le générateur (instantiate a recréé avec l'ancien).
+    generator.protocol = protocol
+    result = generator.generate()
+    logger.info("Génération OK : %d hypothèses en %.2fs", len(result.hypotheses), result.generation_time_s)
+    # Calibre + test_on(val) sur chaque hypothèse, garde le top M.
+    engine = EvaluationEngine(
+        config=config, data_version=args.data_version or "v1", seed=args.seed,
+    )
+    n_top = min(5, len(result.hypotheses))
+    candidates: list[tuple[float, Any, Any, Any]] = []  # (sharpe_val, hyp, calibrated, m_val)
+    for hyp in result.hypotheses:
+        try:
+            calibrated = engine.train_calibrate(hyp, train_ohlcv, train_features)
+            m_val = engine.test_on(hyp, val_ohlcv, val_features, calibrated, "val")
+            sharpe = m_val.sharpe_net
+            if sharpe == sharpe:  # not NaN
+                candidates.append((sharpe, hyp, calibrated, m_val))
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Échec calibration/val pour %s : %s", hyp.id, exc)
+    candidates.sort(key=lambda t: t[0], reverse=True)
+    top = candidates[:n_top]
+    logger.info("Top %d après val (Sharpe): %s",
+                n_top, [f"{t[0]:.3f} ({t[1].id})" for t in top])
+    if not top:
+        logger.warning("Aucun candidat viable à raffiner.")
+        return 0
+    # BeamRefiner sur chaque top.
+    refiner = make_default_refiner(config=config, engine=engine, seed=args.seed)
+    refined_records: list[dict[str, Any]] = []
+    for sharpe_orig, hyp, calibrated, m_val in top:
+        rr = refiner.refine(
+            hypothesis=hyp, calibrated=calibrated,
+            train_ohlcv=train_ohlcv, train_features=train_features,
+            val_ohlcv=val_ohlcv, val_features=val_features,
+        )
+        record = {
+            "original_id": hyp.id,
+            "original_sharpe_val": sharpe_orig,
+            "improved": rr.improved,
+            "best_sharpe_val": rr.best_sharpe_val,
+            "n_evaluated": rr.n_evaluated,
+            "n_iterations": rr.n_iterations,
+            "best_hypothesis": rr.best_hypothesis.to_dict() if rr.best_hypothesis else None,
+        }
+        refined_records.append(record)
+        logger.info("Refine %s : improved=%s, sharpe %.4f -> %.4f",
+                    hyp.id, rr.improved, sharpe_orig, rr.best_sharpe_val)
+    # Persiste dans outputs/refined.json.
+    import json as _json
+    out_path = Path("outputs") / "refined.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        _json.dumps({"refined": refined_records, "n_input": len(result.hypotheses),
+                     "n_viable": len(candidates), "n_refined": len(refined_records)},
+                    indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    logger.info("Raffinement terminé : %d/%d améliorés, persisté dans %s",
+                sum(1 for r in refined_records if r["improved"]),
+                len(refined_records), out_path)
     return 0
 
 
 def handle_admit(args: argparse.Namespace) -> int:
-    """Step 5 — Admission au corpus."""
+    """Step 5 — Admission au corpus.
+
+    Pour V1 : consomme la sélection produite par 'select', génère N
+    hypothèses via le générateur sélectionné, calibre+test_on(val) sur
+    chaque, applique AdmissionDecider (DSR + PBO + bootstrap CI + n_trades
+    + cross_asset + max_dd + diversité + dédup + quota).
+
+    Les rejets sont append à outputs/archive/archive.jsonl (déjà géré par
+    AdmissionDecider). Les admis ne sont pas encore persistés dans un
+    corpus.json (P0 #4 V2).
+
+    Note : pour le pipeline bout-en-bout, l'admission est aussi appliquée
+    dans 'baselines' via baseline_gate.make_baseline_admission_fn (volet
+    critères uniquement, sans archive). Ce mode 'admit' applique
+    AdmissionDecider COMPLET (avec archive).
+    """
     logger.info("[STEP 5] Admission au corpus")
-    logger.info("  → critères : DSR + PBO + bootstrap CI + n_trades + cross_asset + max_dd + diversité")
-    logger.info("  → fingerprint canonique (structurel + comportemental)")
-    logger.info("  → déduplication contre l'Archive sur le même data_version")
-    logger.info("  → pour V1 : nécessite que le générateur sélectionné tourne.")
+    if not args.selection_path.exists():
+        logger.error("Selection absente : %s — lance d'abord 'discovery select'", args.selection_path)
+        return 2
+    config = load_config(args.config)
+    from einherjar.research.admission.decision import AdmissionDecider
+    from einherjar.research.engine.evaluator import EvaluationEngine
+    from einherjar.research.selection.selector import GeneratorSelector
+    selected = GeneratorSelector.load(args.selection_path)
+    logger.info("Generateur selectionne : %s (rank=%d, score=%.4f)",
+                selected.generator_name, selected.rank, selected.score)
+    try:
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
+            config=config, data_root=args.data_root,
+            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Impossible de charger les données réelles : %s", exc)
+        return 2
+    import dataclasses
+    n_eval = args.n_eval or 20
+    protocol = dataclasses.replace(selected.protocol, n_eval_budget=n_eval)
+    generator = GeneratorSelector.instantiate(selected, config)
+    generator.protocol = protocol
+    result = generator.generate()
+    logger.info("Génération OK : %d hypothèses en %.2fs", len(result.hypotheses), result.generation_time_s)
+    engine = EvaluationEngine(
+        config=config, data_version=args.data_version or "v1", seed=args.seed,
+    )
+    decider = AdmissionDecider(
+        config=config, data_version=args.data_version or "v1", seed=args.seed,
+    )
+    n_admitted = 0
+    n_rejected = 0
+    reasons: dict[str, int] = {}
+    for i, hyp in enumerate(result.hypotheses, start=1):
+        try:
+            calibrated = engine.train_calibrate(hyp, train_ohlcv, train_features)
+            m_val = engine.test_on(hyp, val_ohlcv, val_features, calibrated, "val")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Échec calibration/val pour %s : %s", hyp.id, exc)
+            continue
+        returns_val = [t.ret_pct_net for t in m_val.trades]
+        decision = decider.decide(
+            hypothesis_id=hyp.id,
+            condition_tree=hyp.condition_tree,
+            direction=hyp.direction,
+            universe=hyp.universe,
+            amplitude=hyp.amplitude,
+            calibrated=calibrated,
+            mesures_val=m_val,
+            returns_val=returns_val,
+            n_indep_trials=i,
+        )
+        if decision.admitted:
+            n_admitted += 1
+        else:
+            n_rejected += 1
+            reason = decision.primary_reason.value if decision.primary_reason else "OTHER"
+            reasons[reason] = reasons.get(reason, 0) + 1
+    logger.info("Admission terminée : %d/%d admis", n_admitted, n_admitted + n_rejected)
+    if reasons:
+        logger.info("Breakdown rejets : %s", reasons)
+    # Persiste un résumé.
+    import json as _json
+    out_path = Path("outputs") / "admit_summary.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        _json.dumps({
+            "n_generated": len(result.hypotheses),
+            "n_admitted": n_admitted,
+            "n_rejected": n_rejected,
+            "rejection_breakdown": reasons,
+            "generator": selected.generator_name,
+        }, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    logger.info("Résumé persisté dans %s", out_path)
     return 0
 
 
