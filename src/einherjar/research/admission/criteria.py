@@ -26,6 +26,7 @@ from typing import Any
 
 from einherjar.research.config.loader import EinherjarConfig
 from einherjar.research.utils.metrics import dsr as dsr_metric
+from einherjar.research.utils.stats import max_drawdown_from_returns
 from einherjar.research.utils.types import MesuresBrutes, RejectionReason
 
 logger = logging.getLogger(__name__)
@@ -300,24 +301,39 @@ def evaluate_max_drawdown(
     mesures: MesuresBrutes,
     config: EinherjarConfig,
 ) -> CriterionVerdict:
-    """Max drawdown borné (calculé sur equity_curve reconstruite)."""
+    """Max drawdown borné — calculé sur la courbe d'equity réelle (par trade).
+
+    Le moteur d'évaluation expose `mesures.trades` (tuple de TradeMesure) avec
+    `ret_pct_net` pour chaque trade. On reconstruit l'equity_curve
+    (capital = 1.0 initial) et on mesure la chute max depuis un pic.
+
+    Pour le cas multi-asset (per_asset_stats), on calcule aussi le DD par
+    asset et on conserve le pire (le plus pénalisant pour l'admission).
+
+    Returns:
+        Verdict. Pass si max_dd <= max_dd_allowed (défaut 0.25 = -25%).
+    """
     max_dd_allowed = float(config.thresholds["max_drawdown"]["max_value"])
-    # Reconstruit une equity_curve grossière à partir de ret_std et ret_mean
-    # (approximation, on devrait avoir accès à la série de returns).
-    # Note : pour V1, on utilise la borne observée par-asset si dispo.
-    worst_dd = 0.0
-    if mesures.per_asset_stats:
-        for m in mesures.per_asset_stats.values():
-            if m.ret_std_pct > 0:
-                heur = min(1.0, m.ret_std_pct * 10.0)
-                worst_dd = max(worst_dd, heur)
+    # DD global : sur l'equity_curve reconstruite à partir de tous les trades.
+    global_returns = [t.ret_pct_net for t in mesures.trades]
+    worst_dd = max_drawdown_from_returns(global_returns)
+    # DD par-asset (le pire).
+    per_asset_dd: dict[str, float] = {}
+    for asset, sub in mesures.per_asset_stats.items():
+        per_asset_dd[asset] = max_drawdown_from_returns([t.ret_pct_net for t in sub.trades])
+        if per_asset_dd[asset] > worst_dd:
+            worst_dd = per_asset_dd[asset]
     return CriterionVerdict(
         name="MAX_DRAWDOWN",
         passed=(worst_dd <= max_dd_allowed),
         observed=worst_dd,
         threshold=max_dd_allowed,
         reason=None if worst_dd <= max_dd_allowed else RejectionReason.DD_FAIL,
-        meta={"note": "heuristic_v1"},
+        meta={
+            "method": "equity_curve_from_trades",
+            "n_trades": len(mesures.trades),
+            "per_asset_max_dd": per_asset_dd,
+        },
     )
 
 
