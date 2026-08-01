@@ -246,12 +246,12 @@ class _ConditionEvaluator:
 
     Retourne un masque polars de booléens, aligné sur l'index de la frame.
 
-    Limitations V1 :
-      - Transformations : seules `identity` (None) et un sous-ensemble
-        de base sont supportées. Les transformations avancées (percentile,
-        zscore, slope, delta, crossover, crossunder) sont à brancher
-        quand la grammaire BNF sera définie.
-      - Tout opérateur non supporté lève une EvaluationError.
+    Invariant V1 : aucune transformation n'est appliquée silencieusement.
+    Une `Condition` avec `transformation != None` lève EvaluationError —
+    c'est au BNF (P0 #8/#9) de produire des Conditions valides pour V1
+    (à savoir `transformation=None`).
+
+    Tout opérateur non supporté lève une EvaluationError.
     """
 
     def evaluate(self, condition: Condition | ConditionNode, features: FeaturesFrame) -> pl.Series:
@@ -261,10 +261,15 @@ class _ConditionEvaluator:
         return self._eval_compound(condition, features)
 
     def _eval_atomic(self, c: Condition, features: FeaturesFrame) -> pl.Series:
-        if c.transformation not in (None, "identity", ""):
-            logger.warning(
-                "Transformation non supportée en V1 : %s (feature=%s) — fallback identity",
-                c.transformation, c.feature_ref,
+        # Pas de fallback silencieux : une transformation non supportée DOIT
+        # être signalée explicitement (évite qu'une Condition "zscore(...)"
+        # soit évaluée comme si la transformation n'existait pas, ce qui
+        # ferait passer des règles sémantiquement invalides).
+        if c.transformation not in (None, ""):
+            raise EvaluationError(
+                f"Transformation non supportée : {c.transformation!r} (feature={c.feature_ref}). "
+                "Le moteur V1 n'implémente aucune transformation explicite — "
+                "toute Condition avec transformation doit être levée par le BNF/P0 #9."
             )
         if not features.has(c.feature_ref):
             # Feature inconnue → False partout (NaN-propagation, règle dure S-1).
