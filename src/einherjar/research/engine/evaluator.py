@@ -94,28 +94,33 @@ class HoldoutAccessError(EvaluationError):
 class CalibratedParams:
     """Paramètres de calibration calculés sur le train, gelés pour val/holdout.
 
+    Les SL et TP sont stockés comme DISTANCES RELATIVES (en multiples d'ATR
+    et en %), recalculés à chaque entrée à partir du prix d'entrée et de
+    l'ATR local. Aucun prix absolu n'est stocké (anti-leak d'entrée
+    arbitraire).
+
     Une fois créés, ces paramètres ne sont JAMAIS recalculés. Toute
     modification passe par la création d'une nouvelle instance.
 
     Attributs:
         n_window: Horizon d'observation (en bougies).
-        sl_price: Prix du stop-loss (absolu).
-        tp_price: Prix du take-profit (absolu).
-        atr_p50: ATR(14) médian sur le train.
+        sl_n_atr: Distance SL en multiple d'ATR (sl = entry - sl_n_atr * atr).
+        tp_n_atr: Distance TP en multiple d'ATR (tp = entry + tp_n_atr * atr).
+        sl_distance: Distance SL en % (sl = entry * (1 - sl_distance)).
+        tp_distance: Distance TP en % (tp = entry * (1 + tp_distance)).
+        atr_p50: ATR(14) médian sur le train (référence, traçabilité).
         n_observations: Nombre de bougies du train (traçabilité).
-        sl_distance: |entry - sl|, en unité de prix.
-        tp_distance: |entry - tp|, en unité de prix.
         mfe_p50: MFE médian sur le train (pour traçabilité).
         mae_p75: MAE p75 sur le train (pour traçabilité).
     """
 
     n_window: int
-    sl_price: float
-    tp_price: float
-    atr_p50: float
-    n_observations: int
+    sl_n_atr: float
+    tp_n_atr: float
     sl_distance: float
     tp_distance: float
+    atr_p50: float
+    n_observations: int
     mfe_p50: float = 0.0
     mae_p75: float = 0.0
 
@@ -123,15 +128,42 @@ class CalibratedParams:
         """Sérialisation pour persistance (Archive, fingerprint, etc.)."""
         return {
             "n_window": self.n_window,
-            "sl_price": self.sl_price,
-            "tp_price": self.tp_price,
-            "atr_p50": self.atr_p50,
-            "n_observations": self.n_observations,
+            "sl_n_atr": self.sl_n_atr,
+            "tp_n_atr": self.tp_n_atr,
             "sl_distance": self.sl_distance,
             "tp_distance": self.tp_distance,
+            "atr_p50": self.atr_p50,
+            "n_observations": self.n_observations,
             "mfe_p50": self.mfe_p50,
             "mae_p75": self.mae_p75,
         }
+
+    def compute_sl_tp_at_entry(
+        self,
+        entry_price: float,
+        atr_at_entry: float,
+        direction: Direction,
+    ) -> tuple[float, float]:
+        """Calcule les niveaux SL/TP en prix absolus à partir du prix d'entrée et de l'ATR local.
+
+        Les distances sont en multiples d'ATR (sl_n_atr, tp_n_atr), recalculées
+        à chaque trade. Pas de prix absolu figé.
+
+        Args:
+            entry_price: Prix d'entrée (OPEN de t+1).
+            atr_at_entry: ATR local calculé sur la fenêtre se terminant à t+1.
+            direction: Direction du trade.
+
+        Returns:
+            (sl_price, tp_price) en prix absolus.
+        """
+        if atr_at_entry <= 0:
+            atr_at_entry = self.atr_p50
+        sl_dist = self.sl_n_atr * atr_at_entry
+        tp_dist = self.tp_n_atr * atr_at_entry
+        if direction == Direction.LONG:
+            return (entry_price - sl_dist, entry_price + tp_dist)
+        return (entry_price + sl_dist, entry_price - tp_dist)
 
 
 # --------------------------------------------------------------------------- #
@@ -305,6 +337,36 @@ class _SignalFilter:
         return kept
 
 
+class _ATRSeries:
+    """Pré-calcule l'ATR(14) sur toute une série OHLCV, indexable par bougie.
+
+    Permet de récupérer l'ATR local à l'index d'entrée d'un trade,
+    pour recalculer les niveaux SL/TP en distances relatives.
+
+    Attributes:
+        atr: np.ndarray de même longueur que la série (NaN pour les
+            premières bougies où l'ATR n'est pas calculable).
+        period: Période de l'ATR (Wilder).
+    """
+
+    def __init__(self, ohlcv: OhlcvFrame, period: int = 14) -> None:
+        arr = ohlcv.to_arrays()
+        self.atr = atr_wilder(
+            highs=arr["high"],
+            lows=arr["low"],
+            closes=arr["close"],
+            period=period,
+        )
+        self.period = period
+
+    def at_index(self, idx: int, fallback: float) -> float:
+        """Retourne l'ATR à l'index `idx`. Si NaN, retourne `fallback` (typiquement atr_p50)."""
+        v = float(self.atr[idx]) if 0 <= idx < len(self.atr) else float("nan")
+        if math.isnan(v) or math.isinf(v) or v <= 0:
+            return fallback
+        return v
+
+
 class _TradeRunner:
     """Exécute un trade : entrée à l'OPEN de t+1, simulation intrabar, application des coûts.
 
@@ -320,11 +382,21 @@ class _TradeRunner:
         entry_idx: int,
         ohlcv_arrays: dict[str, np.ndarray],
         calibrated: CalibratedParams,
+        atr_at_entry: float,
     ) -> TradeMesure | None:
         """Simule un trade à partir de l'index de signal `entry_idx`.
 
         L'entrée est l'OPEN de la bougie t+1 (entry_idx + 1). La fenêtre
         d'observation va de t+1 à t+N. Si la fenêtre déborde, retourne None.
+
+        SL et TP sont calculés à l'entrée (multiples d'ATR × ATR local),
+        conformément à l'invariant I-5 (jamais de prix absolu figé).
+
+        Args:
+            entry_idx: Index du signal (t).
+            ohlcv_arrays: Arrays numpy de la série OHLCV.
+            calibrated: CalibratedParams figée depuis train.
+            atr_at_entry: ATR local calculé sur la fenêtre se terminant à t+1.
 
         Returns:
             TradeMesure, ou None si la fenêtre déborde.
@@ -347,12 +419,19 @@ class _TradeRunner:
         if entry_price <= 0:
             return None  # bougie invalide
 
+        # SL/TP recalculés à l'entrée (anti prix absolu figé).
+        sl_price, tp_price = calibrated.compute_sl_tp_at_entry(
+            entry_price=entry_price,
+            atr_at_entry=atr_at_entry,
+            direction=self.direction,
+        )
+
         # Délégation au simulateur intrabar.
         exit_price, exit_reason, mfe, mae, n_held = simulate(
             direction=self.direction,
             entry=entry_price,
-            sl_price=calibrated.sl_price,
-            tp_price=calibrated.tp_price,
+            sl_price=sl_price,
+            tp_price=tp_price,
             highs=highs.tolist(),
             lows=lows.tolist(),
             closes=closes.tolist(),
@@ -457,8 +536,8 @@ class _MesuresAggregator:
             per_asset_stats=per_asset_stats,
             trades=tuple(trades),
             n_window=self._calibrated.n_window,
-            sl_price=self._calibrated.sl_price,
-            tp_price=self._calibrated.tp_price,
+            sl_n_atr=self._calibrated.sl_n_atr, sl_distance=self._calibrated.sl_distance,
+            tp_n_atr=self._calibrated.tp_n_atr, tp_distance=self._calibrated.tp_distance,
             costs_applied=self._costs.to_dict(),
         )
 
@@ -496,8 +575,8 @@ class _MesuresAggregator:
             per_asset_stats={},
             trades=tuple(trades),
             n_window=self._calibrated.n_window,
-            sl_price=self._calibrated.sl_price,
-            tp_price=self._calibrated.tp_price,
+            sl_n_atr=self._calibrated.sl_n_atr, sl_distance=self._calibrated.sl_distance,
+            tp_n_atr=self._calibrated.tp_n_atr, tp_distance=self._calibrated.tp_distance,
             costs_applied=self._costs.to_dict(),
         )
 
@@ -514,8 +593,8 @@ class _MesuresAggregator:
             bootstrap_ret_ci_low=0.0, bootstrap_ret_ci_high=0.0,
             per_asset_stats={}, trades=(),
             n_window=self._calibrated.n_window,
-            sl_price=self._calibrated.sl_price,
-            tp_price=self._calibrated.tp_price,
+            sl_n_atr=self._calibrated.sl_n_atr, sl_distance=self._calibrated.sl_distance,
+            tp_n_atr=self._calibrated.tp_n_atr, tp_distance=self._calibrated.tp_distance,
             costs_applied=self._costs.to_dict(),
         )
 
@@ -580,16 +659,19 @@ class EvaluationEngine:
         train_ohlcv: OhlcvFrame,
         train_features: FeaturesFrame,
     ) -> CalibratedParams:
-        """Calibre N, SL, TP sur le train UNIQUEMENT.
+        """Calibre N, sl_n_atr et tp_n_atr sur le train UNIQUEMENT.
 
-        1. Calcule ATR_p50 sur le train.
-        2. N = clamp(ceil(amplitude / atr_p50), min_N, max_N).
-        3. Simule les trades sur le train avec N → MFE/MAE.
-        4. SL = entry - MAE_p75 (long) / entry + MAE_p75 (short).
-        5. TP = entry + MFE_p50 (long) / entry - MFE_p50 (short).
-        6. Retourne CalibratedParams (figée).
+        Algorithme :
+          1. ATR_p50 sur le train.
+          2. N = clamp(ceil(amplitude / atr_p50), min_N, max_N).
+          3. Passe provisoire avec distances 1.5×ATR pour SL et TP.
+             → Mesure MFE_p50 (en %) et MAE_p75 (en %) sur de vrais trades,
+               avec prix et ATR locaux observés (PAS de prix neutre 1.0).
+          4. Convertit MFE_p50 → tp_n_atr (= MFE_p50_atr / atr_p50) et
+             MAE_p75 → sl_n_atr (= MAE_p75_atr / atr_p50).
+          5. Stocke ces distances (multiples d'ATR) dans CalibratedParams.
 
-        Aucun accès au val/holdout ici.
+        Aucun accès au val/holdout ici. Aucun prix absolu n'est figé.
         """
         logger.info(
             "Calibration train : %s × %s (N_window cible)",
@@ -610,21 +692,21 @@ class EvaluationEngine:
         else:
             raise CalibrationError(f"Unité d'amplitude non supportée : {amplitude.unité}")
 
-        # 3-5. Simule les trades sur le train pour calibrer SL/TP.
-        # On utilise un SL/TP provisoire (ATR-based) pour mesurer MFE/MAE,
-        # puis on recalibre SL/TP définitifs sur les percentiles observés.
-        provisional_sl, provisional_tp = self._provisional_sl_tp(atr_p50, hypothesis.direction)
+        # 3. Passe provisoire avec distances 1.5×ATR (symétriques pour avoir
+        # un premier signal mesurable). C'est une vraie simulation sur
+        # de vrais trades avec prix et ATR observés.
+        provisional_n_atr = 1.5
         provisional_calibrated = CalibratedParams(
             n_window=n_window,
-            sl_price=provisional_sl,
-            tp_price=provisional_tp,
+            sl_n_atr=provisional_n_atr,
+            tp_n_atr=provisional_n_atr,
+            sl_distance=provisional_n_atr,  # approximation initiale (1.5 = 150%)
+            tp_distance=provisional_n_atr,
             atr_p50=atr_p50,
             n_observations=train_ohlcv.n_bougies,
-            sl_distance=abs(provisional_sl - provisional_tp) * 0.4,  # placeholder
-            tp_distance=abs(provisional_tp - provisional_sl) * 0.6,  # placeholder
         )
 
-        # On ne simule qu'une fois pour mesurer MFE/MAE.
+        # Simule les trades sur le train pour mesurer MFE/MAE.
         train_trades = self._run_all_trades(
             hypothesis=hypothesis,
             ohlcv=train_ohlcv,
@@ -637,34 +719,45 @@ class EvaluationEngine:
                 f"Aucun signal sur le train pour {hypothesis.id} — calibration impossible"
             )
 
-        # Calcul MFE/MAE percentiles.
+        # 4. Calcule MFE_p50 et MAE_p75 (en %) sur le train.
         mfe_p50 = percentile([t.mfe_pct for t in train_trades], 50)
         mae_p75 = percentile([t.mae_pct for t in train_trades], 75)
 
-        # SL/TP définitifs : autour d'un entry médian observé sur le train.
+        # 5. Convertit en distances ATR.
+        # MFE_p50 est en % du prix. Pour convertir en multiple d'ATR :
+        #   mfe_p50_atr = (mfe_p50 * entry_median) / atr_p50
+        # On utilise l'entry médian pour la conversion.
         entry_median = float(np.median([t.entry_price for t in train_trades]))
-        sl_price, tp_price, sl_dist, tp_dist = self._finalize_sl_tp(
-            entry_median=entry_median,
-            mfe_p50=mfe_p50,
-            mae_p75=mae_p75,
-            direction=hypothesis.direction,
-        )
+        if atr_p50 > 0 and entry_median > 0:
+            tp_n_atr = (mfe_p50 * entry_median) / atr_p50
+            sl_n_atr = (mae_p75 * entry_median) / atr_p50
+        else:
+            tp_n_atr = provisional_n_atr
+            sl_n_atr = provisional_n_atr
+
+        # Bornes de sécurité : SL et TP doivent être positifs et bornés.
+        sl_n_atr = max(0.1, min(20.0, sl_n_atr))
+        tp_n_atr = max(0.1, min(50.0, tp_n_atr))
+
+        sl_distance = (sl_n_atr * atr_p50) / entry_median if entry_median > 0 else 0.0
+        tp_distance = (tp_n_atr * atr_p50) / entry_median if entry_median > 0 else 0.0
 
         calibrated = CalibratedParams(
             n_window=n_window,
-            sl_price=sl_price,
-            tp_price=tp_price,
+            sl_n_atr=sl_n_atr,
+            tp_n_atr=tp_n_atr,
+            sl_distance=sl_distance,
+            tp_distance=tp_distance,
             atr_p50=atr_p50,
             n_observations=train_ohlcv.n_bougies,
-            sl_distance=sl_dist,
-            tp_distance=tp_dist,
             mfe_p50=mfe_p50,
             mae_p75=mae_p75,
         )
         logger.info(
-            "Calibration OK : N=%d, SL=%.4f (dist=%.4f), TP=%.4f (dist=%.4f), ATR_p50=%.4f, %d trades train",
-            calibrated.n_window, calibrated.sl_price, calibrated.sl_distance,
-            calibrated.tp_price, calibrated.tp_distance, calibrated.atr_p50,
+            "Calibration OK : N=%d, sl_n_atr=%.3f (dist=%.3f%%), "
+            "tp_n_atr=%.3f (dist=%.3f%%), ATR_p50=%.4f, %d trades train",
+            calibrated.n_window, calibrated.sl_n_atr, calibrated.sl_distance * 100,
+            calibrated.tp_n_atr, calibrated.tp_distance * 100, calibrated.atr_p50,
             len(train_trades),
         )
         return calibrated
@@ -717,11 +810,21 @@ class EvaluationEngine:
         signal_filter = _SignalFilter(cooldown_k=hypothesis.cooldown_k)
         signal_indices = signal_filter.filter(mask)
 
+        # Pré-calcule la série ATR pour récupérer l'ATR local à chaque entrée.
+        atr_series = _ATRSeries(ohlcv, period=self._atr_estimator.period)
+        atr_fallback = calibrated.atr_p50
+
         # Simule les trades.
         ohlcv_arrays = ohlcv.to_arrays()
         trades: list[TradeMesure] = []
         for idx in signal_indices:
-            trade = runner.run(entry_idx=idx, ohlcv_arrays=ohlcv_arrays, calibrated=calibrated)
+            atr_at_entry = atr_series.at_index(idx + 1, atr_fallback)
+            trade = runner.run(
+                entry_idx=idx,
+                ohlcv_arrays=ohlcv_arrays,
+                calibrated=calibrated,
+                atr_at_entry=atr_at_entry,
+            )
             if trade is not None:
                 trades.append(trade)
 
@@ -777,34 +880,6 @@ class EvaluationEngine:
         n = round(amplitude_value * k_atr)
         return max(self._min_n, min(self._max_n, n))
 
-    @staticmethod
-    def _provisional_sl_tp(atr_p50: float, direction: Direction) -> tuple[float, float]:
-        """SL/TP provisoires autour d'un prix neutre (1.0), pour mesurer MFE/MAE sur le train.
-
-        Retourne (sl, tp) en prix absolus (relatifs à un entry_price=1.0).
-        """
-        if direction == Direction.LONG:
-            return (1.0 - atr_p50, 1.0 + atr_p50)
-        return (1.0 + atr_p50, 1.0 - atr_p50)
-
-    @staticmethod
-    def _finalize_sl_tp(
-        entry_median: float,
-        mfe_p50: float,
-        mae_p75: float,
-        direction: Direction,
-    ) -> tuple[float, float, float, float]:
-        """Convertit MFE_p50 / MAE_p75 en niveaux de prix absolus (SL/TP).
-
-        Returns:
-            (sl_price, tp_price, sl_distance, tp_distance).
-        """
-        sl_dist = abs(mae_p75)
-        tp_dist = abs(mfe_p50)
-        if direction == Direction.LONG:
-            return (entry_median - sl_dist, entry_median + tp_dist, sl_dist, tp_dist)
-        return (entry_median + sl_dist, entry_median - tp_dist, sl_dist, tp_dist)
-
     def _run_all_trades(
         self,
         hypothesis: Hypothesis,
@@ -819,9 +894,17 @@ class EvaluationEngine:
         signal_filter = _SignalFilter(cooldown_k=hypothesis.cooldown_k)
         indices = signal_filter.filter(mask)
         arrays = ohlcv.to_arrays()
+        atr_series = _ATRSeries(ohlcv, period=self._atr_estimator.period)
+        atr_fallback = calibrated.atr_p50
         trades: list[TradeMesure] = []
         for i in indices:
-            t = runner.run(entry_idx=i, ohlcv_arrays=arrays, calibrated=calibrated)
+            atr_at_entry = atr_series.at_index(i + 1, atr_fallback)
+            t = runner.run(
+                entry_idx=i,
+                ohlcv_arrays=arrays,
+                calibrated=calibrated,
+                atr_at_entry=atr_at_entry,
+            )
             if t is not None:
                 trades.append(t)
         return trades

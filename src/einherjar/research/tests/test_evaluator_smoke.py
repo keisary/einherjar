@@ -176,7 +176,12 @@ class TestEvaluationEngine(unittest.TestCase):
         )
         calibrated = self.engine.train_calibrate(h, ohlcv, features)
         self.assertGreater(calibrated.n_window, 0)
-        self.assertLess(calibrated.sl_price, calibrated.tp_price)  # long
+        # SL et TP sont maintenant des distances relatives (multiples d'ATR).
+        # Les deux doivent être > 0, mais il n'y a aucune garantie que TP > SL
+        # (ça dépend de la dynamique de marché : si MAE_p75 > MFE_p50, SL > TP en ATR).
+        self.assertGreater(calibrated.sl_n_atr, 0.0)
+        self.assertGreater(calibrated.tp_n_atr, 0.0)
+        self.assertGreater(calibrated.atr_p50, 0.0)
         # Frozen
         import dataclasses
         with self.assertRaises(dataclasses.FrozenInstanceError):

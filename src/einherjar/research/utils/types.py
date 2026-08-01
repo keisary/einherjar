@@ -277,8 +277,10 @@ class MesuresBrutes:
 
     # Contexte d'évaluation (pour traçabilité Archive)
     n_window: int = 0               # N figée depuis train
-    sl_price: float = 0.0           # SL figé depuis train
-    tp_price: float = 0.0           # TP figé depuis train
+    sl_n_atr: float = 0.0           # distance SL en multiple d'ATR (recalculé à l'entrée)
+    tp_n_atr: float = 0.0           # distance TP en multiple d'ATR (recalculé à l'entrée)
+    sl_distance: float = 0.0       # distance SL en % (équivalent pour traçabilité)
+    tp_distance: float = 0.0       # distance TP en % (équivalent pour traçabilité)
     costs_applied: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -305,8 +307,10 @@ class MesuresBrutes:
             "bootstrap_ret_ci_high": self.bootstrap_ret_ci_high,
             "per_asset_stats": {k: v.to_dict() for k, v in self.per_asset_stats.items()},
             "n_window": self.n_window,
-            "sl_price": self.sl_price,
-            "tp_price": self.tp_price,
+            "sl_n_atr": self.sl_n_atr,
+            "tp_n_atr": self.tp_n_atr,
+            "sl_distance": self.sl_distance,
+            "tp_distance": self.tp_distance,
             "costs_applied": self.costs_applied,
         }
         return d
@@ -327,9 +331,11 @@ class Einher:
     direction: Direction
     universe: Universe
     amplitude: Amplitude
-    sl_price: float                 # figé depuis train
-    tp_price: float                 # figé depuis train
-    n_window: int                   # N figée depuis train
+    sl_n_atr: float                  # distance SL en multiple d'ATR (figé depuis train)
+    tp_n_atr: float                  # distance TP en multiple d'ATR (figé depuis train)
+    sl_distance: float              # distance SL en % (figé depuis train, traçabilité)
+    tp_distance: float              # distance TP en % (figé depuis train, traçabilité)
+    n_window: int                    # N figée depuis train
     fingerprint_structurel: str
     fingerprint_comportemental: str
 
@@ -360,8 +366,10 @@ class Einher:
             "direction": self.direction.value,
             "universe": self.universe.to_dict(),
             "amplitude": self.amplitude.to_dict(),
-            "sl_price": self.sl_price,
-            "tp_price": self.tp_price,
+            "sl_n_atr": self.sl_n_atr,
+            "tp_n_atr": self.tp_n_atr,
+            "sl_distance": self.sl_distance,
+            "tp_distance": self.tp_distance,
             "n_window": self.n_window,
             "fingerprint_structurel": self.fingerprint_structurel,
             "fingerprint_comportemental": self.fingerprint_comportemental,
