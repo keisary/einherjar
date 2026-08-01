@@ -36,7 +36,7 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
-from einherjar.research.config.loader import load_config
+from einherjar.research.config.loader import EinherjarConfig, load_config
 from einherjar.research.utils.logging import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -108,6 +108,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Niveau de log (défaut: INFO).",
     )
     parser.add_argument(
+        "--data-root", type=str,
+        default=r"D:\midas_v2\midasV3\src\data\compiled",
+        help="Racine des datasets .npy (défaut: MIDAS V3 compiled).",
+    )
+    parser.add_argument(
+        "--data-asset", type=str, default="BTCUSD",
+        help="Symbole de l'actif (défaut: BTCUSD).",
+    )
+    parser.add_argument(
+        "--data-class", type=str, default="crypto",
+        choices=("crypto", "forex", "indices", "commodities",
+                 "stocks_growth", "stocks_tech", "stocks_value"),
+        help="Classe d'actifs (défaut: crypto).",
+    )
+    parser.add_argument(
+        "--data-timeframe", type=str, default="1h",
+        help="Timeframe (défaut: 1h).",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true",
         help="Affiche le plan d'exécution sans rien lancer.",
     )
@@ -119,85 +138,74 @@ def build_parser() -> argparse.ArgumentParser:
 # --------------------------------------------------------------------------- #
 
 
-def _build_dummy_data(config: Any, n_bougies: int = 600) -> tuple[Any, Any]:
-    """Construit des données OHLCV + features synthétiques pour smoke test.
+def _load_real_data(
+    config: EinherjarConfig,
+    data_root: str,
+    asset: str,
+    asset_class: str,
+    timeframe: str,
+) -> tuple[
+    "OhlcvFrame", "FeaturesFrame",
+    "OhlcvFrame", "FeaturesFrame",
+    "OhlcvFrame", "FeaturesFrame",
+]:
+    """Charge OHLCV + features depuis le .npy et découpe en train/val/holdout.
+
+    Le loader `load_ohlcv_from_npy` retourne DÉJÀ un (OhlcvFrame, validity_mask).
+    On passe ce mask à `load_features_from_npy` pour aligner les features sur
+    la même série sanitizée (évite la désynchro OHLCV=3260 vs features=69708).
+
+    Le split 60/20/20 suit splits.yaml (mode temporel strict, pas de shuffle).
 
     Returns:
-        (train_ohlcv, train_features).
+        (train_ohlcv, train_features, val_ohlcv, val_features, holdout_ohlcv, holdout_features).
+        Lève NpyRealLoaderError si les données sont absentes / invalides.
     """
-    from datetime import datetime, timedelta, timezone
-
-    import numpy as np
-    import polars as pl
-
     from einherjar.research.data.features import FeaturesFrame
+    from einherjar.research.data.npy_real_loader import (
+        load_features_from_npy,
+        load_ohlcv_from_npy,
+    )
     from einherjar.research.data.ohlcv import OhlcvFrame
 
-    rng = np.random.default_rng(seed=42)
-    close = 100.0 * np.cumprod(1.0 + rng.normal(0, 0.01, n_bougies))
-    high = close * (1.0 + np.abs(rng.normal(0, 0.005, n_bougies)))
-    low = close * (1.0 - np.abs(rng.normal(0, 0.005, n_bougies)))
-    open_ = close * (1.0 + rng.normal(0, 0.002, n_bougies))
-    volume = rng.integers(100, 10_000, n_bougies).astype(float)
-    ts = [datetime(2024, 1, 1, tzinfo=timezone.utc) + timedelta(hours=i) for i in range(n_bougies)]
-    df = pl.DataFrame({
-        "asset": ["BTCUSD"] * n_bougies,
-        "timeframe": ["1h"] * n_bougies,
-        "timestamp": ts,
-        "open": open_, "high": high, "low": low, "close": close, "volume": volume,
-    })
-    feats_df = df.with_columns([
-        pl.col("close").rolling_mean(5).alias("ma_5"),
-        pl.col("close").rolling_mean(20).alias("ma_20"),
-    ])
-    feats_df = feats_df.with_columns([
-        pl.col("ma_5").fill_null(0.0),
-        pl.col("ma_20").fill_null(0.0),
-    ])
-    ohlcv = OhlcvFrame(asset="BTCUSD", timeframe="1h", df=df, data_version="v1_smoke")
-    features = FeaturesFrame(
-        asset="BTCUSD", timeframe="1h", df=feats_df,
-        feature_names=("ma_5", "ma_20"),
-        data_version="v1_smoke",
+    root = Path(data_root)
+    full_ohlcv, mask = load_ohlcv_from_npy(
+        asset=asset, asset_class=asset_class, timeframe=timeframe, data_root=root,
     )
-    return ohlcv, features
+    full_features = load_features_from_npy(
+        asset=asset, asset_class=asset_class, timeframe=timeframe,
+        config=config, data_root=root, validity_mask=mask,
+    )
+    if full_ohlcv.n_bougies != full_features.n_bougies:
+        raise RuntimeError(
+            f"OHLCV/features desynchronisés : OHLCV={full_ohlcv.n_bougies} "
+            f"!= features={full_features.n_bougies}"
+        )
 
+    n = full_ohlcv.n_bougies
+    t1 = int(n * 0.60)
+    t2 = int(n * 0.80)
 
-def _split(ohlcv: Any, features: Any, train_frac: float = 0.6, val_frac: float = 0.2) -> tuple:
-    """Découpe ohlcv/features en train/val/holdout."""
-    n = ohlcv.df.height
-    t1 = int(n * train_frac)
-    t2 = int(n * (train_frac + val_frac))
-    from einherjar.research.data.features import FeaturesFrame
-    from einherjar.research.data.ohlcv import OhlcvFrame
-    train_ohlcv = OhlcvFrame(
-        asset=ohlcv.asset, timeframe=ohlcv.timeframe,
-        df=ohlcv.df.head(t1), data_version=ohlcv.data_version,
+    def _slice_ohlcv(start: int, end: int) -> OhlcvFrame:
+        return OhlcvFrame(
+            asset=full_ohlcv.asset, timeframe=full_ohlcv.timeframe,
+            df=full_ohlcv.df.slice(start, end - start),
+            data_version=full_ohlcv.data_version,
+        )
+
+    def _slice_features(start: int, end: int) -> FeaturesFrame:
+        return FeaturesFrame(
+            asset=full_features.asset, timeframe=full_features.timeframe,
+            df=full_features.df.slice(start, end - start),
+            feature_names=full_features.feature_names,
+            data_version=full_features.data_version,
+        )
+
+    return (
+        _slice_ohlcv(0, t1), _slice_features(0, t1),
+        _slice_ohlcv(t1, t2), _slice_features(t1, t2),
+        _slice_ohlcv(t2, n), _slice_features(t2, n),
     )
-    val_ohlcv = OhlcvFrame(
-        asset=ohlcv.asset, timeframe=ohlcv.timeframe,
-        df=ohlcv.df.slice(t1, t2 - t1), data_version=ohlcv.data_version,
-    )
-    holdout_ohlcv = OhlcvFrame(
-        asset=ohlcv.asset, timeframe=ohlcv.timeframe,
-        df=ohlcv.df.tail(n - t2), data_version=ohlcv.data_version,
-    )
-    train_features = FeaturesFrame(
-        asset=features.asset, timeframe=features.timeframe,
-        df=features.df.head(t1), feature_names=features.feature_names,
-        data_version=features.data_version,
-    )
-    val_features = FeaturesFrame(
-        asset=features.asset, timeframe=features.timeframe,
-        df=features.df.slice(t1, t2 - t1), feature_names=features.feature_names,
-        data_version=features.data_version,
-    )
-    holdout_features = FeaturesFrame(
-        asset=features.asset, timeframe=features.timeframe,
-        df=features.df.tail(n - t2), feature_names=features.feature_names,
-        data_version=features.data_version,
-    )
-    return (train_ohlcv, train_features, val_ohlcv, val_features, holdout_ohlcv, holdout_features)
 
 
 # --------------------------------------------------------------------------- #
@@ -224,8 +232,15 @@ def handle_baselines(args: argparse.Namespace) -> int:
     from einherjar.research.baselines.runner import BaselineRunner
     from einherjar.research.engine.evaluator import EvaluationEngine
     engine = EvaluationEngine(config=config, data_version=args.data_version or "v1", seed=args.seed)
-    ohlcv, features = _build_dummy_data(config, n_bougies=600)
-    train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _split(ohlcv, features)
+    try:
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
+            config=config,
+            data_root=args.data_root,
+            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Impossible de charger les données réelles : %s", exc)
+        return 2
     runner = BaselineRunner(engine=engine)
     report = runner.run(
         train_ohlcv=train_ohlcv, train_features=train_features,
@@ -249,8 +264,15 @@ def handle_compare(args: argparse.Namespace) -> int:
         seed=args.seed, n_eval_budget=args.n_eval or 200,
     )
     generators = make_all_generators(protocol, config)
-    ohlcv, features = _build_dummy_data(config, n_bougies=600)
-    train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _split(ohlcv, features)
+    try:
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
+            config=config,
+            data_root=args.data_root,
+            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Impossible de charger les données réelles : %s", exc)
+        return 2
     comparator = GeneratorComparator(generators=generators, protocol=protocol, engine=engine, config=config)
     report = comparator.run(
         train_ohlcv=train_ohlcv, train_features=train_features,
@@ -284,8 +306,15 @@ def handle_select(args: argparse.Namespace) -> int:
         seed=args.seed, n_eval_budget=args.n_eval or 200,
     )
     generators = make_all_generators(protocol, config)
-    ohlcv, features = _build_dummy_data(config, n_bougies=600)
-    train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _split(ohlcv, features)
+    try:
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
+            config=config,
+            data_root=args.data_root,
+            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Impossible de charger les données réelles : %s", exc)
+        return 2
     comparator = GeneratorComparator(generators=generators, protocol=protocol, engine=engine, config=config)
     report = comparator.run(
         train_ohlcv=train_ohlcv, train_features=train_features,

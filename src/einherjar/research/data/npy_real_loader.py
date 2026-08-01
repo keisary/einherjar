@@ -87,16 +87,21 @@ def load_ohlcv_from_npy(
     asset_class: str,
     timeframe: str,
     data_root: Path | None = None,
-) -> OhlcvFrame:
+) -> tuple[OhlcvFrame, np.ndarray]:
     """Charge la série OHLCV réelle depuis les .npy MIDAS V3.
 
     ATTENTION : les 5 premières colonnes sont des LOG-RETURNS, pas des
     prix bruts. Le moteur travaille donc dans l'espace des rendements.
 
     Returns:
-        OhlcvFrame avec colonnes [timestamp, open, high, low, close, volume]
-        (les valeurs OHLCV sont des log-returns pour les 4 premières, log1p
-        pour le volume).
+        Tuple (OhlcvFrame, validity_mask) :
+            - OhlcvFrame avec colonnes [timestamp, open, high, low, close, volume]
+              (les valeurs OHLCV sont des log-returns pour les 4 premières,
+              log1p pour le volume).
+            - validity_mask (np.ndarray de bool) : True pour les bougies
+              conservées, False pour celles droppées. Le caller peut
+              appliquer ce mask aux features pour garantir l'alignement
+              OHLCV/Features.
 
     Raises:
         NpyRealLoaderError: si les fichiers n'existent pas, sont vides,
@@ -167,21 +172,26 @@ def load_ohlcv_from_npy(
         "close": x[:, 3].astype("float64"),
         "volume": x[:, 4].astype("float64"),
     })
-    df = _sanitize_ohlcv(df)
-    if df.is_empty():
+    mask = compute_validity_mask(df)
+    df_sanitized = df.filter(pl.Series("m", mask))
+    if df_sanitized.is_empty():
         raise NpyRealLoaderError(
             f"Toutes les bougies OHLCV sont invalides pour {asset} × {timeframe}"
         )
 
     logger.info(
-        "OHLCV reel charge : %s × %s, %d bougies [%s → %s] (log-returns)",
-        asset, timeframe, df.height, df["timestamp"][0], df["timestamp"][-1],
+        "OHLCV reel charge : %s × %s, %d/%d bougies valides [%s → %s] (log-returns)",
+        asset, timeframe, df_sanitized.height, df.height,
+        df_sanitized["timestamp"][0], df_sanitized["timestamp"][-1],
     )
-    return OhlcvFrame(
-        asset=asset,
-        timeframe=timeframe,
-        df=df,
-        data_version=f"npy:{asset_class}/{timeframe}/{asset}",
+    return (
+        OhlcvFrame(
+            asset=asset,
+            timeframe=timeframe,
+            df=df_sanitized,
+            data_version=f"npy:{asset_class}/{timeframe}/{asset}",
+        ),
+        mask,
     )
 
 
@@ -191,6 +201,8 @@ def load_features_from_npy(
     timeframe: str,
     config: Any,
     data_root: Path | None = None,
+    *,
+    validity_mask: np.ndarray | None = None,
 ) -> FeaturesFrame:
     """Charge les features réelles depuis les .npy MIDAS V3.
 
@@ -200,6 +212,12 @@ def load_features_from_npy(
       - **features_taxonomy.json** (config) donne la liste des 218 features
         à GARDER. Les 28 features exclues (19 fantômes + 8 meta-factors
         + 1 alias) sont filtrées ici.
+
+    Args:
+        validity_mask: Masque optionnel (np.ndarray de bool) indiquant
+            quelles bougies sont valides (alignement avec l'OHLCV sanitisé).
+            Si fourni, on filtre les features avec ce masque.
+            Si None, on garde toutes les bougies brutes.
 
     Returns:
         FeaturesFrame avec feature_names = intersection (taxonomie × metadata).
@@ -231,21 +249,26 @@ def load_features_from_npy(
             f".npy={x.shape[1]} colonnes"
         )
 
+    # Applique le validity_mask si fourni (alignement avec OHLCV sanitisé).
+    if validity_mask is not None:
+        if len(validity_mask) != len(ts):
+            raise NpyRealLoaderError(
+                f"validity_mask length mismatch : mask={len(validity_mask)}, ts={len(ts)}"
+            )
+        ts = ts[validity_mask]
+        x = x[validity_mask]
+
     # Construit un index : nom de feature -> index de colonne dans le .npy
-    # (basé sur metadata.json, pas sur la taxonomie qui a un ordre différent).
     name_to_idx: dict[str, int] = {n: i for i, n in enumerate(meta_names)}
 
     # Liste des features à garder (intersection taxonomie × metadata).
-    usable = config.usable_set()
     kept_names: list[str] = []
     for taxo_name in config.usable_feature_names:
         if taxo_name in _OHLCV_COLUMNS:
-            # OHLCV (log-returns) — toujours incluses.
             kept_names.append(taxo_name)
         elif taxo_name in name_to_idx:
             kept_names.append(taxo_name)
         else:
-            # Feature dans la taxonomie mais absente du .npy (bug dataset).
             logger.warning(
                 "Feature %s dans la taxonomie mais absente du .npy (%s %s) — ignorée",
                 taxo_name, asset, timeframe,
@@ -277,6 +300,34 @@ def load_features_from_npy(
         feature_names=tuple(kept_names),
         data_version=f"npy:{asset_class}/{timeframe}/{asset}",
     )
+
+
+def compute_validity_mask(ohlcv_df: pl.DataFrame) -> np.ndarray:
+    """Calcule un masque bool des bougies valides (alignement OHLCV/Features).
+
+    Une bougie est invalide si :
+      - open, high, low, close contient NaN/inf
+      - low > high, ou open/close hors [low, high]
+
+    Returns:
+        np.ndarray de bool, True = valide.
+    """
+    if ohlcv_df.is_empty():
+        return np.array([], dtype=bool)
+    critical = ("open", "high", "low", "close")
+    arr = ohlcv_df.select(critical).to_numpy()
+    valid = np.ones(len(arr), dtype=bool)
+    # NaN / inf
+    for c in critical:
+        col = ohlcv_df[c].to_numpy()
+        valid &= ~np.isnan(col) & ~np.isinf(col)
+    # low <= high
+    valid &= arr[:, 2] <= arr[:, 1]  # low <= high
+    # open in [low, high]
+    valid &= (arr[:, 0] >= arr[:, 2]) & (arr[:, 0] <= arr[:, 1])
+    # close in [low, high]
+    valid &= (arr[:, 3] >= arr[:, 2]) & (arr[:, 3] <= arr[:, 1])
+    return valid
 
 
 def _sanitize_ohlcv(df: pl.DataFrame) -> pl.DataFrame:
