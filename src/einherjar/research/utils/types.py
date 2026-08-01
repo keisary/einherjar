@@ -198,6 +198,87 @@ class Hypothesis:
             "meta": self.meta,
         }
 
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "Hypothesis":
+        """Reconstruit une Hypothesis depuis son dict (sérialisation via to_dict).
+
+        Inverse exact de `to_dict()`. Lève ValueError si la forme est invalide
+        (champ manquant, opérateur inconnu, etc.).
+        """
+        required = ("id", "condition_tree", "amplitude", "direction", "universe", "cooldown_k")
+        for key in required:
+            if key not in d:
+                raise ValueError(f"Hypothesis.from_dict: champ manquant {key!r}")
+        # Condition tree (récursif).
+        ct_raw = d["condition_tree"]
+        if "op" in ct_raw and "left" in ct_raw:
+            # ConditionNode (compose)
+            left = cls._condition_from_dict(ct_raw["left"])
+            right_raw = ct_raw.get("right")
+            right = cls._condition_from_dict(right_raw) if right_raw is not None else None
+            try:
+                op = LogicalOp(ct_raw["op"])
+            except ValueError as exc:
+                raise ValueError(f"LogicalOp invalide: {ct_raw['op']!r}") from exc
+            condition_tree: Condition | ConditionNode = ConditionNode(op=op, left=left, right=right)
+        else:
+            condition_tree = cls._condition_from_dict(ct_raw)
+        # Amplitude.
+        amp_raw = d["amplitude"]
+        try:
+            amplitude = Amplitude(
+                valeur=float(amp_raw["valeur"]),
+                unité=AmplitudeUnit(amp_raw["unité"]),
+                direction_implicite=Direction(amp_raw["direction_implicite"]),
+            )
+        except (KeyError, ValueError) as exc:
+            raise ValueError(f"Amplitude invalide: {exc}") from exc
+        # Direction.
+        try:
+            direction = Direction(d["direction"])
+        except ValueError as exc:
+            raise ValueError(f"Direction invalide: {d['direction']!r}") from exc
+        # Universe.
+        uni_raw = d["universe"]
+        universe = Universe(
+            assets=tuple(uni_raw.get("assets", ())),
+            timeframes=tuple(uni_raw.get("timeframes", ())),
+        )
+        return cls(
+            id=d["id"],
+            condition_tree=condition_tree,
+            amplitude=amplitude,
+            direction=direction,
+            universe=universe,
+            cooldown_k=int(d["cooldown_k"]),
+            meta=dict(d.get("meta", {})),
+        )
+
+    @staticmethod
+    def _condition_from_dict(d: Any) -> "Condition | ConditionNode":
+        if not isinstance(d, dict):
+            raise ValueError(f"Condition attendue (dict), got {type(d).__name__}")
+        if "op" in d and "left" in d:
+            left = Hypothesis._condition_from_dict(d["left"])
+            right_raw = d.get("right")
+            right = Hypothesis._condition_from_dict(right_raw) if right_raw is not None else None
+            try:
+                op = LogicalOp(d["op"])
+            except ValueError as exc:
+                raise ValueError(f"LogicalOp invalide: {d['op']!r}") from exc
+            return ConditionNode(op=op, left=left, right=right)
+        # Condition atomique.
+        try:
+            op = CompareOp(d["operator"])
+        except (KeyError, ValueError) as exc:
+            raise ValueError(f"CompareOp invalide: {d.get('operator')!r}") from exc
+        return Condition(
+            feature_ref=d["feature_ref"],
+            operator=op,
+            value=d["value"],
+            transformation=d.get("transformation"),
+        )
+
 
 # --------------------------------------------------------------------------- #
 # MesuresBrutes (sortie du moteur d'évaluation)

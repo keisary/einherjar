@@ -130,6 +130,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run", action="store_true",
         help="Affiche le plan d'exécution sans rien lancer.",
     )
+    parser.add_argument(
+        "--hypothesis-file", type=Path, default=None,
+        help="Fichier JSON avec une Hypothesis sérialisée (utilisé par 'holdout').",
+    )
     return parser
 
 
@@ -355,21 +359,75 @@ def handle_admit(args: argparse.Namespace) -> int:
 
 
 def handle_holdout(args: argparse.Namespace) -> int:
-    """Step 6 — Évaluation finale unique sur le holdout (sacré)."""
+    """Step 6 — Évaluation finale unique sur le holdout (sacré).
+
+    Pour V1 : consomme un fichier JSON via --hypothesis-file (Hypothesis
+    sérialisée). Le pipeline complet (admit → corpus persisté → holdout
+    automatique) sera implémenté en P0 #4 V2.
+
+    Le holdout est consulté UNE SEULE FOIS par session : le 2e appel
+    lèvera une erreur (cf. HoldoutEvaluator._holdout_used).
+    """
     logger.info("[STEP 6] Holdout sacré — ÉVALUATION FINALE UNIQUE")
-    logger.info("  ⚠ ce mode ne doit être appelé qu'UNE SEULE FOIS par Einher final retenu")
-    logger.info("  → publication: métriques + IC bootstrap + descripteurs comportementaux")
-    logger.info("  → archivage avec data_version/seed/splits/coûts figés")
-    # Pour V1 : on délègue au HoldoutEvaluator si on a un Einher.
-    config = load_config(args.config)
+    if args.hypothesis_file is None:
+        logger.error(
+            "Aucun --hypothesis-file fourni. Pour V1, le holdout consomme un fichier JSON "
+            "contenant une Hypothesis sérialisée (via Hypothesis.to_dict()). "
+            "Le pipeline P0 #4 V2 (corpus persisté → holdout automatique) n'est pas encore implémenté."
+        )
+        return 2
+    if not args.hypothesis_file.exists():
+        logger.error("Fichier hypothesis introuvable : %s", args.hypothesis_file)
+        return 2
+    # Charge l'Hypothesis depuis le JSON.
+    import json
     from einherjar.research.engine.evaluator import EvaluationEngine
     from einherjar.research.holdout.evaluator import HoldoutEvaluator
-    engine = EvaluationEngine(config=config, data_version=args.data_version or "v1", seed=args.seed)
+    from einherjar.research.utils.types import Hypothesis
+    try:
+        hyp_dict = json.loads(args.hypothesis_file.read_text(encoding="utf-8"))
+        hypothesis = Hypothesis.from_dict(hyp_dict)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Hypothesis JSON invalide : %s", exc)
+        return 2
+    # Charge les données + split holdout.
+    config = load_config(args.config)
+    try:
+        train_ohlcv, train_features, val_ohlcv, val_features, holdout_ohlcv, holdout_features = _load_real_data(
+            config=config, data_root=args.data_root,
+            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Impossible de charger les données réelles : %s", exc)
+        return 2
+    # Pipeline complet : train_calibrate + test_on(val) + HoldoutEvaluator.
+    engine = EvaluationEngine(
+        config=config, data_version=args.data_version or "v1", seed=args.seed,
+    )
+    try:
+        calibrated = engine.train_calibrate(hypothesis, train_ohlcv, train_features)
+        m_val = engine.test_on(hypothesis, val_ohlcv, val_features, calibrated, "val")
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Échec train/val pour %s : %s", hypothesis.id, exc)
+        return 2
     holdout_eval = HoldoutEvaluator(
         engine=engine, config=config,
         data_version=args.data_version or "v1", seed=args.seed,
     )
-    logger.info("HoldoutEvaluator instancié (1 seule passe autorisée).")
+    val_sharpe = m_val.sharpe_net
+    val_snapshot = m_val.to_dict()
+    result = holdout_eval.evaluate(
+        hypothesis=hypothesis, calibrated=calibrated,
+        holdout_ohlcv=holdout_ohlcv, holdout_features=holdout_features,
+        val_sharpe=val_sharpe, val_metrics_snapshot=val_snapshot,
+    )
+    # Persiste le résultat dans outputs/.
+    import json as _json
+    out_path = Path("outputs") / "holdout_result.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(_json.dumps(result.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
+    logger.info("Holdout terminé : flag=%s, sharpe_holdout=%.4f, persisté dans %s",
+                result.degradation_flag, result.metrics_holdout.sharpe_net, out_path)
     return 0
 
 
