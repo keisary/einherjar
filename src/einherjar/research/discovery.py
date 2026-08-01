@@ -229,6 +229,7 @@ def handle_baselines(args: argparse.Namespace) -> int:
     """Step 1 — 3 baselines."""
     logger.info("[STEP 1] Baselines")
     config = load_config(args.config)
+    from einherjar.research.admission.baseline_gate import make_baseline_admission_fn
     from einherjar.research.baselines.runner import BaselineRunner
     from einherjar.research.engine.evaluator import EvaluationEngine
     engine = EvaluationEngine(config=config, data_version=args.data_version or "v1", seed=args.seed)
@@ -241,10 +242,17 @@ def handle_baselines(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
+    # Admission RÉELLE (7 critères S-3.4), pas un fallback "tout admis".
+    admission_fn, counter = make_baseline_admission_fn(config)
     runner = BaselineRunner(engine=engine)
     report = runner.run(
         train_ohlcv=train_ohlcv, train_features=train_features,
         val_ohlcv=val_ohlcv, val_features=val_features,
+        admission_fn=admission_fn,
+    )
+    logger.info(
+        "Baselines : %d essais, %d admis (DSR corrige pour multiple-testing)",
+        counter["n"], counter["n_admitted"],
     )
     logger.info("Baselines : %s", report.summary())
     return 0
