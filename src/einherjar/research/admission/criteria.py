@@ -6,12 +6,12 @@ en entrée les MesuresBrutes + métriques auxiliaires et retourne un verdict
 
 Critères implémentés :
   1. DSR (Deflated Sharpe Ratio) — corrige pour le nombre d'essais indépendants.
-  2. PBO (Probability of Backtest Overfitting) — CPCV léger K=6, N=6.
+  2. PBO (Probability of Backtest Overfitting) — CPCV K=6, embargo configurable.
   3. Block bootstrap CI sur Sharpe — `sharpe_ci_low > 0`.
   4. Block bootstrap CI sur ret_total — `ret_total_ci_low > 0`.
   5. n_trades minimum — significativité statistique.
-  6. consistency_cross_asset — ≥ 70% des actifs positifs.
-  7. max_drawdown — < seuil (défaut 0.25).
+  6. consistency_cross_asset — ≥ 70% des actifs positifs (≥ 2 actifs).
+  7. max_drawdown — sur equity_curve par trade (vrai calcul, pas heuristique).
 
 Conforme à ONTOLOGY.md S-3.4 et ALGORITHME_RESEARCH.md § 10.2 étape 5.
 """
@@ -148,56 +148,105 @@ def evaluate_pbo(
     n_groups: int | None = None,
     n_paths: int | None = None,
 ) -> CriterionVerdict:
-    """PBO via CPCV léger (Combinatorial Purged Cross-Validation).
+    """PBO via CPCV (Combinatorial Purged Cross-Validation) — López de Prado §12.
 
-    Implémentation simplifiée V1 : on découpe la série en `n_groups`
-    blocs, on forme `n_paths` combinaisons train/test, et on calcule
-    la fraction de configurations où le test est perdant.
+    Algorithme (Advances in Financial ML, ch. 12) :
+      1. Découpe la série en K groupes contigus (= blocs temporels).
+      2. Pour chaque combinaison de k_test = K//2 groupes (test set) :
+         - train_returns = tous les autres groupes
+         - test_returns = les k_test groupes choisis
+         - **Embargo** : on retire les `embargo_pct` premières observations
+           du test set (= anti-leak temporel entre train et test).
+         - **Purging** : les observations du train set qui chevauchent
+           temporellement le test set sont exclues (ici, par construction
+           en K groupes contigus, il n'y a pas de chevauchement — c'est
+           une simplification V1 sur séries de rendements par trade).
+      3. Pour chaque split, on calcule ret_total_train et ret_total_test.
+      4. PBO = proportion de configurations où ret_total_test < 0.
 
-    V2 pourra implémenter le CPCV complet de López de Prado.
+    C'est la définition classique : "quelle est la probabilité que la
+    config soit overfittée, càd perde de l'argent OOS".
+
+    Returns:
+        Verdict. Pass si PBO <= seuil.
     """
     max_pbo = float(config.thresholds["pbo"]["max_value"])
     n_groups = n_groups or int(config.thresholds["pbo"]["cpcv"]["n_groups"])
     n_paths = n_paths or int(config.thresholds["pbo"]["cpcv"]["n_paths"])
-    if len(returns) < n_groups * 2:
+    embargo_pct = float(config.thresholds["pbo"]["cpcv"].get("embargo_pct", 0.01))
+    n = len(returns)
+    if n < n_groups * 2:
         return CriterionVerdict(
             name="PBO",
             passed=False,
             observed=float("nan"),
             threshold=max_pbo,
             reason=RejectionReason.PBO_FAIL,
-            meta={"reason": "insufficient_data", "n_returns": len(returns)},
+            meta={"reason": "insufficient_data", "n_returns": n, "min_required": n_groups * 2},
         )
-    # Découpage en `n_groups` blocs, on fait `n_paths` combinaisons train/test.
-    # Pour V1, on fait une approximation : on prend tous les splits "k sur n_groups"
-    # où k blocs servent de test, et on regarde la proportion de splits perdants.
     from itertools import combinations
-    n = len(returns)
     block_size = n // n_groups
-    blocks = [returns[i * block_size : (i + 1) * block_size] for i in range(n_groups)]
-    # Toutes les combinaisons de k blocs pour le test (k = n_groups // 2).
-    k = n_groups // 2
-    if k == 0:
-        k = 1
+    # Découpage en K blocs contigus (purge par construction : pas de chevauchement
+    # temporel entre groupes).
+    blocks: list[list[float]] = []
+    for i in range(n_groups):
+        start = i * block_size
+        end = (i + 1) * block_size if i < n_groups - 1 else n  # dernier bloc = reste
+        blocks.append(list(returns[start:end]))
+    # Combinaisons de k_test = K//2 groupes pour le test set.
+    k_test = max(1, n_groups // 2)
+    embargo_n = max(1, int(block_size * embargo_pct))
     n_losing = 0
     tested = 0
-    for combo in combinations(range(n_groups), k):
+    sum_log_loss = 0.0
+    for combo in combinations(range(n_groups), k_test):
         if tested >= n_paths:
             break
+        # Train = les K - k_test autres groupes.
+        train_blocks = [blocks[i] for i in range(n_groups) if i not in combo]
+        train_returns = [r for b in train_blocks for r in b]
+        # Test = les k_test groupes choisis.
         test_blocks = [blocks[i] for i in combo]
-        test_returns = [r for b in test_blocks for r in b]
-        # Trade "perdant" = ret_total < 0.
-        if sum(test_returns) < 0:
+        test_returns_raw = [r for b in test_blocks for r in b]
+        # Embargo : retire les `embargo_n` premières observations du test set.
+        test_returns = test_returns_raw[embargo_n:] if len(test_returns_raw) > embargo_n else []
+        if not train_returns or not test_returns:
+            continue
+        ret_train = sum(train_returns)
+        ret_test = sum(test_returns)
+        # Log-loss = dégradation OOS par rapport à IS.
+        log_loss = ret_test - ret_train
+        sum_log_loss += log_loss
+        # Perdant OOS = ret_test < 0 (overfit probable).
+        if ret_test < 0:
             n_losing += 1
         tested += 1
-    pbo = n_losing / max(tested, 1)
+    if tested == 0:
+        return CriterionVerdict(
+            name="PBO",
+            passed=False,
+            observed=float("nan"),
+            threshold=max_pbo,
+            reason=RejectionReason.PBO_FAIL,
+            meta={"reason": "no_valid_cpcv_splits", "n_groups": n_groups},
+        )
+    pbo = n_losing / tested
+    mean_log_loss = sum_log_loss / tested
     return CriterionVerdict(
         name="PBO",
         passed=(pbo <= max_pbo),
         observed=pbo,
         threshold=max_pbo,
         reason=None if pbo <= max_pbo else RejectionReason.PBO_FAIL,
-        meta={"n_groups": n_groups, "n_paths": tested, "n_losing": n_losing},
+        meta={
+            "n_groups": n_groups,
+            "n_paths": tested,
+            "n_losing": n_losing,
+            "k_test": k_test,
+            "embargo_pct": embargo_pct,
+            "embargo_n": embargo_n,
+            "mean_log_loss": mean_log_loss,
+        },
     )
 
 
