@@ -1,23 +1,37 @@
 """data/npy_real_loader.py — Loader des données réelles (format .npy MIDAS V3).
 
 Charge les fichiers .npy produits par le pipeline MIDAS V3 :
-  - *_ts.npy : timestamps Unix ms (int64)
-  - *_X.npy   : features normalisées (float32, 246 colonnes)
+  - *_ts.npy        : timestamps Unix ms (int64)
+  - *_X.npy         : features (float32, 246 colonnes)
+  - metadata.json   : noms de features dans l'ordre EXACT des colonnes du .npy
+  - *_Y_dir.npy     : labels direction (int8)
+  - *_Y_hor.npy     : labels horizon (float32)
+  - *_Y_ret.npy     : labels return (float32)
 
-Les features contiennent l'OHLCV brut (colonnes 0-4) avant normalisation.
-On reconstitue un OhlcvFrame valide à partir de ces colonnes.
+ATTENTION — ordre des colonnes :
+  - Le fichier `metadata.json` (côte-à-côte avec le .npy) est la SOURCE
+    DE VÉRITÉ pour l'ordre des colonnes.
+  - La taxonomie `config/features_taxonomy.json` a un ORDRE DIFFÉRENT
+    (et est utilisée uniquement pour les métadonnées de chaque feature :
+    type, famille économique, exclusion). Toute correspondance entre nom
+    de feature et colonne du .npy DOIT passer par metadata.json.
+  - Bug historique : les versions précédentes du code utilisaient la
+    taxonomie comme ordre de colonnes, ce qui décalait tout d'un cran
+    après `macd_signal` (position 9). Ce loader corrige ce bug.
 
-ATTENTION : pour P0 #3 (CLI sur données réelles), on accepte que les 4
-premières colonnes de X sont open/high/low/close. Le volume est pris
-depuis la 5e colonne. Si la structure change, ce loader lèvera une erreur
-explicite (pas de fallback silencieux).
+Normalisation (cf. _normalize dans compile_dataset.py) :
+  - Colonnes 0-3 (open/high/low/close) : log-returns (log(price[t]) - log(price[t-1]))
+  - Colonne 4 (volume)                 : log1p(volume)
+  - Colonnes 5+                        : features BRUTES (non normalisées)
 
-Format de sortie : OhlcvFrame avec colonnes OHLCV + un FeaturesFrame
-construit à partir des features normalisées.
+Les log-returns ne sont pas des prix exploitables directement par le
+moteur pour SL/TP. Le moteur travaille donc dans l'espace des rendements
+(volatility-based SL/TP via ATR sur les log-returns).
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,19 +45,41 @@ from einherjar.research.data.ohlcv import OhlcvFrame
 
 logger = logging.getLogger(__name__)
 
-
-# Colonnes OHLCV dans le fichier X.npy (convention MIDAS V3)
-_OHLCV_COLUMN_INDICES: dict[str, int] = {
-    "open": 0,
-    "high": 1,
-    "low": 2,
-    "close": 3,
-    "volume": 4,
-}
+# Colonnes OHLCV dans le fichier X.npy (convention MIDAS V3, fixée par metadata.json).
+_OHLCV_COLUMNS: tuple[str, ...] = ("open", "high", "low", "close", "volume")
 
 
 class NpyRealLoaderError(Exception):
     """Erreur de chargement des données réelles."""
+
+
+def load_metadata(data_root: Path, asset_class: str, timeframe: str) -> dict[str, Any]:
+    """Charge metadata.json pour une (asset_class, timeframe).
+
+    Returns:
+        Dict avec 'feature_names' (liste des 246 noms dans l'ordre des colonnes
+        du .npy), 'horizons' (liste des horizons), 'sequence_lengths', etc.
+
+    Raises:
+        NpyRealLoaderError: si le fichier n'existe pas ou est invalide.
+    """
+    meta_path = data_root / asset_class / timeframe / "metadata.json"
+    if not meta_path.exists():
+        raise NpyRealLoaderError(
+            f"metadata.json absent : {meta_path}. "
+            f"Vérifie --data-root (défaut: {data_root})."
+        )
+    try:
+        with meta_path.open(encoding="utf-8") as fp:
+            meta = json.load(fp)
+    except json.JSONDecodeError as exc:
+        raise NpyRealLoaderError(f"metadata.json invalide ({meta_path}): {exc}") from exc
+
+    if "feature_names" not in meta:
+        raise NpyRealLoaderError(
+            f"metadata.json ne contient pas 'feature_names' ({meta_path})"
+        )
+    return meta
 
 
 def load_ohlcv_from_npy(
@@ -54,14 +90,13 @@ def load_ohlcv_from_npy(
 ) -> OhlcvFrame:
     """Charge la série OHLCV réelle depuis les .npy MIDAS V3.
 
-    Args:
-        asset: Symbole (ex: 'BTCUSD').
-        asset_class: Classe d'actifs (ex: 'crypto', 'forex', 'indices', etc.).
-        timeframe: Timeframe (ex: '1h', '4h', '1d').
-        data_root: Racine des données (défaut: midasV3/src/data/compiled).
+    ATTENTION : les 5 premières colonnes sont des LOG-RETURNS, pas des
+    prix bruts. Le moteur travaille donc dans l'espace des rendements.
 
     Returns:
-        OhlcvFrame avec colonnes [timestamp, open, high, low, close, volume].
+        OhlcvFrame avec colonnes [timestamp, open, high, low, close, volume]
+        (les valeurs OHLCV sont des log-returns pour les 4 premières, log1p
+        pour le volume).
 
     Raises:
         NpyRealLoaderError: si les fichiers n'existent pas, sont vides,
@@ -105,45 +140,41 @@ def load_ohlcv_from_npy(
             f"Pas assez de colonnes pour extraire OHLCV : x.shape={x.shape} (besoin >= 5)"
         )
 
-    # Reconstruction OHLCV depuis les 5 premières colonnes.
+    # Vérifie la cohérence avec metadata.json (5 premières colonnes = OHLCV).
+    meta = load_metadata(root, asset_class, timeframe)
+    meta_names = meta["feature_names"]
+    if len(meta_names) != x.shape[1]:
+        raise NpyRealLoaderError(
+            f"Coherence OHLCV impossible : metadata.json annonce "
+            f"{len(meta_names)} features, .npy a {x.shape[1]} colonnes"
+        )
+    for i, name in enumerate(_OHLCV_COLUMNS):
+        if meta_names[i] != name:
+            raise NpyRealLoaderError(
+                f"Coherence OHLCV cassee : metadata.json colonne {i} = {meta_names[i]!r}, "
+                f"attendu {name!r}. Le dataset est-il compile avec la bonne version ?"
+            )
+
+    # Construction OHLCV.
     timestamps = [_ts_to_datetime(t) for t in ts]
     df = pl.DataFrame({
         "asset": [asset] * len(ts),
         "timeframe": [timeframe] * len(ts),
         "timestamp": timestamps,
-        "open": x[:, _OHLCV_COLUMN_INDICES["open"]].astype("float64"),
-        "high": x[:, _OHLCV_COLUMN_INDICES["high"]].astype("float64"),
-        "low": x[:, _OHLCV_COLUMN_INDICES["low"]].astype("float64"),
-        "close": x[:, _OHLCV_COLUMN_INDICES["close"]].astype("float64"),
-        "volume": x[:, _OHLCV_COLUMN_INDICES["volume"]].astype("float64"),
+        "open": x[:, 0].astype("float64"),
+        "high": x[:, 1].astype("float64"),
+        "low": x[:, 2].astype("float64"),
+        "close": x[:, 3].astype("float64"),
+        "volume": x[:, 4].astype("float64"),
     })
-    # Validation minimale : OHLC cohérent (low <= high, etc.).
-    invalid = df.filter(
-        (pl.col("low") > pl.col("high"))
-        | (pl.col("open") < pl.col("low"))
-        | (pl.col("open") > pl.col("high"))
-        | (pl.col("close") < pl.col("low"))
-        | (pl.col("close") > pl.col("high"))
-    )
-    if invalid.height > 0:
-        logger.warning(
-            "%d bougies avec OHLC incoherent (low>high, etc.) pour %s %s — ignorees",
-            invalid.height, asset, timeframe,
-        )
-        df = df.filter(
-            (pl.col("low") <= pl.col("high"))
-            & (pl.col("open") >= pl.col("low"))
-            & (pl.col("open") <= pl.col("high"))
-            & (pl.col("close") >= pl.col("low"))
-            & (pl.col("close") <= pl.col("high"))
-        )
+    df = _sanitize_ohlcv(df)
     if df.is_empty():
         raise NpyRealLoaderError(
             f"Toutes les bougies OHLCV sont invalides pour {asset} × {timeframe}"
         )
 
     logger.info(
-        "OHLCV réel chargé : %s × %s, %d bougies [%s → %s]",
+        "OHLCV reel charge : %s × %s, %d bougies [%s → %s] (log-returns)",
         asset, timeframe, df.height, df["timestamp"][0], df["timestamp"][-1],
     )
     return OhlcvFrame(
@@ -163,8 +194,16 @@ def load_features_from_npy(
 ) -> FeaturesFrame:
     """Charge les features réelles depuis les .npy MIDAS V3.
 
-    On garde les 218 features utilisables (filtre via la taxonomie chargée).
-    Les features fantômes/meta-factors/alias sont exclues.
+    SOURCE DE VÉRITÉ :
+      - **metadata.json** donne l'ordre EXACT des colonnes du .npy (pour
+        l'indexation correcte des arrays).
+      - **features_taxonomy.json** (config) donne la liste des 218 features
+        à GARDER. Les 28 features exclues (19 fantômes + 8 meta-factors
+        + 1 alias) sont filtrées ici.
+
+    Returns:
+        FeaturesFrame avec feature_names = intersection (taxonomie × metadata).
+        Les colonnes absentes du .npy lèvent une erreur explicite.
     """
     root = data_root or Path(r"D:/midas_v2/midasV3/src/data/compiled")
     dir_path = root / asset_class / timeframe
@@ -184,46 +223,76 @@ def load_features_from_npy(
             f"ts={ts.shape}, x={x.shape}"
         )
 
-    # Charge la taxonomie pour mapper les colonnes aux noms.
-    taxonomy = config.features_taxonomy.get("features", {})
-    if not taxonomy:
-        raise NpyRealLoaderError("Taxonomie features vide — charge la config d'abord")
-
-    # On suppose que les colonnes de X sont dans le même ordre que la taxonomie.
-    # Si ce n'est pas le cas, on ne peut pas mapper (fail explicite).
-    feature_names_in_order = list(taxonomy.keys())
-    n_taxo = len(feature_names_in_order)
-    n_x = x.shape[1]
-    if n_x != n_taxo:
+    meta = load_metadata(root, asset_class, timeframe)
+    meta_names = meta["feature_names"]
+    if len(meta_names) != x.shape[1]:
         raise NpyRealLoaderError(
-            f"Nombre de features incoherent : .npy={n_x}, taxonomie={n_taxo}. "
-            f"Vérifier que features_taxonomy_corrected.json correspond bien aux .npy."
+            f"Coherence impossible : metadata.json={len(meta_names)} features, "
+            f".npy={x.shape[1]} colonnes"
         )
 
-    # Construit le dict {col_name: array}
-    feature_dict: dict[str, pl.Series] = {}
-    for i, name in enumerate(feature_names_in_order):
-        feature_dict[name] = pl.Series(name, x[:, i].astype("float64"))
+    # Construit un index : nom de feature -> index de colonne dans le .npy
+    # (basé sur metadata.json, pas sur la taxonomie qui a un ordre différent).
+    name_to_idx: dict[str, int] = {n: i for i, n in enumerate(meta_names)}
 
-    # Ajoute les colonnes OHLCV+timestamp.
-    timestamps = [_ts_to_datetime(t) for t in ts]
-    feature_dict["timestamp"] = pl.Series("timestamp", timestamps)
-    feature_dict["open"] = pl.Series("open", x[:, 0].astype("float64"))
-    feature_dict["high"] = pl.Series("high", x[:, 1].astype("float64"))
-    feature_dict["low"] = pl.Series("low", x[:, 2].astype("float64"))
-    feature_dict["close"] = pl.Series("close", x[:, 3].astype("float64"))
-    feature_dict["volume"] = pl.Series("volume", x[:, 4].astype("float64"))
-
-    df = pl.DataFrame(feature_dict)
+    # Liste des features à garder (intersection taxonomie × metadata).
     usable = config.usable_set()
-    usable_names = tuple(c for c in df.columns if c in usable)
+    kept_names: list[str] = []
+    for taxo_name in config.usable_feature_names:
+        if taxo_name in _OHLCV_COLUMNS:
+            # OHLCV (log-returns) — toujours incluses.
+            kept_names.append(taxo_name)
+        elif taxo_name in name_to_idx:
+            kept_names.append(taxo_name)
+        else:
+            # Feature dans la taxonomie mais absente du .npy (bug dataset).
+            logger.warning(
+                "Feature %s dans la taxonomie mais absente du .npy (%s %s) — ignorée",
+                taxo_name, asset, timeframe,
+            )
+    if not kept_names:
+        raise NpyRealLoaderError(
+            f"Aucune feature utilisable dans le .npy pour {asset} × {timeframe}"
+        )
+
+    # Construit le DataFrame.
+    timestamps = [_ts_to_datetime(t) for t in ts]
+    feature_dict: dict[str, pl.Series] = {"timestamp": pl.Series("timestamp", timestamps)}
+    for name in kept_names:
+        if name in _OHLCV_COLUMNS:
+            idx = _OHLCV_COLUMNS.index(name)
+        else:
+            idx = name_to_idx[name]
+        feature_dict[name] = pl.Series(name, x[:, idx].astype("float64"))
+    df = pl.DataFrame(feature_dict)
+
+    logger.info(
+        "Features reelles chargees : %s × %s, %d/%d features (taxonomie × metadata), %d bougies",
+        asset, timeframe, len(kept_names), len(meta_names), df.height,
+    )
     return FeaturesFrame(
         asset=asset,
         timeframe=timeframe,
         df=df,
-        feature_names=usable_names,
+        feature_names=tuple(kept_names),
         data_version=f"npy:{asset_class}/{timeframe}/{asset}",
     )
+
+
+def _sanitize_ohlcv(df: pl.DataFrame) -> pl.DataFrame:
+    """Nettoie les bougies avec des NaN ou des OHLC invalides."""
+    critical = ("open", "high", "low", "close")
+    null_or_nan = [pl.col(c).is_null() | pl.col(c).is_nan() for c in critical]
+    df = df.filter(~pl.any_horizontal(null_or_nan))
+    # low <= high, low <= open, low <= close, high >= open, high >= close
+    df = df.filter(
+        (pl.col("low") <= pl.col("high"))
+        & (pl.col("open") >= pl.col("low"))
+        & (pl.col("open") <= pl.col("high"))
+        & (pl.col("close") >= pl.col("low"))
+        & (pl.col("close") <= pl.col("high"))
+    )
+    return df
 
 
 def _ts_to_datetime(ts_ms: int) -> datetime:
