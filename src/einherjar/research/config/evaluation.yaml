@@ -1,0 +1,74 @@
+# evaluation.yaml — Paramètres du moteur d'évaluation (Step 0)
+# Tous les paramètres sont overridables par hypothèse (champ dans la BNF à venir).
+
+# --- ATR (Average True Range) pour le calcul de N ---
+atr:
+  period: 14                   # période de l'ATR
+  percentile: 50               # médiane (p50), plus robuste que la moyenne
+  # L'ATR est calculé sur le train uniquement, jamais recalculé.
+
+# --- Fenêtre d'observation N ---
+# N = clamp(ceil(amplitude / atr_p50), min_N, max_N) si prix_absolu
+# N = clamp(round(amplitude.valeur * K_atr), min_N, max_N) si multiple_ATR
+n_window:
+  min_n: 3                     # borne inf (évite N=2 = bruit)
+  max_n: 50                    # borne sup (évite N=500 = pas un trade)
+  # Facteur de conversion bougie/ATR pour les amplitudes en multiple_ATR
+  k_atr_by_timeframe:
+    "1m": 0.25
+    "5m": 0.5
+    "15m": 1.0
+    "1h": 1.0
+    "4h": 1.0
+    "1d": 1.0
+  default_k_atr: 1.0
+
+# --- Simulation intrabar TP/SL ---
+# Convention : SL touché avant TP sur la même bougie (conservateur)
+# Entrée à l'OPEN de la bougie t+1, jamais au close
+simulation:
+  entry_price: open_t_plus_1    # entry = open de la bougie suivante le signal
+  intrabar_check: true          # vérifie TP/SL sur high/low, pas seulement close
+  sl_before_tp_on_same_bar: true  # convention conservative
+  exit_at_session_end: false    # sinon, on attend TP/SL/timeout dans la fenêtre
+  max_bars_in_window: 1000      # garde-fou anti-boucle infinie
+
+# --- Block bootstrap (engine/bootstrap.py) ---
+bootstrap:
+  block_length: auto            # auto = 1.5 * N_max
+  n_resamples: 2000
+  ci_level: 0.95
+  seed: 42
+  # Pour préserver l'autocorrélation intra-bloc, on garde les bougies contiguës
+  contiguous_blocks: true
+
+# --- Block bootstrap pour PBO (CPCV léger) ---
+cpcv:
+  n_groups: 6
+  n_paths: 6
+  embargo_pct: 0.01
+
+# --- Block bootstrap pour DSR ---
+dsr:
+  # Nombre d'essais indépendants = nombre de fingerprints structurels distincts
+  # testés sur le train. Mis à jour par le runner du comparateur.
+  n_indep_trials: null          # null = auto-détection depuis l'archive
+  skewness_correction: true
+  kurtosis_correction: true
+
+# --- Descripteurs comportementaux (S-3.7) ---
+behavioral_descriptors:
+  enabled: true
+  regimes: ["bull", "bear", "range"]  # basé sur trend_strength et realized_vol
+  horizons: ["tp", "sl", "timeout"]   # basé sur exit_reason
+  holding_period_hist_bins: 20
+
+# --- Fingerprint canonique ---
+fingerprint:
+  structural:
+    includes: ["condition_tree", "direction", "universe", "amplitude_cible", "sl", "tp"]
+    hash_algo: "sha256"
+  behavioral:
+    includes: ["signal_overlap_vs_corpus", "ret_corr_vs_corpus", "distribution_by_regime", "distribution_by_horizon"]
+    rounding_decimals: 3
+    hash_algo: "sha256"

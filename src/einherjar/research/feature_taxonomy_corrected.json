@@ -1,0 +1,1983 @@
+{
+  "_comment": "Taxonomie corrigee apres lecture complete de technical_indicators.py, quantitative_features.py, calculator.py, library.py. Champ 'verified': code=formule confirmee dans le code fourni, name_only=pattern non verifie (nom seul), unverified_missing_source=introuvable dans les 4 fichiers fournis (probable 5e fichier manquant), taxonomy_original_unverified=non re-analyse.",
+  "summary": {
+    "total_features": 246,
+    "verified_code": 120,
+    "verified_name_only": 106,
+    "unverified_missing_source": 19,
+    "numba_fallback_risk_count": 31
+  },
+  "features": {
+    "open": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "price_action",
+      "verified": "code"
+    },
+    "high": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "price_action",
+      "verified": "code"
+    },
+    "low": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "price_action",
+      "verified": "code"
+    },
+    "close": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "price_action",
+      "verified": "code"
+    },
+    "volume": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volume_flow",
+      "verified": "code"
+    },
+    "rsi_14": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "rsi_21": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "rsi_30": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "macd_line": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "macd_histogram": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "ema_9": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "ema_12": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "ema_21": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "ema_26": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "ema_50": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "ema_100": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "ema_200": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "sma_20": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "sma_50": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "sma_100": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "sma_200": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "bb_upper": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "bb_middle": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "bb_lower": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "bb_width": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "bb_percent": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "volume_sma_20": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volume_flow",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "volume_ratio": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volume_flow",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "atr_14": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "atr_21": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "stoch_k": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "stoch_d": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "williams_r": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "cci_20": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "adx_14": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "di_plus": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "di_minus": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "obv": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volume_flow",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "obv_ema": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volume_flow",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "vwap": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "price_action",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "momentum_10": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "momentum_20": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "roc_10": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "roc_20": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "trix_14": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "ultimate_oscillator": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "money_flow_index": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volume_flow",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "chaikin_oscillator": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "volume_flow",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "aroon_up": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "aroon_down": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "parabolic_sar": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "supertrend": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "choppiness_index": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "market_regime",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "vortex_pos": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "vortex_neg": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "confirmé dans INDICATOR_MODES[\"full\"] / technical_indicators.py"
+    },
+    "skewness_risk": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "risk",
+      "verified": "code",
+      "notes": "calculé dans calculator.py (clip skewness/kurtosis), famille risk correcte"
+    },
+    "kurtosis_risk": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "risk",
+      "verified": "code",
+      "notes": "calculé dans calculator.py (clip skewness/kurtosis), famille risk correcte"
+    },
+    "macd_signal": {
+      "feature_type": "atomic",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "notes": "CORRECTION: classé 'composite/boolean' dans la taxonomie originale. C'est en realite la ligne de signal MACD (EMA du MACD), un float continu calcule dans technical_indicators.py aux cotes de macd_line/macd_histogram. Le vrai booleen derive s'appelle macd_trend_signal."
+    },
+    "quant_realized_vol_10": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_realized_vol_20": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_realized_vol_50": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_garch_volatility": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_vol_clustering": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_hurst_exponent": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "market_regime",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_autocorr_10": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_autocorr_20": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_autocorr_50": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_autocorr_10_weighted": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_autocorr_20_weighted": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_autocorr_50_weighted": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_shannon_entropy": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_sample_entropy": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_dominant_frequency": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_spectral_centroid": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_fractal_dimension": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "market_regime",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_dfa_exponent": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "market_regime",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_vol_persistence": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_approximate_entropy": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_permutation_entropy": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_rolling_skewness": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "risk",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_rolling_kurtosis": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "risk",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_dynamic_var": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "risk",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_dynamic_cvar": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "risk",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_max_drawdown": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "risk",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_regime_detection": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "market_regime",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_amihud_illiquidity": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "microstructure",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_kyles_lambda": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "microstructure",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_kaufman_efficiency": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_variance_ratio": {
+      "feature_type": "quantitative",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "notes": "fonction numba avec fallback CONSTANT si numba indisponible (voir Decouverte #1)",
+      "numba_fallback_risk": true
+    },
+    "quant_realized_vol_10_signal": {
+      "feature_type": "quantitative",
+      "value_type": "boolean",
+      "economic_family": "volatility",
+      "verified": "unverified_missing_source",
+      "notes": "INTROUVABLE dans technical_indicators.py / quantitative_features.py / calculator.py / library.py. Probablement genere par un 5e fichier non fourni. Ne pas utiliser avant verification."
+    },
+    "quant_shannon_entropy_signal": {
+      "feature_type": "quantitative",
+      "value_type": "boolean",
+      "economic_family": "statistical",
+      "verified": "unverified_missing_source",
+      "notes": "INTROUVABLE dans technical_indicators.py / quantitative_features.py / calculator.py / library.py. Probablement genere par un 5e fichier non fourni. Ne pas utiliser avant verification."
+    },
+    "quant_hurst_exponent_signal": {
+      "feature_type": "quantitative",
+      "value_type": "boolean",
+      "economic_family": "market_regime",
+      "verified": "unverified_missing_source",
+      "notes": "INTROUVABLE dans technical_indicators.py / quantitative_features.py / calculator.py / library.py. Probablement genere par un 5e fichier non fourni. Ne pas utiliser avant verification."
+    },
+    "quant_vol_persistence_signal": {
+      "feature_type": "quantitative",
+      "value_type": "boolean",
+      "economic_family": "momentum",
+      "verified": "unverified_missing_source",
+      "notes": "INTROUVABLE dans technical_indicators.py / quantitative_features.py / calculator.py / library.py. Probablement genere par un 5e fichier non fourni. Ne pas utiliser avant verification."
+    },
+    "Factor_Momentum_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "derived_from": [
+        "rsi_14",
+        "rsi_21",
+        "stoch_k",
+        "stoch_d",
+        "williams_r",
+        "roc_10",
+        "roc_20",
+        "momentum_10",
+        "momentum_20"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Trend_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "derived_from": [
+        "sma_20",
+        "sma_50",
+        "ema_12",
+        "ema_26",
+        "macd_line",
+        "macd_signal",
+        "adx_14",
+        "aroon_up",
+        "aroon_down"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Volume_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "volume_flow",
+      "verified": "code",
+      "derived_from": [
+        "volume_sma_20",
+        "volume_ratio",
+        "obv",
+        "vwap"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Volatility_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "derived_from": [
+        "atr_14",
+        "bb_upper",
+        "bb_lower",
+        "bb_width"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Quantitative_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "derived_from": [
+        "quant_realized_vol_10",
+        "quant_shannon_entropy",
+        "quant_hurst_exponent",
+        "quant_regime_detection",
+        "quant_fractal_dimension",
+        "quant_vol_persistence"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Candlestick_Bullish_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "price_action",
+      "verified": "code",
+      "derived_from": [
+        "pattern_hammer",
+        "pattern_morning_star",
+        "pattern_engulfing_bull",
+        "pattern_three_white_soldiers",
+        "pattern_piercing_line"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Candlestick_Bearish_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "price_action",
+      "verified": "code",
+      "derived_from": [
+        "pattern_hanging_man",
+        "pattern_evening_star",
+        "pattern_engulfing_bear",
+        "pattern_three_black_crows",
+        "pattern_dark_cloud_cover"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Chart_Patterns_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "market_structure",
+      "verified": "code",
+      "derived_from": [
+        "pattern_ascending_triangle",
+        "pattern_bull_flag",
+        "pattern_head_shoulders",
+        "pattern_double_bottom",
+        "pattern_cup_handle",
+        "pattern_rectangle"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Harmonic_Patterns_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "market_structure",
+      "verified": "code",
+      "derived_from": [
+        "pattern_gartley_bull",
+        "pattern_butterfly_bull",
+        "pattern_bat_bull",
+        "pattern_fibonacci_retracement",
+        "pattern_fibonacci_extension"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Support_Resistance_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "market_structure",
+      "verified": "code",
+      "derived_from": [
+        "pattern_support",
+        "pattern_resistance",
+        "pattern_uptrend",
+        "pattern_gap_up",
+        "pattern_gap_down",
+        "pattern_fibonacci_retracement"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Regime_Hurst_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "market_regime",
+      "verified": "code",
+      "derived_from": [
+        "quant_hurst_exponent"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Risk_TailEvent_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "risk",
+      "verified": "code",
+      "derived_from": [
+        "quant_rolling_skewness",
+        "quant_rolling_kurtosis"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Persistence_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "statistical",
+      "verified": "code",
+      "derived_from": [
+        "quant_autocorr_10",
+        "quant_autocorr_20",
+        "quant_autocorr_50"
+      ],
+      "notes": "FACTOR DE BASE: agrege directement des features atomiques/quant/pattern",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_RelativeStrength_Momentum": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "cross_asset",
+      "verified": "code",
+      "derived_from": [
+        "Factor_Momentum_Score (cross-asset)"
+      ],
+      "notes": "META-FACTOR: agrege d'autres Factors, pas des features brutes -> collinearite composee",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Correlation_Dynamic": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "cross_asset",
+      "verified": "code",
+      "derived_from": [
+        "close (cross-asset)"
+      ],
+      "notes": "META-FACTOR: agrege d'autres Factors, pas des features brutes -> collinearite composee",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Momentum_Acceleration_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "derived_from": [
+        "Factor_Momentum_Score"
+      ],
+      "notes": "META-FACTOR: agrege d'autres Factors, pas des features brutes -> collinearite composee",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Volatility_Expansion_Rate": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "derived_from": [
+        "Factor_Volatility_Score"
+      ],
+      "notes": "META-FACTOR: agrege d'autres Factors, pas des features brutes -> collinearite composee",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Divergence_Score_Bullish": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "derived_from": [
+        "close",
+        "Factor_Momentum_Score"
+      ],
+      "notes": "META-FACTOR: agrege d'autres Factors, pas des features brutes -> collinearite composee",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Divergence_Score_Bearish": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "code",
+      "derived_from": [
+        "close",
+        "Factor_Momentum_Score"
+      ],
+      "notes": "META-FACTOR: agrege d'autres Factors, pas des features brutes -> collinearite composee",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Trend_Confirmation_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "derived_from": [
+        "Factor_Trend_Score",
+        "Factor_Volume_Score",
+        "Factor_Persistence_Score"
+      ],
+      "notes": "META-FACTOR: agrege d'autres Factors, pas des features brutes -> collinearite composee",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "Factor_Reversal_Climax_Score": {
+      "feature_type": "factor",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "derived_from": [
+        "Factor_Volatility_Score",
+        "Factor_Volume_Score",
+        "close",
+        "bb_upper",
+        "bb_lower"
+      ],
+      "notes": "META-FACTOR: agrege d'autres Factors, pas des features brutes -> collinearite composee",
+      "value_domain": "[0,1] normalise (clip observe dans calculator.py)"
+    },
+    "macd_trend_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "boolean",
+      "economic_family": "trend",
+      "verified": "code",
+      "derived_from": [
+        "macd_line",
+        "macd_signal"
+      ],
+      "notes": "macd_line > macd_signal"
+    },
+    "adx_strength_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "trend",
+      "verified": "code",
+      "derived_from": [
+        "adx_14"
+      ],
+      "notes": "clip(adx_14/100, 0, 1)"
+    },
+    "aroon_trend_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "boolean",
+      "economic_family": "trend",
+      "verified": "code",
+      "derived_from": [
+        "aroon_up",
+        "aroon_down"
+      ],
+      "notes": "aroon_up > aroon_down"
+    },
+    "volume_ratio_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "volume_flow",
+      "verified": "code",
+      "derived_from": [
+        "volume_ratio"
+      ],
+      "notes": "clip((volume_ratio-1),0,2)/2"
+    },
+    "obv_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "boolean",
+      "economic_family": "volume_flow",
+      "verified": "code",
+      "derived_from": [
+        "obv"
+      ],
+      "notes": "formule non entierement extraite, relire calculator.py L.653-660"
+    },
+    "vwap_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "code",
+      "derived_from": [
+        "close",
+        "vwap"
+      ],
+      "notes": "close > vwap"
+    },
+    "volume_sma_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "volume_flow",
+      "verified": "code",
+      "derived_from": [
+        "volume",
+        "volume_sma_20"
+      ],
+      "notes": "clip((volume/volume_sma_20)-0.5, ...)"
+    },
+    "bb_width_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "volatility",
+      "verified": "code",
+      "derived_from": [
+        "bb_width"
+      ],
+      "notes": "fast_rolling_normalize(bb_width) - detail non extrait"
+    },
+    "regime_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "market_regime",
+      "verified": "code",
+      "derived_from": [
+        "quant_regime_detection"
+      ],
+      "notes": "ALIAS PUR (aucune transformation): regime_signal = quant_regime_detection. CORRECTION: classe 'boolean' dans la taxonomie d'origine, devrait etre 'float' comme sa source (et donc soumis au meme numba_fallback_risk)."
+    },
+    "supertrend_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "boolean",
+      "economic_family": "trend",
+      "verified": "code",
+      "derived_from": [
+        "high",
+        "low",
+        "close"
+      ],
+      "notes": "= trend direction de _numba_supertrend, encode en {-1,+1} (int8), PAS {0,1}. Ne pas appliquer une logique '> 0.5' dessus.",
+      "value_domain": "{-1,+1}"
+    },
+    "atr_14_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "boolean",
+      "economic_family": "volatility",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "atr_14"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'atr_14', formule non confirmee."
+    },
+    "ema_12_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "boolean",
+      "economic_family": "trend",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "ema_12"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'ema_12', formule non confirmee."
+    },
+    "ema_26_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "boolean",
+      "economic_family": "trend",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "ema_26"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'ema_26', formule non confirmee."
+    },
+    "macd_signal_right": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "other",
+      "verified": "unverified_missing_source",
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de '?', formule non confirmee."
+    },
+    "momentum_10_norm": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "momentum_10"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'momentum_10', formule non confirmee."
+    },
+    "momentum_20_norm": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "momentum_20"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'momentum_20', formule non confirmee."
+    },
+    "roc_10_norm": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "roc_10"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'roc_10', formule non confirmee."
+    },
+    "roc_20_norm": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "roc_20"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'roc_20', formule non confirmee."
+    },
+    "rsi_14_norm": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "rsi_14"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'rsi_14', formule non confirmee."
+    },
+    "rsi_21_norm": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "rsi_21"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'rsi_21', formule non confirmee."
+    },
+    "sma_20_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "boolean",
+      "economic_family": "trend",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "sma_20"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'sma_20', formule non confirmee."
+    },
+    "sma_50_signal": {
+      "feature_type": "composite_derived",
+      "value_type": "boolean",
+      "economic_family": "trend",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "sma_50"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'sma_50', formule non confirmee."
+    },
+    "stoch_d_norm": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "stoch_d"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'stoch_d', formule non confirmee."
+    },
+    "stoch_k_norm": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "stoch_k"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'stoch_k', formule non confirmee."
+    },
+    "williams_r_norm": {
+      "feature_type": "composite_derived",
+      "value_type": "float",
+      "economic_family": "momentum",
+      "verified": "unverified_missing_source",
+      "derived_from": [
+        "williams_r"
+      ],
+      "notes": "INTROUVABLE dans les 4 fichiers fournis. Nom suggere une derivation de 'williams_r', formule non confirmee."
+    },
+    "pattern_doji": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_dragonfly_doji": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_gravestone_doji": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_long_legged_doji": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_four_price_doji": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_rickshaw_man": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_hammer": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_inverted_hammer": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_hanging_man": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_shooting_star": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_spinning_top": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_high_wave_candle": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_marubozu_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_marubozu_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_engulfing_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_engulfing_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_harami_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_harami_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_piercing_line": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_dark_cloud_cover": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_morning_star": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_evening_star": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_three_white_soldiers": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_three_black_crows": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_abandoned_baby_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_abandoned_baby_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_belt_hold_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_belt_hold_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_kicking_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_kicking_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_matching_high": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_matching_low": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_ladder_bottom": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_ladder_top": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_tri_star": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_deliberation": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_advance_block": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_concealing_baby_swallow": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_unique_three_river_bottom": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_three_inside_down": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_three_inside_up": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_three_outside_down": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_three_outside_up": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_pin_bar_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_pin_bar_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_ascending_triangle": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_descending_triangle": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_symmetrical_triangle": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_bull_flag": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_bear_flag": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_bull_pennant": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_bear_pennant": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_rising_wedge": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_falling_wedge": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_broadening_wedge": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_head_shoulders": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_inv_head_shoulders": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_double_top": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_double_bottom": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_triple_top": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_triple_bottom": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_cup_handle": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_rectangle": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_rounding_top": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_rounding_bottom": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_channel_up": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_channel_down": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_diamond_top": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_diamond_bottom": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_measured_move": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_v_top": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_v_bottom": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_spike_reversal": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_wolfe_wave": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_island_top": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_island_bottom": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_island_reversal": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_gartley_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_gartley_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_bat_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_bat_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_butterfly_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_butterfly_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_crab_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_crab_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_shark_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_shark_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_fibonacci_retracement": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_fibonacci_extension": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_gap_up": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_gap_down": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_gap_fill": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_gap_and_go": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_breakaway_gap": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_exhaustion_gap": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_runaway_gap": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_breakaway_bear": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_breakaway_bull": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "price_action",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_elliott_wave_1": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_elliott_wave_3": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_elliott_wave_5": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_support": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_resistance": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_structure",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_uptrend": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_regime",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_downtrend": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_regime",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_sideways_trend": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "market_regime",
+      "verified": "name_only",
+      "notes": "Non verifie contre le code de generation des patterns (non fourni). Classification basee sur le nom uniquement."
+    },
+    "pattern_three_drives": {
+      "feature_type": "pattern",
+      "value_type": "boolean",
+      "economic_family": "other",
+      "verified": "taxonomy_original_unverified",
+      "notes": "Non retrouve dans mon analyse manuelle -- conserve tel quel depuis la taxonomie originale, a verifier."
+    }
+  }
+}

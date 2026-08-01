@@ -1,0 +1,60 @@
+# thresholds.yaml — Seuils d'admission S-3.4 (ONTOLOGY.md)
+# Tous les seuils sont à recalibrer empiriquement après 50+ Einhers testés.
+# Les valeurs V1 sont des défauts de départ, pas des dogmes.
+
+# --- DSR (Deflated Sharpe Ratio) ---
+# Corrige le Sharpe pour le nombre d'essais indépendants et la non-normalité.
+dsr:
+  min_value: 0.95              # valeur cible par défaut
+  min_n_indep_trials: 1        # au moins 1 essai (sinon DSR non défini)
+
+# --- PBO (Probability of Backtest Overfitting) ---
+# Probabilité que la config sélectionnée soit overfittée, via CPCV léger.
+pbo:
+  max_value: 0.20
+  cpcv:
+    n_groups: 6                # K = 6 groupes
+    n_paths: 6                 # N = 6 chemins
+    embargo_pct: 0.01          # 1% d'embargo intra-CPCV
+
+# --- Block bootstrap CI ---
+# Intervalles de confiance sur Sharpe et ret total par block bootstrap.
+bootstrap:
+  ci_level: 0.95               # niveau de confiance (95%)
+  block_length_factor: 1.5     # block_length = factor * N_max
+  n_resamples: 2000            # nombre de tirages bootstrap
+  seed: 42                     # graine bootstrap (reproductibilité)
+
+# --- n_trades minimum ---
+n_trades:
+  min_total: 30                # nombre minimum de trades sur val pour admission
+  min_per_asset: 5             # nombre minimum de trades par actif du universe
+
+# --- Cohérence cross-asset ---
+cross_asset:
+  min_frac_assets_positive: 0.70    # 70% des actifs du universe doivent être positifs
+
+# --- Max drawdown ---
+max_drawdown:
+  max_value: 0.25              # drawdown max admissible sur val
+
+# --- Diversité comportementale (vs corpus courant) ---
+# Seuils sur les descripteurs comportementaux (S-3.7).
+diversity:
+  signal_overlap_max: 0.30     # Jaccard max entre signal_dates et corpus
+  ret_corr_max: 0.50           # corrélation max des ret_series avec corpus
+  # Quotas structurels (par famille, type, direction) — invariants I-8
+  quotas:
+    family_max_frac: 0.40      # max 40% d'une famille économique
+    type_max_frac: 0.60        # max 60% d'un type de feature
+    direction_min_frac: 0.30   # au moins 30% long ET 30% short
+    # Grille d'arrondi pour fingerprint comportemental (stabilité)
+    fingerprint_grid_decimals: 3
+
+# --- Cooldown d'observation ---
+cooldown:
+  default_k: 5                 # K par défaut si non spécifié par hypothèse
+
+# --- Période minimum pour calculer le Sharpe ---
+sharpe:
+  min_periods: 5               # au moins 5 rendements pour calculer un Sharpe

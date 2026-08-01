@@ -1,0 +1,458 @@
+{
+  "created_at": "2026-07-28T02:04:34.342512+00:00",
+  "validation": null,
+  "execution": {
+    "name": "execution",
+    "metadata": {},
+    "started_at": "2026-07-28T02:04:23.321425+00:00",
+    "finished_at": null,
+    "results": [
+      {
+        "subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+        "success": true,
+        "healthy": true,
+        "issue_count": 1,
+        "trade_count": 37798,
+        "total_pnl": 10.30528047324118,
+        "win_rate": 0.23749933858934336,
+        "created_at": "2026-07-28T02:04:30.929389+00:00",
+        "execution_fingerprint_digest": "8200458a7060399da1d3d5be07b4458401070f5075f8e79dc678404fcdf8dc77",
+        "execution_fingerprint_version": 1,
+        "execution_kind": "execution",
+        "metrics": {
+          "bar_count": 263857,
+          "signal_true_count": 154732,
+          "signal_coverage": 0.5864237067805668,
+          "trade_count": 37798,
+          "winning_trades": 8977,
+          "losing_trades": 28821,
+          "total_pnl": 10.30528047324118,
+          "gross_profit": 72.52525708691199,
+          "gross_loss": 62.21997661367081,
+          "profit_factor": 1.1656265565194206,
+          "average_trade_pnl": 0.00027264089299013647,
+          "median_trade_pnl": -0.00020012,
+          "pnl_std": 0.007778614788249729,
+          "average_duration_seconds": 2862.413355203979,
+          "average_duration_bars": 4.093655748981427,
+          "max_drawdown": 0.38638542660227354,
+          "exposure_ratio": 410.04752592323086,
+          "win_rate": 0.23749933858934336,
+          "expectancy": 0.00027264089299013647,
+          "direction": "long",
+          "quantity": 1.0
+        },
+        "profit_factor": 1.1656265565194206,
+        "expectancy": 0.00027264089299013647,
+        "max_drawdown": 0.38638542660227354
+      }
+    ],
+    "total_executions": 1,
+    "total_trades": 37798,
+    "total_pnl": 10.30528047324118,
+    "healthy_count": 1,
+    "unhealthy_count": 0,
+    "diagnostic_issue_counts": {
+      "weak_win_rate": 1
+    },
+    "direction_counts": {
+      "long": 1
+    },
+    "best_total_pnl": 10.30528047324118,
+    "best_subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+    "best_execution_fingerprint": "8200458a7060399da1d3d5be07b4458401070f5075f8e79dc678404fcdf8dc77",
+    "last_reason": "weak_win_rate",
+    "stopped_reason": null,
+    "duration_seconds": 11.033143,
+    "healthy_rate": 1.0,
+    "summary": {
+      "name": "execution",
+      "total_executions": 1,
+      "total_trades": 37798,
+      "total_pnl": 10.30528047324118,
+      "average_pnl_per_execution": 10.30528047324118,
+      "average_trades_per_execution": 37798.0,
+      "healthy_count": 1,
+      "unhealthy_count": 0,
+      "healthy_rate": 1.0,
+      "duration_seconds": 11.033151,
+      "best_total_pnl": 10.30528047324118,
+      "best_subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+      "best_execution_fingerprint": "8200458a7060399da1d3d5be07b4458401070f5075f8e79dc678404fcdf8dc77",
+      "diagnostic_issue_counts": {
+        "weak_win_rate": 1
+      },
+      "direction_counts": {
+        "long": 1
+      }
+    }
+  },
+  "portfolio": {
+    "name": "ethusd__15m",
+    "created_at": "2026-07-28T02:04:31.440872+00:00",
+    "entries": [],
+    "rejected": [],
+    "selected_count": 0,
+    "rejected_count": 0,
+    "total_capital": 0.0,
+    "total_weight": 0.0,
+    "average_score": 0.0,
+    "best_score": null,
+    "best_subject_fingerprint": null,
+    "family_counts": {},
+    "profile_counts": {},
+    "allocation": {
+      "entries": [],
+      "capital_plan": {
+        "total_capital": 1.0,
+        "reserve_capital": 0.0,
+        "investable_capital": 1.0,
+        "allocated_capital": 0.0,
+        "residual_capital": 1.0,
+        "utilization_ratio": 0.0,
+        "entries": [],
+        "settings": {
+          "total_capital": 1.0,
+          "reserve_ratio": 0.0,
+          "min_position_ratio": 0.0,
+          "max_position_ratio": 0.35,
+          "min_position_value": 0.0,
+          "max_position_value": Infinity,
+          "min_positions": 1,
+          "max_positions": 12,
+          "allow_residual": true
+        },
+        "metadata": {
+          "asset": "ETHUSD",
+          "timeframe": "15m"
+        }
+      },
+      "risk": {
+        "acceptable": false,
+        "score": 0.0,
+        "selected_count": 0,
+        "total_weight": 0.0,
+        "max_weight": 0.0,
+        "hhi": 1.0,
+        "effective_bets": 0.0,
+        "expected_total_pnl": 0.0,
+        "expected_win_rate": 0.0,
+        "expected_profit_factor": 0.0,
+        "weighted_drawdown": 1.0,
+        "average_abs_correlation": 1.0,
+        "max_abs_correlation": 1.0,
+        "family_concentration": 1.0,
+        "profile_concentration": 1.0,
+        "concentration_penalty": 1.0,
+        "correlation_penalty": 1.0,
+        "drawdown_penalty": 1.0,
+        "reasons": [
+          "empty_portfolio"
+        ],
+        "recommendations": [
+          "add_candidates"
+        ],
+        "correlation": {
+          "labels": [],
+          "matrix": [],
+          "pairs": [],
+          "average_correlation": 0.0,
+          "average_absolute_correlation": 0.0,
+          "max_absolute_correlation": 0.0,
+          "min_correlation": 0.0,
+          "max_correlation": 0.0
+        },
+        "diversification": {
+          "diversified": false,
+          "score": 0.0,
+          "selected_count": 0,
+          "unique_family_count": 0,
+          "unique_profile_count": 0,
+          "family_entropy": 0.0,
+          "profile_entropy": 0.0,
+          "same_family_share": 0.0,
+          "average_abs_correlation": 0.0,
+          "max_abs_correlation": 0.0,
+          "redundancy_score": 1.0,
+          "coverage_score": 0.0,
+          "reasons": [
+            "empty_portfolio"
+          ],
+          "recommendations": [
+            "add_candidates"
+          ],
+          "correlation": {
+            "labels": [],
+            "matrix": [],
+            "pairs": [],
+            "average_correlation": 0.0,
+            "average_absolute_correlation": 0.0,
+            "max_absolute_correlation": 0.0,
+            "min_correlation": 0.0,
+            "max_correlation": 0.0
+          },
+          "metadata": {
+            "asset": "ETHUSD",
+            "timeframe": "15m"
+          }
+        },
+        "metadata": {
+          "asset": "ETHUSD",
+          "timeframe": "15m"
+        }
+      },
+      "diversification": {
+        "diversified": false,
+        "score": 0.0,
+        "selected_count": 0,
+        "unique_family_count": 0,
+        "unique_profile_count": 0,
+        "family_entropy": 0.0,
+        "profile_entropy": 0.0,
+        "same_family_share": 0.0,
+        "average_abs_correlation": 0.0,
+        "max_abs_correlation": 0.0,
+        "redundancy_score": 1.0,
+        "coverage_score": 0.0,
+        "reasons": [
+          "empty_portfolio"
+        ],
+        "recommendations": [
+          "add_candidates"
+        ],
+        "correlation": {
+          "labels": [],
+          "matrix": [],
+          "pairs": [],
+          "average_correlation": 0.0,
+          "average_absolute_correlation": 0.0,
+          "max_absolute_correlation": 0.0,
+          "min_correlation": 0.0,
+          "max_correlation": 0.0
+        },
+        "metadata": {
+          "asset": "ETHUSD",
+          "timeframe": "15m"
+        }
+      },
+      "correlation": {
+        "labels": [],
+        "matrix": [],
+        "pairs": [],
+        "average_correlation": 0.0,
+        "average_absolute_correlation": 0.0,
+        "max_absolute_correlation": 0.0,
+        "min_correlation": 0.0,
+        "max_correlation": 0.0
+      },
+      "score": 0.0,
+      "total_weight": 0.0,
+      "total_capital": 0.0,
+      "metadata": {
+        "asset": "ETHUSD",
+        "timeframe": "15m"
+      }
+    },
+    "selection": {
+      "selected": [],
+      "rejected": [
+        {
+          "subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+          "execution_fingerprint": "8200458a7060399da1d3d5be07b4458401070f5075f8e79dc678404fcdf8dc77",
+          "score": 0.489525089960438,
+          "accepted": false,
+          "reasons": [
+            "win_rate_too_low"
+          ],
+          "family": "momentum",
+          "profile_name": "execution_profile",
+          "rank_hint": 0,
+          "result": {
+            "subject_fingerprint": "e7bae01c800e0e900650e1c92deaa78bfb7a555ca849b1805ea824cd4e3a1494",
+            "success": true,
+            "healthy": true,
+            "issue_count": 1,
+            "trade_count": 37798,
+            "total_pnl": 10.30528047324118,
+            "win_rate": 0.23749933858934336,
+            "created_at": "2026-07-28T02:04:30.929389+00:00",
+            "execution_fingerprint_digest": "8200458a7060399da1d3d5be07b4458401070f5075f8e79dc678404fcdf8dc77",
+            "execution_fingerprint_version": 1,
+            "execution_kind": "execution",
+            "metrics": {
+              "bar_count": 263857,
+              "signal_true_count": 154732,
+              "signal_coverage": 0.5864237067805668,
+              "trade_count": 37798,
+              "winning_trades": 8977,
+              "losing_trades": 28821,
+              "total_pnl": 10.30528047324118,
+              "gross_profit": 72.52525708691199,
+              "gross_loss": 62.21997661367081,
+              "profit_factor": 1.1656265565194206,
+              "average_trade_pnl": 0.00027264089299013647,
+              "median_trade_pnl": -0.00020012,
+              "pnl_std": 0.007778614788249729,
+              "average_duration_seconds": 2862.413355203979,
+              "average_duration_bars": 4.093655748981427,
+              "max_drawdown": 0.38638542660227354,
+              "exposure_ratio": 410.04752592323086,
+              "win_rate": 0.23749933858934336,
+              "expectancy": 0.00027264089299013647,
+              "direction": "long",
+              "quantity": 1.0
+            },
+            "profit_factor": 1.1656265565194206,
+            "expectancy": 0.00027264089299013647,
+            "max_drawdown": 0.38638542660227354
+          }
+        }
+      ],
+      "settings": {
+        "max_selected": 12,
+        "min_trade_count": 3,
+        "min_win_rate": 0.4,
+        "min_profit_factor": 1.0,
+        "min_expectancy": 0.0,
+        "min_total_pnl": 0.0,
+        "require_healthy": false,
+        "exclude_duplicates": true,
+        "keep_best_per_family": 3,
+        "max_same_profile": 2,
+        "max_same_family": 4
+      },
+      "metadata": {
+        "asset": "ETHUSD",
+        "timeframe": "15m",
+        "run_id": "run_20260728_020405"
+      }
+    },
+    "risk": {
+      "acceptable": false,
+      "score": 0.0,
+      "selected_count": 0,
+      "total_weight": 0.0,
+      "max_weight": 0.0,
+      "hhi": 1.0,
+      "effective_bets": 0.0,
+      "expected_total_pnl": 0.0,
+      "expected_win_rate": 0.0,
+      "expected_profit_factor": 0.0,
+      "weighted_drawdown": 1.0,
+      "average_abs_correlation": 1.0,
+      "max_abs_correlation": 1.0,
+      "family_concentration": 1.0,
+      "profile_concentration": 1.0,
+      "concentration_penalty": 1.0,
+      "correlation_penalty": 1.0,
+      "drawdown_penalty": 1.0,
+      "reasons": [
+        "empty_portfolio"
+      ],
+      "recommendations": [
+        "add_candidates"
+      ],
+      "correlation": {
+        "labels": [],
+        "matrix": [],
+        "pairs": [],
+        "average_correlation": 0.0,
+        "average_absolute_correlation": 0.0,
+        "max_absolute_correlation": 0.0,
+        "min_correlation": 0.0,
+        "max_correlation": 0.0
+      },
+      "diversification": {
+        "diversified": false,
+        "score": 0.0,
+        "selected_count": 0,
+        "unique_family_count": 0,
+        "unique_profile_count": 0,
+        "family_entropy": 0.0,
+        "profile_entropy": 0.0,
+        "same_family_share": 0.0,
+        "average_abs_correlation": 0.0,
+        "max_abs_correlation": 0.0,
+        "redundancy_score": 1.0,
+        "coverage_score": 0.0,
+        "reasons": [
+          "empty_portfolio"
+        ],
+        "recommendations": [
+          "add_candidates"
+        ],
+        "correlation": {
+          "labels": [],
+          "matrix": [],
+          "pairs": [],
+          "average_correlation": 0.0,
+          "average_absolute_correlation": 0.0,
+          "max_absolute_correlation": 0.0,
+          "min_correlation": 0.0,
+          "max_correlation": 0.0
+        },
+        "metadata": {
+          "asset": "ETHUSD",
+          "timeframe": "15m"
+        }
+      },
+      "metadata": {
+        "asset": "ETHUSD",
+        "timeframe": "15m"
+      }
+    },
+    "diversification": {
+      "diversified": false,
+      "score": 0.0,
+      "selected_count": 0,
+      "unique_family_count": 0,
+      "unique_profile_count": 0,
+      "family_entropy": 0.0,
+      "profile_entropy": 0.0,
+      "same_family_share": 0.0,
+      "average_abs_correlation": 0.0,
+      "max_abs_correlation": 0.0,
+      "redundancy_score": 1.0,
+      "coverage_score": 0.0,
+      "reasons": [
+        "empty_portfolio"
+      ],
+      "recommendations": [
+        "add_candidates"
+      ],
+      "correlation": {
+        "labels": [],
+        "matrix": [],
+        "pairs": [],
+        "average_correlation": 0.0,
+        "average_absolute_correlation": 0.0,
+        "max_absolute_correlation": 0.0,
+        "min_correlation": 0.0,
+        "max_correlation": 0.0
+      },
+      "metadata": {
+        "asset": "ETHUSD",
+        "timeframe": "15m"
+      }
+    },
+    "correlation": {
+      "labels": [],
+      "matrix": [],
+      "pairs": [],
+      "average_correlation": 0.0,
+      "average_absolute_correlation": 0.0,
+      "max_absolute_correlation": 0.0,
+      "min_correlation": 0.0,
+      "max_correlation": 0.0
+    },
+    "capital_plan": null,
+    "metadata": {
+      "asset": "ETHUSD",
+      "timeframe": "15m",
+      "run_id": "run_20260728_020405"
+    }
+  },
+  "metadata": {
+    "run_id": "run_20260728_020405"
+  }
+}
