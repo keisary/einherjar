@@ -171,3 +171,47 @@ def sharpe_ratio(returns: Sequence[float], periods_per_year: float = 365.0) -> f
     if s == 0 or math.isnan(s):
         return float("nan")
     return (m / s) * math.sqrt(periods_per_year)
+
+
+# --------------------------------------------------------------------------- #
+# Max drawdown (sur courbe d'equity cumulée)
+# --------------------------------------------------------------------------- #
+
+
+def max_drawdown_from_returns(returns: Sequence[float]) -> float:
+    """Max drawdown (en fraction positive, ex: 0.25 = -25%) sur courbe d'equity.
+
+    Reconstruit une equity_curve à partir des rendements périodiques (1 trade = 1 période) :
+      equity[0] = 1.0
+      equity[t+1] = equity[t] * (1 + returns[t])
+    Puis calcule la chute max depuis un pic :
+      dd[t] = (peak[t] - equity[t]) / peak[t]
+      max_dd = max(dd)
+
+    Convention : on renvoie une valeur POSITIVE (0.25 signifie -25%).
+    Pas de trade → 0.0 (pas de drawdown).
+    Rendements tous nuls → 0.0.
+
+    Args:
+        returns: Rendements nets par trade (ex: MesuresBrutes.trades.ret_pct_net).
+
+    Returns:
+        Max drawdown en fraction positive (0.0 = pas de perte, 1.0 = ruine totale).
+    """
+    if not returns:
+        return 0.0
+    equity = 1.0
+    peak = 1.0
+    worst = 0.0
+    for r in returns:
+        # Rendement NaN → on l'ignore (ne dégrade pas l'equity ni le peak).
+        if math.isnan(r) or math.isinf(r):
+            continue
+        equity *= (1.0 + r)
+        if equity > peak:
+            peak = equity
+        if peak > 0:
+            dd = (peak - equity) / peak
+            if dd > worst:
+                worst = dd
+    return float(worst)

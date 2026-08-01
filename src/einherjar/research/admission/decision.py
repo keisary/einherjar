@@ -176,8 +176,8 @@ class AdmissionDecider:
             hypothesis=_build_hypothesis_for_fp(
                 hypothesis_id, condition_tree, direction, universe, amplitude,
             ),
-            sl_price=calibrated.sl_price,
-            tp_price=calibrated.tp_price,
+            sl_n_atr=calibrated.sl_n_atr,
+            tp_n_atr=calibrated.tp_n_atr,
         )
         descriptors = _build_descriptors(
             mesures=mesures_val,

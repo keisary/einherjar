@@ -33,6 +33,8 @@ n_trades:
 # --- Cohérence cross-asset ---
 cross_asset:
   min_frac_assets_positive: 0.70    # 70% des actifs du universe doivent être positifs
+  min_n_assets: 2                   # au moins 2 actifs dans per_asset_stats (sinon FAIL)
+  allow_single_asset: false         # opt-in pour autoriser un seul actif (DÉCONSEILLÉ)
 
 # --- Max drawdown ---
 max_drawdown:

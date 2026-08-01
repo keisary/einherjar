@@ -48,22 +48,24 @@ def _hash_canonical(obj: Any, algo: str = "sha256") -> str:
 
 def fingerprint_structurel(
     hypothesis: Hypothesis,
-    sl_price: float,
-    tp_price: float,
+    sl_n_atr: float,
+    tp_n_atr: float,
     algo: str = "sha256",
 ) -> str:
-    """Empreinte structurelle : condition + direction + universe + amplitude + SL + TP.
+    """Empreinte structurelle : condition + direction + universe + amplitude + SL/TP (distances).
 
     Anti-doublon exact. Si deux Einhers ont la même empreinte structurelle,
     ils sont structurellement identiques (sur la même version de sérialisation).
+    Les SL/TP sont stockés comme distances relatives (multiples d'ATR) pour
+    que le fingerprint ne dépende pas du prix d'entrée arbitraire.
     """
     payload = {
         "condition_tree": hypothesis.condition_tree.to_dict() if hasattr(hypothesis.condition_tree, "to_dict") else str(hypothesis.condition_tree),
         "direction": hypothesis.direction.value,
         "universe": hypothesis.universe.to_dict(),
         "amplitude": hypothesis.amplitude.to_dict(),
-        "sl_price": round(float(sl_price), 9),
-        "tp_price": round(float(tp_price), 9),
+        "sl_n_atr": round(float(sl_n_atr), 9),
+        "tp_n_atr": round(float(tp_n_atr), 9),
     }
     return _hash_canonical(payload, algo=algo)
 

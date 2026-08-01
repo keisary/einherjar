@@ -1,0 +1,9 @@
+{
+  "n_generated": 10,
+  "n_admitted": 0,
+  "n_rejected": 5,
+  "rejection_breakdown": {
+    "DSR_FAIL": 5
+  },
+  "generator": "BeamSearchGenerator"
+}

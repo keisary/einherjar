@@ -126,13 +126,13 @@ class TestRefinement(unittest.TestCase):
         """Le refiner doit utiliser la CalibratedParams fournie, sans la muter."""
         h = self._make_hypothesis()
         calibrated = self.engine.train_calibrate(h, self.train_ohlcv, self.train_feats)
-        sl_before = calibrated.sl_price
-        tp_before = calibrated.tp_price
+        sl_before = calibrated.sl_n_atr
+        tp_before = calibrated.tp_n_atr
         n_before = calibrated.n_window
         refiner = BeamRefiner(self.config, self.engine, seed=42, beam_width=4, max_iterations=3)
         refiner.refine(h, calibrated, self.train_ohlcv, self.train_feats, self.val_ohlcv, self.val_feats)
-        self.assertEqual(calibrated.sl_price, sl_before)
-        self.assertEqual(calibrated.tp_price, tp_before)
+        self.assertEqual(calibrated.sl_n_atr, sl_before)
+        self.assertEqual(calibrated.tp_n_atr, tp_before)
         self.assertEqual(calibrated.n_window, n_before)
 
 

@@ -107,8 +107,8 @@ class TestFingerprintStability(unittest.TestCase):
             direction=Direction.LONG,
             universe=Universe(assets=("BTCUSD",), timeframes=("1h",)),
         )
-        f1 = fingerprint_structurel(h, sl_price=99.0, tp_price=101.0)
-        f2 = fingerprint_structurel(h, sl_price=99.0, tp_price=101.0)
+        f1 = fingerprint_structurel(h, sl_n_atr=1.0, tp_n_atr=2.0)
+        f2 = fingerprint_structurel(h, sl_n_atr=1.0, tp_n_atr=2.0)
         self.assertEqual(f1, f2)
 
     def test_different_sl_different_fingerprint(self):
@@ -121,8 +121,8 @@ class TestFingerprintStability(unittest.TestCase):
             direction=Direction.LONG,
             universe=Universe(assets=("BTCUSD",), timeframes=("1h",)),
         )
-        f1 = fingerprint_structurel(h, sl_price=99.0, tp_price=101.0)
-        f2 = fingerprint_structurel(h, sl_price=98.0, tp_price=101.0)
+        f1 = fingerprint_structurel(h, sl_n_atr=1.0, tp_n_atr=2.0)
+        f2 = fingerprint_structurel(h, sl_n_atr=0.5, tp_n_atr=2.0)
         self.assertNotEqual(f1, f2)
 
 

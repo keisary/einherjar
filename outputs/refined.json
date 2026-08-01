@@ -1,0 +1,133 @@
+{
+  "refined": [
+    {
+      "original_id": "BeamSearchGenerator_000001",
+      "original_sharpe_val": 11.778007256114277,
+      "improved": false,
+      "best_sharpe_val": 11.778007256114277,
+      "n_evaluated": 5,
+      "n_iterations": 0,
+      "best_hypothesis": null
+    },
+    {
+      "original_id": "BeamSearchGenerator_000009",
+      "original_sharpe_val": 6.221425558056476,
+      "improved": true,
+      "best_sharpe_val": 9.489314223397196,
+      "n_evaluated": 10,
+      "n_iterations": 2,
+      "best_hypothesis": {
+        "id": "refined_BeamSearchGenerator_000009_0000",
+        "condition_tree": {
+          "feature_ref": "Factor_Candlestick_Bearish_Score",
+          "operator": ">",
+          "value": 0.0,
+          "transformation": null
+        },
+        "amplitude": {
+          "valeur": 50.0,
+          "unité": "prix_absolu",
+          "direction_implicite": "long"
+        },
+        "direction": "long",
+        "universe": {
+          "assets": [
+            "BTCUSD"
+          ],
+          "timeframes": [
+            "1h"
+          ]
+        },
+        "cooldown_k": 5,
+        "meta": {
+          "parent_id": "BeamSearchGenerator_000009",
+          "mutation": "feature_or_op_or_threshold"
+        }
+      }
+    },
+    {
+      "original_id": "BeamSearchGenerator_000005",
+      "original_sharpe_val": 4.885797813914829,
+      "improved": false,
+      "best_sharpe_val": 4.885797813914829,
+      "n_evaluated": 5,
+      "n_iterations": 0,
+      "best_hypothesis": null
+    },
+    {
+      "original_id": "BeamSearchGenerator_000007",
+      "original_sharpe_val": -3.0104070335848934,
+      "improved": true,
+      "best_sharpe_val": 2.108541377271578,
+      "n_evaluated": 10,
+      "n_iterations": 2,
+      "best_hypothesis": {
+        "id": "refined_BeamSearchGenerator_000007_0000",
+        "condition_tree": {
+          "feature_ref": "Factor_Momentum_Score",
+          "operator": ">",
+          "value": 0.0,
+          "transformation": null
+        },
+        "amplitude": {
+          "valeur": 50.0,
+          "unité": "prix_absolu",
+          "direction_implicite": "short"
+        },
+        "direction": "short",
+        "universe": {
+          "assets": [
+            "BTCUSD"
+          ],
+          "timeframes": [
+            "1h"
+          ]
+        },
+        "cooldown_k": 5,
+        "meta": {
+          "parent_id": "BeamSearchGenerator_000007",
+          "mutation": "feature_or_op_or_threshold"
+        }
+      }
+    },
+    {
+      "original_id": "BeamSearchGenerator_000003",
+      "original_sharpe_val": -5.10272878657318,
+      "improved": true,
+      "best_sharpe_val": 1.0610036051602176,
+      "n_evaluated": 15,
+      "n_iterations": 3,
+      "best_hypothesis": {
+        "id": "refined_refined_BeamSearchGenerator_000003_0000_k7",
+        "condition_tree": {
+          "feature_ref": "Factor_Volatility_Score",
+          "operator": ">",
+          "value": 0.0,
+          "transformation": null
+        },
+        "amplitude": {
+          "valeur": 50.0,
+          "unité": "prix_absolu",
+          "direction_implicite": "short"
+        },
+        "direction": "short",
+        "universe": {
+          "assets": [
+            "BTCUSD"
+          ],
+          "timeframes": [
+            "1h"
+          ]
+        },
+        "cooldown_k": 7,
+        "meta": {
+          "parent_id": "refined_BeamSearchGenerator_000003_0000",
+          "mutation": "cooldown_2"
+        }
+      }
+    }
+  ],
+  "n_input": 10,
+  "n_viable": 5,
+  "n_refined": 5
+}

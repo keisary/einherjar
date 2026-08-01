@@ -26,6 +26,7 @@ from typing import Any
 
 from einherjar.research.config.loader import EinherjarConfig
 from einherjar.research.utils.metrics import dsr as dsr_metric
+from einherjar.research.utils.stats import max_drawdown_from_returns
 from einherjar.research.utils.types import MesuresBrutes, RejectionReason
 
 logger = logging.getLogger(__name__)
@@ -266,28 +267,41 @@ def evaluate_cross_asset(
     mesures: MesuresBrutes,
     config: EinherjarConfig,
 ) -> CriterionVerdict:
-    """Cohérence cross-asset : ≥ 70% des actifs du universe doivent être positifs."""
+    """Cohérence cross-asset : ≥ `min_frac_assets_positive` des actifs positifs
+    ET au moins `min_n_assets` actifs testés.
+
+    Si `min_n_assets` n'est pas atteint :
+      - Si `allow_single_asset=true` (opt-in) → passe par défaut (DÉCONSEILLÉ).
+      - Sinon → FAIL (exige un vrai test multi-actif).
+    """
     min_frac = float(config.thresholds["cross_asset"]["min_frac_assets_positive"])
+    min_n_assets = int(config.thresholds["cross_asset"].get("min_n_assets", 2))
+    allow_single = bool(config.thresholds["cross_asset"].get("allow_single_asset", False))
     per_asset = mesures.per_asset_stats
-    if not per_asset:
-        # Un seul actif → on accepte par défaut (pas de cross-asset à vérifier).
+    n_total = len(per_asset)
+    # Pas assez d'actifs testés → FAIL sauf opt-in explicite.
+    if n_total < min_n_assets:
         return CriterionVerdict(
             name="CROSS_ASSET",
-            passed=True,
-            observed=1.0,
+            passed=allow_single,
+            observed=0.0,
             threshold=min_frac,
-            reason=None,
-            meta={"n_assets": 0, "note": "single_asset_universe"},
+            reason=None if allow_single else RejectionReason.CROSS_ASSET_FAIL,
+            meta={
+                "n_assets": n_total,
+                "min_n_assets": min_n_assets,
+                "note": "single_asset_universe" if allow_single else "insufficient_assets",
+            },
         )
     n_pos = sum(1 for m in per_asset.values() if m.ret_mean_pct_net > 0)
-    frac = n_pos / len(per_asset)
+    frac = n_pos / n_total
     return CriterionVerdict(
         name="CROSS_ASSET",
         passed=(frac >= min_frac),
         observed=frac,
         threshold=min_frac,
         reason=None if frac >= min_frac else RejectionReason.CROSS_ASSET_FAIL,
-        meta={"n_pos": n_pos, "n_total": len(per_asset)},
+        meta={"n_pos": n_pos, "n_total": n_total},
     )
 
 
@@ -300,24 +314,39 @@ def evaluate_max_drawdown(
     mesures: MesuresBrutes,
     config: EinherjarConfig,
 ) -> CriterionVerdict:
-    """Max drawdown borné (calculé sur equity_curve reconstruite)."""
+    """Max drawdown borné — calculé sur la courbe d'equity réelle (par trade).
+
+    Le moteur d'évaluation expose `mesures.trades` (tuple de TradeMesure) avec
+    `ret_pct_net` pour chaque trade. On reconstruit l'equity_curve
+    (capital = 1.0 initial) et on mesure la chute max depuis un pic.
+
+    Pour le cas multi-asset (per_asset_stats), on calcule aussi le DD par
+    asset et on conserve le pire (le plus pénalisant pour l'admission).
+
+    Returns:
+        Verdict. Pass si max_dd <= max_dd_allowed (défaut 0.25 = -25%).
+    """
     max_dd_allowed = float(config.thresholds["max_drawdown"]["max_value"])
-    # Reconstruit une equity_curve grossière à partir de ret_std et ret_mean
-    # (approximation, on devrait avoir accès à la série de returns).
-    # Note : pour V1, on utilise la borne observée par-asset si dispo.
-    worst_dd = 0.0
-    if mesures.per_asset_stats:
-        for m in mesures.per_asset_stats.values():
-            if m.ret_std_pct > 0:
-                heur = min(1.0, m.ret_std_pct * 10.0)
-                worst_dd = max(worst_dd, heur)
+    # DD global : sur l'equity_curve reconstruite à partir de tous les trades.
+    global_returns = [t.ret_pct_net for t in mesures.trades]
+    worst_dd = max_drawdown_from_returns(global_returns)
+    # DD par-asset (le pire).
+    per_asset_dd: dict[str, float] = {}
+    for asset, sub in mesures.per_asset_stats.items():
+        per_asset_dd[asset] = max_drawdown_from_returns([t.ret_pct_net for t in sub.trades])
+        if per_asset_dd[asset] > worst_dd:
+            worst_dd = per_asset_dd[asset]
     return CriterionVerdict(
         name="MAX_DRAWDOWN",
         passed=(worst_dd <= max_dd_allowed),
         observed=worst_dd,
         threshold=max_dd_allowed,
         reason=None if worst_dd <= max_dd_allowed else RejectionReason.DD_FAIL,
-        meta={"note": "heuristic_v1"},
+        meta={
+            "method": "equity_curve_from_trades",
+            "n_trades": len(mesures.trades),
+            "per_asset_max_dd": per_asset_dd,
+        },
     )
 
 

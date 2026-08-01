@@ -36,7 +36,7 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
-from einherjar.research.config.loader import load_config
+from einherjar.research.config.loader import EinherjarConfig, load_config
 from einherjar.research.utils.logging import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -108,8 +108,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Niveau de log (défaut: INFO).",
     )
     parser.add_argument(
+        "--data-root", type=str,
+        default=r"D:\midas_v2\midasV3\src\data\compiled",
+        help="Racine des datasets .npy (défaut: MIDAS V3 compiled).",
+    )
+    parser.add_argument(
+        "--data-asset", type=str, default="BTCUSD",
+        help="Symbole de l'actif (défaut: BTCUSD).",
+    )
+    parser.add_argument(
+        "--data-class", type=str, default="crypto",
+        choices=("crypto", "forex", "indices", "commodities",
+                 "stocks_growth", "stocks_tech", "stocks_value"),
+        help="Classe d'actifs (défaut: crypto).",
+    )
+    parser.add_argument(
+        "--data-timeframe", type=str, default="1h",
+        help="Timeframe (défaut: 1h).",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true",
         help="Affiche le plan d'exécution sans rien lancer.",
+    )
+    parser.add_argument(
+        "--hypothesis-file", type=Path, default=None,
+        help="Fichier JSON avec une Hypothesis sérialisée (utilisé par 'holdout').",
     )
     return parser
 
@@ -119,85 +142,74 @@ def build_parser() -> argparse.ArgumentParser:
 # --------------------------------------------------------------------------- #
 
 
-def _build_dummy_data(config: Any, n_bougies: int = 600) -> tuple[Any, Any]:
-    """Construit des données OHLCV + features synthétiques pour smoke test.
+def _load_real_data(
+    config: EinherjarConfig,
+    data_root: str,
+    asset: str,
+    asset_class: str,
+    timeframe: str,
+) -> tuple[
+    "OhlcvFrame", "FeaturesFrame",
+    "OhlcvFrame", "FeaturesFrame",
+    "OhlcvFrame", "FeaturesFrame",
+]:
+    """Charge OHLCV + features depuis le .npy et découpe en train/val/holdout.
+
+    Le loader `load_ohlcv_from_npy` retourne DÉJÀ un (OhlcvFrame, validity_mask).
+    On passe ce mask à `load_features_from_npy` pour aligner les features sur
+    la même série sanitizée (évite la désynchro OHLCV=3260 vs features=69708).
+
+    Le split 60/20/20 suit splits.yaml (mode temporel strict, pas de shuffle).
 
     Returns:
-        (train_ohlcv, train_features).
+        (train_ohlcv, train_features, val_ohlcv, val_features, holdout_ohlcv, holdout_features).
+        Lève NpyRealLoaderError si les données sont absentes / invalides.
     """
-    from datetime import datetime, timedelta, timezone
-
-    import numpy as np
-    import polars as pl
-
     from einherjar.research.data.features import FeaturesFrame
+    from einherjar.research.data.npy_real_loader import (
+        load_features_from_npy,
+        load_ohlcv_from_npy,
+    )
     from einherjar.research.data.ohlcv import OhlcvFrame
 
-    rng = np.random.default_rng(seed=42)
-    close = 100.0 * np.cumprod(1.0 + rng.normal(0, 0.01, n_bougies))
-    high = close * (1.0 + np.abs(rng.normal(0, 0.005, n_bougies)))
-    low = close * (1.0 - np.abs(rng.normal(0, 0.005, n_bougies)))
-    open_ = close * (1.0 + rng.normal(0, 0.002, n_bougies))
-    volume = rng.integers(100, 10_000, n_bougies).astype(float)
-    ts = [datetime(2024, 1, 1, tzinfo=timezone.utc) + timedelta(hours=i) for i in range(n_bougies)]
-    df = pl.DataFrame({
-        "asset": ["BTCUSD"] * n_bougies,
-        "timeframe": ["1h"] * n_bougies,
-        "timestamp": ts,
-        "open": open_, "high": high, "low": low, "close": close, "volume": volume,
-    })
-    feats_df = df.with_columns([
-        pl.col("close").rolling_mean(5).alias("ma_5"),
-        pl.col("close").rolling_mean(20).alias("ma_20"),
-    ])
-    feats_df = feats_df.with_columns([
-        pl.col("ma_5").fill_null(0.0),
-        pl.col("ma_20").fill_null(0.0),
-    ])
-    ohlcv = OhlcvFrame(asset="BTCUSD", timeframe="1h", df=df, data_version="v1_smoke")
-    features = FeaturesFrame(
-        asset="BTCUSD", timeframe="1h", df=feats_df,
-        feature_names=("ma_5", "ma_20"),
-        data_version="v1_smoke",
+    root = Path(data_root)
+    full_ohlcv, mask = load_ohlcv_from_npy(
+        asset=asset, asset_class=asset_class, timeframe=timeframe, data_root=root,
     )
-    return ohlcv, features
+    full_features = load_features_from_npy(
+        asset=asset, asset_class=asset_class, timeframe=timeframe,
+        config=config, data_root=root, validity_mask=mask,
+    )
+    if full_ohlcv.n_bougies != full_features.n_bougies:
+        raise RuntimeError(
+            f"OHLCV/features desynchronisés : OHLCV={full_ohlcv.n_bougies} "
+            f"!= features={full_features.n_bougies}"
+        )
 
+    n = full_ohlcv.n_bougies
+    t1 = int(n * 0.60)
+    t2 = int(n * 0.80)
 
-def _split(ohlcv: Any, features: Any, train_frac: float = 0.6, val_frac: float = 0.2) -> tuple:
-    """Découpe ohlcv/features en train/val/holdout."""
-    n = ohlcv.df.height
-    t1 = int(n * train_frac)
-    t2 = int(n * (train_frac + val_frac))
-    from einherjar.research.data.features import FeaturesFrame
-    from einherjar.research.data.ohlcv import OhlcvFrame
-    train_ohlcv = OhlcvFrame(
-        asset=ohlcv.asset, timeframe=ohlcv.timeframe,
-        df=ohlcv.df.head(t1), data_version=ohlcv.data_version,
+    def _slice_ohlcv(start: int, end: int) -> OhlcvFrame:
+        return OhlcvFrame(
+            asset=full_ohlcv.asset, timeframe=full_ohlcv.timeframe,
+            df=full_ohlcv.df.slice(start, end - start),
+            data_version=full_ohlcv.data_version,
+        )
+
+    def _slice_features(start: int, end: int) -> FeaturesFrame:
+        return FeaturesFrame(
+            asset=full_features.asset, timeframe=full_features.timeframe,
+            df=full_features.df.slice(start, end - start),
+            feature_names=full_features.feature_names,
+            data_version=full_features.data_version,
+        )
+
+    return (
+        _slice_ohlcv(0, t1), _slice_features(0, t1),
+        _slice_ohlcv(t1, t2), _slice_features(t1, t2),
+        _slice_ohlcv(t2, n), _slice_features(t2, n),
     )
-    val_ohlcv = OhlcvFrame(
-        asset=ohlcv.asset, timeframe=ohlcv.timeframe,
-        df=ohlcv.df.slice(t1, t2 - t1), data_version=ohlcv.data_version,
-    )
-    holdout_ohlcv = OhlcvFrame(
-        asset=ohlcv.asset, timeframe=ohlcv.timeframe,
-        df=ohlcv.df.tail(n - t2), data_version=ohlcv.data_version,
-    )
-    train_features = FeaturesFrame(
-        asset=features.asset, timeframe=features.timeframe,
-        df=features.df.head(t1), feature_names=features.feature_names,
-        data_version=features.data_version,
-    )
-    val_features = FeaturesFrame(
-        asset=features.asset, timeframe=features.timeframe,
-        df=features.df.slice(t1, t2 - t1), feature_names=features.feature_names,
-        data_version=features.data_version,
-    )
-    holdout_features = FeaturesFrame(
-        asset=features.asset, timeframe=features.timeframe,
-        df=features.df.tail(n - t2), feature_names=features.feature_names,
-        data_version=features.data_version,
-    )
-    return (train_ohlcv, train_features, val_ohlcv, val_features, holdout_ohlcv, holdout_features)
 
 
 # --------------------------------------------------------------------------- #
@@ -221,15 +233,30 @@ def handle_baselines(args: argparse.Namespace) -> int:
     """Step 1 — 3 baselines."""
     logger.info("[STEP 1] Baselines")
     config = load_config(args.config)
+    from einherjar.research.admission.baseline_gate import make_baseline_admission_fn
     from einherjar.research.baselines.runner import BaselineRunner
     from einherjar.research.engine.evaluator import EvaluationEngine
     engine = EvaluationEngine(config=config, data_version=args.data_version or "v1", seed=args.seed)
-    ohlcv, features = _build_dummy_data(config, n_bougies=600)
-    train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _split(ohlcv, features)
+    try:
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
+            config=config,
+            data_root=args.data_root,
+            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Impossible de charger les données réelles : %s", exc)
+        return 2
+    # Admission RÉELLE (7 critères S-3.4), pas un fallback "tout admis".
+    admission_fn, counter = make_baseline_admission_fn(config)
     runner = BaselineRunner(engine=engine)
     report = runner.run(
         train_ohlcv=train_ohlcv, train_features=train_features,
         val_ohlcv=val_ohlcv, val_features=val_features,
+        admission_fn=admission_fn,
+    )
+    logger.info(
+        "Baselines : %d essais, %d admis (DSR corrige pour multiple-testing)",
+        counter["n"], counter["n_admitted"],
     )
     logger.info("Baselines : %s", report.summary())
     return 0
@@ -249,8 +276,15 @@ def handle_compare(args: argparse.Namespace) -> int:
         seed=args.seed, n_eval_budget=args.n_eval or 200,
     )
     generators = make_all_generators(protocol, config)
-    ohlcv, features = _build_dummy_data(config, n_bougies=600)
-    train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _split(ohlcv, features)
+    try:
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
+            config=config,
+            data_root=args.data_root,
+            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Impossible de charger les données réelles : %s", exc)
+        return 2
     comparator = GeneratorComparator(generators=generators, protocol=protocol, engine=engine, config=config)
     report = comparator.run(
         train_ohlcv=train_ohlcv, train_features=train_features,
@@ -284,8 +318,15 @@ def handle_select(args: argparse.Namespace) -> int:
         seed=args.seed, n_eval_budget=args.n_eval or 200,
     )
     generators = make_all_generators(protocol, config)
-    ohlcv, features = _build_dummy_data(config, n_bougies=600)
-    train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _split(ohlcv, features)
+    try:
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
+            config=config,
+            data_root=args.data_root,
+            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Impossible de charger les données réelles : %s", exc)
+        return 2
     comparator = GeneratorComparator(generators=generators, protocol=protocol, engine=engine, config=config)
     report = comparator.run(
         train_ohlcv=train_ohlcv, train_features=train_features,
@@ -299,40 +340,271 @@ def handle_select(args: argparse.Namespace) -> int:
 
 
 def handle_refine(args: argparse.Namespace) -> int:
-    """Step 4 — Raffinement beam local."""
+    """Step 4 — Raffinement beam local des hypothèses du générateur sélectionné.
+
+    Pour V1 : consomme la sélection produite par 'select', génère N
+    hypothèses via le générateur sélectionné, calibre+test_on(val) sur
+    chaque, garde le top M (par Sharpe val), applique BeamRefiner sur
+    chacun, persiste les meilleurs dans outputs/refined.json.
+
+    Contrainte dure : SL/TP figés depuis le train (jamais recalibrés).
+    """
     logger.info("[STEP 4] Raffinement beam local")
-    logger.info("  → contrainte dure : SL/TP figés depuis le train (jamais recalibrés)")
-    logger.info("  → pour V1 : nécessite qu'un Einher viable soit disponible.")
-    logger.info("  → V2 : intégration via corpus.json (à implémenter).")
+    if not args.selection_path.exists():
+        logger.error("Selection absente : %s — lance d'abord 'discovery select'", args.selection_path)
+        return 2
+    config = load_config(args.config)
+    from einherjar.research.engine.evaluator import EvaluationEngine
+    from einherjar.research.refinement.beam import make_default_refiner
+    from einherjar.research.selection.selector import GeneratorSelector
+    selected = GeneratorSelector.load(args.selection_path)
+    logger.info("Generateur selectionne : %s (rank=%d, score=%.4f)",
+                selected.generator_name, selected.rank, selected.score)
+    # Charge les données réelles.
+    try:
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
+            config=config, data_root=args.data_root,
+            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Impossible de charger les données réelles : %s", exc)
+        return 2
+    # Instancie le générateur avec un budget limité.
+    import dataclasses
+    n_eval = args.n_eval or 20
+    protocol = dataclasses.replace(selected.protocol, n_eval_budget=n_eval)
+    generator = GeneratorSelector.instantiate(selected, config)
+    # Patche le protocol sur le générateur (instantiate a recréé avec l'ancien).
+    generator.protocol = protocol
+    result = generator.generate()
+    logger.info("Génération OK : %d hypothèses en %.2fs", len(result.hypotheses), result.generation_time_s)
+    # Calibre + test_on(val) sur chaque hypothèse, garde le top M.
+    engine = EvaluationEngine(
+        config=config, data_version=args.data_version or "v1", seed=args.seed,
+    )
+    n_top = min(5, len(result.hypotheses))
+    candidates: list[tuple[float, Any, Any, Any]] = []  # (sharpe_val, hyp, calibrated, m_val)
+    for hyp in result.hypotheses:
+        try:
+            calibrated = engine.train_calibrate(hyp, train_ohlcv, train_features)
+            m_val = engine.test_on(hyp, val_ohlcv, val_features, calibrated, "val")
+            sharpe = m_val.sharpe_net
+            if sharpe == sharpe:  # not NaN
+                candidates.append((sharpe, hyp, calibrated, m_val))
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Échec calibration/val pour %s : %s", hyp.id, exc)
+    candidates.sort(key=lambda t: t[0], reverse=True)
+    top = candidates[:n_top]
+    logger.info("Top %d après val (Sharpe): %s",
+                n_top, [f"{t[0]:.3f} ({t[1].id})" for t in top])
+    if not top:
+        logger.warning("Aucun candidat viable à raffiner.")
+        return 0
+    # BeamRefiner sur chaque top.
+    refiner = make_default_refiner(config=config, engine=engine, seed=args.seed)
+    refined_records: list[dict[str, Any]] = []
+    for sharpe_orig, hyp, calibrated, m_val in top:
+        rr = refiner.refine(
+            hypothesis=hyp, calibrated=calibrated,
+            train_ohlcv=train_ohlcv, train_features=train_features,
+            val_ohlcv=val_ohlcv, val_features=val_features,
+        )
+        record = {
+            "original_id": hyp.id,
+            "original_sharpe_val": sharpe_orig,
+            "improved": rr.improved,
+            "best_sharpe_val": rr.best_sharpe_val,
+            "n_evaluated": rr.n_evaluated,
+            "n_iterations": rr.n_iterations,
+            "best_hypothesis": rr.best_hypothesis.to_dict() if rr.best_hypothesis else None,
+        }
+        refined_records.append(record)
+        logger.info("Refine %s : improved=%s, sharpe %.4f -> %.4f",
+                    hyp.id, rr.improved, sharpe_orig, rr.best_sharpe_val)
+    # Persiste dans outputs/refined.json.
+    import json as _json
+    out_path = Path("outputs") / "refined.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        _json.dumps({"refined": refined_records, "n_input": len(result.hypotheses),
+                     "n_viable": len(candidates), "n_refined": len(refined_records)},
+                    indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    logger.info("Raffinement terminé : %d/%d améliorés, persisté dans %s",
+                sum(1 for r in refined_records if r["improved"]),
+                len(refined_records), out_path)
     return 0
 
 
 def handle_admit(args: argparse.Namespace) -> int:
-    """Step 5 — Admission au corpus."""
+    """Step 5 — Admission au corpus.
+
+    Pour V1 : consomme la sélection produite par 'select', génère N
+    hypothèses via le générateur sélectionné, calibre+test_on(val) sur
+    chaque, applique AdmissionDecider (DSR + PBO + bootstrap CI + n_trades
+    + cross_asset + max_dd + diversité + dédup + quota).
+
+    Les rejets sont append à outputs/archive/archive.jsonl (déjà géré par
+    AdmissionDecider). Les admis ne sont pas encore persistés dans un
+    corpus.json (P0 #4 V2).
+
+    Note : pour le pipeline bout-en-bout, l'admission est aussi appliquée
+    dans 'baselines' via baseline_gate.make_baseline_admission_fn (volet
+    critères uniquement, sans archive). Ce mode 'admit' applique
+    AdmissionDecider COMPLET (avec archive).
+    """
     logger.info("[STEP 5] Admission au corpus")
-    logger.info("  → critères : DSR + PBO + bootstrap CI + n_trades + cross_asset + max_dd + diversité")
-    logger.info("  → fingerprint canonique (structurel + comportemental)")
-    logger.info("  → déduplication contre l'Archive sur le même data_version")
-    logger.info("  → pour V1 : nécessite que le générateur sélectionné tourne.")
+    if not args.selection_path.exists():
+        logger.error("Selection absente : %s — lance d'abord 'discovery select'", args.selection_path)
+        return 2
+    config = load_config(args.config)
+    from einherjar.research.admission.decision import AdmissionDecider
+    from einherjar.research.engine.evaluator import EvaluationEngine
+    from einherjar.research.selection.selector import GeneratorSelector
+    selected = GeneratorSelector.load(args.selection_path)
+    logger.info("Generateur selectionne : %s (rank=%d, score=%.4f)",
+                selected.generator_name, selected.rank, selected.score)
+    try:
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
+            config=config, data_root=args.data_root,
+            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Impossible de charger les données réelles : %s", exc)
+        return 2
+    import dataclasses
+    n_eval = args.n_eval or 20
+    protocol = dataclasses.replace(selected.protocol, n_eval_budget=n_eval)
+    generator = GeneratorSelector.instantiate(selected, config)
+    generator.protocol = protocol
+    result = generator.generate()
+    logger.info("Génération OK : %d hypothèses en %.2fs", len(result.hypotheses), result.generation_time_s)
+    engine = EvaluationEngine(
+        config=config, data_version=args.data_version or "v1", seed=args.seed,
+    )
+    decider = AdmissionDecider(
+        config=config, data_version=args.data_version or "v1", seed=args.seed,
+    )
+    n_admitted = 0
+    n_rejected = 0
+    reasons: dict[str, int] = {}
+    for i, hyp in enumerate(result.hypotheses, start=1):
+        try:
+            calibrated = engine.train_calibrate(hyp, train_ohlcv, train_features)
+            m_val = engine.test_on(hyp, val_ohlcv, val_features, calibrated, "val")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Échec calibration/val pour %s : %s", hyp.id, exc)
+            continue
+        returns_val = [t.ret_pct_net for t in m_val.trades]
+        decision = decider.decide(
+            hypothesis_id=hyp.id,
+            condition_tree=hyp.condition_tree,
+            direction=hyp.direction,
+            universe=hyp.universe,
+            amplitude=hyp.amplitude,
+            calibrated=calibrated,
+            mesures_val=m_val,
+            returns_val=returns_val,
+            n_indep_trials=i,
+        )
+        if decision.admitted:
+            n_admitted += 1
+        else:
+            n_rejected += 1
+            reason = decision.primary_reason.value if decision.primary_reason else "OTHER"
+            reasons[reason] = reasons.get(reason, 0) + 1
+    logger.info("Admission terminée : %d/%d admis", n_admitted, n_admitted + n_rejected)
+    if reasons:
+        logger.info("Breakdown rejets : %s", reasons)
+    # Persiste un résumé.
+    import json as _json
+    out_path = Path("outputs") / "admit_summary.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        _json.dumps({
+            "n_generated": len(result.hypotheses),
+            "n_admitted": n_admitted,
+            "n_rejected": n_rejected,
+            "rejection_breakdown": reasons,
+            "generator": selected.generator_name,
+        }, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    logger.info("Résumé persisté dans %s", out_path)
     return 0
 
 
 def handle_holdout(args: argparse.Namespace) -> int:
-    """Step 6 — Évaluation finale unique sur le holdout (sacré)."""
+    """Step 6 — Évaluation finale unique sur le holdout (sacré).
+
+    Pour V1 : consomme un fichier JSON via --hypothesis-file (Hypothesis
+    sérialisée). Le pipeline complet (admit → corpus persisté → holdout
+    automatique) sera implémenté en P0 #4 V2.
+
+    Le holdout est consulté UNE SEULE FOIS par session : le 2e appel
+    lèvera une erreur (cf. HoldoutEvaluator._holdout_used).
+    """
     logger.info("[STEP 6] Holdout sacré — ÉVALUATION FINALE UNIQUE")
-    logger.info("  ⚠ ce mode ne doit être appelé qu'UNE SEULE FOIS par Einher final retenu")
-    logger.info("  → publication: métriques + IC bootstrap + descripteurs comportementaux")
-    logger.info("  → archivage avec data_version/seed/splits/coûts figés")
-    # Pour V1 : on délègue au HoldoutEvaluator si on a un Einher.
-    config = load_config(args.config)
+    if args.hypothesis_file is None:
+        logger.error(
+            "Aucun --hypothesis-file fourni. Pour V1, le holdout consomme un fichier JSON "
+            "contenant une Hypothesis sérialisée (via Hypothesis.to_dict()). "
+            "Le pipeline P0 #4 V2 (corpus persisté → holdout automatique) n'est pas encore implémenté."
+        )
+        return 2
+    if not args.hypothesis_file.exists():
+        logger.error("Fichier hypothesis introuvable : %s", args.hypothesis_file)
+        return 2
+    # Charge l'Hypothesis depuis le JSON.
+    import json
     from einherjar.research.engine.evaluator import EvaluationEngine
     from einherjar.research.holdout.evaluator import HoldoutEvaluator
-    engine = EvaluationEngine(config=config, data_version=args.data_version or "v1", seed=args.seed)
+    from einherjar.research.utils.types import Hypothesis
+    try:
+        hyp_dict = json.loads(args.hypothesis_file.read_text(encoding="utf-8"))
+        hypothesis = Hypothesis.from_dict(hyp_dict)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Hypothesis JSON invalide : %s", exc)
+        return 2
+    # Charge les données + split holdout.
+    config = load_config(args.config)
+    try:
+        train_ohlcv, train_features, val_ohlcv, val_features, holdout_ohlcv, holdout_features = _load_real_data(
+            config=config, data_root=args.data_root,
+            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Impossible de charger les données réelles : %s", exc)
+        return 2
+    # Pipeline complet : train_calibrate + test_on(val) + HoldoutEvaluator.
+    engine = EvaluationEngine(
+        config=config, data_version=args.data_version or "v1", seed=args.seed,
+    )
+    try:
+        calibrated = engine.train_calibrate(hypothesis, train_ohlcv, train_features)
+        m_val = engine.test_on(hypothesis, val_ohlcv, val_features, calibrated, "val")
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Échec train/val pour %s : %s", hypothesis.id, exc)
+        return 2
     holdout_eval = HoldoutEvaluator(
         engine=engine, config=config,
         data_version=args.data_version or "v1", seed=args.seed,
     )
-    logger.info("HoldoutEvaluator instancié (1 seule passe autorisée).")
+    val_sharpe = m_val.sharpe_net
+    val_snapshot = m_val.to_dict()
+    result = holdout_eval.evaluate(
+        hypothesis=hypothesis, calibrated=calibrated,
+        holdout_ohlcv=holdout_ohlcv, holdout_features=holdout_features,
+        val_sharpe=val_sharpe, val_metrics_snapshot=val_snapshot,
+    )
+    # Persiste le résultat dans outputs/.
+    import json as _json
+    out_path = Path("outputs") / "holdout_result.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(_json.dumps(result.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
+    logger.info("Holdout terminé : flag=%s, sharpe_holdout=%.4f, persisté dans %s",
+                result.degradation_flag, result.metrics_holdout.sharpe_net, out_path)
     return 0
 
 

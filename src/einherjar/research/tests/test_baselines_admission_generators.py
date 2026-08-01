@@ -299,8 +299,8 @@ class TestAdmissionDecision(unittest.TestCase):
         # On vérifie juste que la décision est construite.
         from einherjar.research.engine.evaluator import CalibratedParams
         cal = CalibratedParams(
-            n_window=10, sl_price=95.0, tp_price=110.0, atr_p50=1.0,
-            n_observations=500, sl_distance=5.0, tp_distance=10.0,
+            n_window=10, sl_n_atr=1.0, tp_n_atr=2.0, atr_p50=1.0,
+            n_observations=500, sl_distance=0.05, tp_distance=0.10,
         )
         decision = decider.decide(
             hypothesis_id="hyp_test",
