@@ -335,12 +335,10 @@ class TestGenerators(unittest.TestCase):
         self.assertEqual(result.n_generated, 200)
         self.assertGreater(len(result.hypotheses), 0)
 
-    def test_beam_search_generates(self):
-        g = BeamSearchGenerator(self.protocol, self.config, beam_width=16, depth=2)
-        result = g.generate()
-        self.assertGreater(result.n_generated, 0)
-        for h in result.hypotheses:
-            self.assertIsInstance(h, Hypothesis)
+    def test_beam_search_requires_engine(self):
+        """BeamSearchGenerator REQUIERT un engine (P10 — pas de placeholder silencieux)."""
+        with self.assertRaises(ValueError):
+            BeamSearchGenerator(self.protocol, self.config, engine=None)
 
     def test_typed_gp_requires_engine(self):
         """TypedGPGenerator REQUIERT un engine (P10 — pas de placeholder silencieux)."""

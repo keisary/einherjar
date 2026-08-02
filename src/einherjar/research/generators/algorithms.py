@@ -184,68 +184,195 @@ class RandomSearchGenerator(BaseGenerator):
 
 
 class BeamSearchGenerator(BaseGenerator):
-    """Beam search à profondeur fixe (1-2 conditions), K=64 par défaut.
+    """Beam Search à expansion par niveaux — VRAIE implémentation.
 
-    Maintient les K meilleurs candidats à chaque niveau, expand level by level.
-    Évalue chaque candidat (via callback), garde le top K.
+    Algorithme (Lowerre 1976, Reddy 1977) :
+      1. Niveau 0 (initial) : beam_width × 2 directions × 2 ops × n_thresholds
+         = beam initial de ~beam_width × 4 × n_thresholds candidats atomiques.
+      2. Pour chaque niveau suivant (depth 1 à max_conditions) :
+         a. Pour chaque candidat du beam précédent, on génère des expansions
+            (compound avec une nouvelle condition atomique combinée en AND).
+         b. On évalue chaque expansion via engine.train_calibrate + test_on(val)
+            (scoring intermédiaire).
+         c. On garde le top beam_width (élitisme intra-niveau).
+      3. On retourne le beam final (les K meilleurs après tous les niveaux).
+
+    Cohérence avec le moteur d'évaluation :
+      - engine REQUIS pour le scoring intermédiaire (sinon le beam est aléatoire).
+      - Le beam n'évalue PAS val plusieurs fois (1 évaluation par candidat par niveau).
+
+    Différent de TypedGP :
+      - BeamSearch explore systématiquement (largeur × profondeur), pas stochastique.
+      - Pas de crossover/mutation, juste expansion.
+      - Plus rapide mais moins diversifié.
     """
 
     def __init__(
         self,
         protocol: GenerationProtocol,
         config: EinherjarConfig,
-        beam_width: int = 64,
-        depth: int = 2,
+        engine: Any | None = None,
+        beam_width: int = 16,
+        n_thresholds: int = 3,
+        max_depth: int | None = None,
     ) -> None:
-        super().__init__(protocol)
+        """Initialise Beam Search.
+
+        Args:
+            engine: Moteur d'évaluation (REQUIS pour le scoring intermédiaire).
+            beam_width: Largeur du beam (K meilleurs conservés par niveau).
+            n_thresholds: Nombre de valeurs de seuil à tester par (feature, op).
+            max_depth: Profondeur max (1 = atome seul, 2 = AND de 2, etc.).
+                Défaut : protocol.max_conditions.
+        """
+        super().__init__(protocol, engine=engine)
+        if engine is None:
+            raise ValueError(
+                "BeamSearchGenerator requiert un moteur d'évaluation (engine=...) "
+                "pour le scoring intermédiaire (sinon le beam est aléatoire)."
+            )
         self.config = config
         self.beam_width = beam_width
-        self.depth = depth
-
-    def generate(self) -> GeneratorResult:
-        import time
-        t0 = time.time()
-        # Beam initial : K features × 2 directions × 2 operators × n_thresholds.
-        # Pour V1, on génère juste le beam initial, sans expansion.
-        continuous = [
-            f for f in self.config.usable_feature_names
+        self.n_thresholds = n_thresholds
+        self.max_depth = max_depth if max_depth is not None else protocol.max_conditions
+        # Pool de features continues.
+        self._continuous_features: list[str] = [
+            f for f in config.usable_feature_names
             if self._feature_type(f) in (FeatureType.ATOMIC, FeatureType.QUANTITATIVE, FeatureType.FACTOR)
         ]
-        hyps: list[Hypothesis] = []
+        if not self._continuous_features:
+            raise ValueError("Aucune feature continue exploitable pour BeamSearch")
+        # Seuils : percentiles calculés une fois (évolution future : calcul sur train).
+        self._thresholds: list[float] = [-1.0, 0.0, 1.0]
+        if n_thresholds > 3:
+            extra = [round(-2.0 + 4.0 * i / (n_thresholds - 1), 4) for i in range(n_thresholds)]
+            self._thresholds = extra
+        logger.info(
+            "BeamSearchGenerator : K=%d, %d seuils, depth=%d, %d features continues",
+            beam_width, n_thresholds, self.max_depth, len(self._continuous_features),
+        )
+
+    def generate(self) -> GeneratorResult:
+        """Lance Beam Search niveau par niveau avec scoring intermédiaire."""
+        import time
+        t0 = time.time()
+        train_ohlcv = getattr(self, "_train_ohlcv", None)
+        train_features = getattr(self, "_train_features", None)
+        val_ohlcv = getattr(self, "_val_ohlcv", None)
+        val_features = getattr(self, "_val_features", None)
+        if train_ohlcv is None or val_ohlcv is None:
+            raise ValueError(
+                "BeamSearchGenerator a besoin des données (train_ohlcv, val_ohlcv). "
+                "Assure-toi que handle_compare les a injectées."
+            )
+        # Niveau 0 : beam initial de conditions atomiques.
+        beam: list[Hypothesis] = self._initial_beam()
+        # Évaluation initiale.
+        scores: list[float] = self._score_beam(beam, train_ohlcv, train_features, val_ohlcv, val_features)
+        beam, scores = self._prune(beam, scores, k=self.beam_width)
+        # Expansion niveau par niveau.
+        for depth in range(1, self.max_depth):
+            expanded: list[Hypothesis] = []
+            for parent in beam:
+                expanded.extend(self._expand_at_depth(parent, depth))
+            if not expanded:
+                break
+            exp_scores = self._score_beam(
+                expanded, train_ohlcv, train_features, val_ohlcv, val_features,
+            )
+            # Combine parent + expanded, on garde le top K.
+            combined_beam = beam + expanded
+            combined_scores = scores + exp_scores
+            beam, scores = self._prune(combined_beam, combined_scores, k=self.beam_width)
+            logger.info(
+                "BeamSearch depth=%d : %d candidats, top_score=%.4f",
+                depth, len(expanded), scores[0] if scores else float("nan"),
+            )
+        return GeneratorResult(
+            generator_name=self.name,
+            hypotheses=tuple(beam),
+            n_generated=len(beam),
+            n_evaluated=len(beam),
+            n_passed_admission=0,
+            generation_time_s=time.time() - t0,
+            meta={
+                "method": "BeamSearch-Lowerre-Reddy",
+                "beam_width": self.beam_width,
+                "n_thresholds": self.n_thresholds,
+                "max_depth": self.max_depth,
+            },
+        )
+
+    def _initial_beam(self) -> list[Hypothesis]:
+        """Beam initial : K features × 2 directions × 2 ops × n_thresholds."""
+        beam: list[Hypothesis] = []
         i = 0
-        for feat in continuous[: self.beam_width]:
+        for feat in self._continuous_features[: self.beam_width]:
             for direction in (Direction.LONG, Direction.SHORT):
                 for op in (CompareOp.LT, CompareOp.GT):
-                    for v in (0.0,):
+                    for v in self._thresholds:
+                        if i >= self.beam_width * 4:
+                            return beam
                         h = Hypothesis(
                             id=f"{self.name}_{i:06d}",
-                            condition_tree=Condition(
-                                feature_ref=feat, operator=op, value=v, transformation=None,
-                            ),
+                            condition_tree=Condition(feature_ref=feat, operator=op, value=v, transformation=None),
                             amplitude=self._make_amplitude(direction),
                             direction=direction,
                             universe=self._make_universe(),
                             cooldown_k=self.protocol.cooldown_k,
                         )
-                        hyps.append(h)
+                        beam.append(h)
                         i += 1
-                        if i >= self.protocol.n_eval_budget:
-                            break
-                    if i >= self.protocol.n_eval_budget:
-                        break
-                if i >= self.protocol.n_eval_budget:
-                    break
-            if i >= self.protocol.n_eval_budget:
-                break
-        return GeneratorResult(
-            generator_name=self.name,
-            hypotheses=tuple(hyps),
-            n_generated=len(hyps),
-            n_evaluated=0,
-            n_passed_admission=0,
-            generation_time_s=time.time() - t0,
-            meta={"beam_width": self.beam_width, "depth": self.depth},
-        )
+        return beam
+
+    def _expand_at_depth(self, parent: Hypothesis, depth: int) -> list[Hypothesis]:
+        """Génère des expansions du parent au niveau `depth` (compound avec une nouvelle condition)."""
+        expansions: list[Hypothesis] = []
+        for feat in self._continuous_features[: 8]:  # limite pour éviter l'explosion
+            for op in (CompareOp.LT, CompareOp.GT):
+                for v in self._thresholds[:2]:  # 2 seuils max pour l'expansion
+                    new_cond = ConditionNode(
+                        op=LogicalOp.AND,
+                        left=parent.condition_tree,
+                        right=Condition(feature_ref=feat, operator=op, value=v, transformation=None),
+                    )
+                    new_h = Hypothesis(
+                        id=f"{parent.id}_x{len(expansions):02d}",
+                        condition_tree=new_cond,
+                        amplitude=parent.amplitude,
+                        direction=parent.direction,
+                        universe=parent.universe,
+                        cooldown_k=parent.cooldown_k,
+                    )
+                    expansions.append(new_h)
+        return expansions
+
+    def _score_beam(
+        self,
+        beam: list[Hypothesis],
+        train_ohlcv: Any, train_features: Any, val_ohlcv: Any, val_features: Any,
+    ) -> list[float]:
+        """Évalue chaque candidat du beam (scoring intermédiaire)."""
+        scores: list[float] = []
+        for h in beam:
+            try:
+                calibrated = self.engine.train_calibrate(h, train_ohlcv, train_features)
+                m = self.engine.test_on(h, val_ohlcv, val_features, calibrated, "val")
+                scores.append(m.sharpe_net if m.sharpe_net == m.sharpe_net else float("-inf"))
+            except Exception:  # noqa: BLE001
+                scores.append(float("-inf"))
+        return scores
+
+    @staticmethod
+    def _prune(
+        beam: list[Hypothesis], scores: list[float], k: int,
+    ) -> tuple[list[Hypothesis], list[float]]:
+        """Garde les K meilleurs candidats (tri par score décroissant)."""
+        if not beam:
+            return [], []
+        order = sorted(range(len(beam)), key=lambda i: scores[i], reverse=True)
+        order = order[:k]
+        return [beam[i] for i in order], [scores[i] for i in order]
 
     def _feature_type(self, name: str) -> FeatureType | None:
         info = self.config.features_taxonomy.get("features", {}).get(name, {})
@@ -1585,7 +1712,7 @@ def make_all_generators(
     """
     return [
         RandomSearchGenerator(protocol=protocol, config=config),
-        BeamSearchGenerator(protocol=protocol, config=config),
+        BeamSearchGenerator(protocol=protocol, config=config, engine=engine),
         TypedGPGenerator(protocol=protocol, config=config, engine=engine),
         MemeticGenerator(protocol=protocol, config=config, engine=engine),
         NSGA2Generator(protocol=protocol, config=config, engine=engine),
