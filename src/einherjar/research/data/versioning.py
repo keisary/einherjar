@@ -1,5 +1,5 @@
 """
-data/versioning.py — Versioning des datasets (data_version).
+data/versioning.py — Versioning des datasets (data_version, P1 #9).
 
 Chaque "version" est un identifiant stable (tag ou hash) attaché à un
 bundle OHLCV + features + coûts. Permet de :
@@ -8,11 +8,14 @@ bundle OHLCV + features + coûts. Permet de :
     (sans la considérer comme un doublon)
   - Auditer "quelles données ont produit cet Einher"
 
-Le hash d'un data_version est calculé sur :
-  - Les chemins / noms de fichiers OHLCV et features
-  - Les bornes temporelles effectives (start_ts, end_ts)
-  - Les coûts simulés (costs.yaml)
-  - La version de l'ontologie (pour traçabilité sémantique)
+P1 #9 : le manifest capture TOUT ce qui définit la version :
+  - Schéma (format, dtype, n_columns)
+  - Hash du contenu (sha256 des fichiers .npy) — un changement de données
+    passe par un changement de hash
+  - Actif, timeframe, période (start_ts/end_ts), timezone
+  - Règles de nettoyage appliquées (sanitization, drop NaN, etc.)
+  - Coûts simulés (costs.yaml) et seuils (pour qu'un changement de config
+    qui affecte le calcul rende le hash différent)
 """
 
 from __future__ import annotations
@@ -21,18 +24,30 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone as dt_timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
+
+import numpy as np
 
 from einherjar.research.config.loader import EinherjarConfig
 
 logger = logging.getLogger(__name__)
 
 
+# Schéma et règles de nettoyage par défaut (P1 #9 — explicites).
+DEFAULT_TIMEZONE: str = "UTC"
+DEFAULT_CLEANING_RULES: dict[str, Any] = {
+    "sanitize": "drop NaN/inf sur OHLCV, low<=high, open/close dans [low, high]",
+    "validity_mask": "compute_validity_mask (npy_real_loader)",
+    "outlier_handling": "none (raw log-returns conservés)",
+    "gap_handling": "none (gaps déclarés en warning, pas de fill)",
+}
+
+
 @dataclass(frozen=True)
 class DataVersion:
-    """Identifiant d'une version de données."""
+    """Identifiant d'une version de données (P1 #9 complet)."""
 
     tag: str                       # ex: "v1_2026-08-01" ou "hash:a1b2c3d4..."
     hash: str                      # sha256 du manifest
@@ -48,22 +63,71 @@ class DataVersion:
         }
 
 
+def _inspect_npy_file(path: Path) -> dict[str, Any]:
+    """Inspecte un fichier .npy : shape, dtype, n_bougies, start/end_ts (si dispo).
+
+    Returns:
+        Dict {format, dtype, n_columns, n_bougies, content_sha256, ...}.
+    """
+    import hashlib
+    if not path.exists():
+        return {"format": "npy", "path": str(path), "exists": False}
+    # Hash du contenu.
+    h = hashlib.sha256()
+    with path.open("rb") as fp:
+        for chunk in iter(lambda: fp.read(1024 * 1024), b""):
+            h.update(chunk)
+    content_sha = h.hexdigest()
+    # Inspection du shape/dtype.
+    arr = np.load(path, mmap_mode="r")
+    shape = list(arr.shape)
+    dtype = str(arr.dtype)
+    n_bougies = shape[0] if arr.ndim >= 1 else 0
+    info: dict[str, Any] = {
+        "format": "npy",
+        "path": str(path.resolve()),
+        "content_sha256": content_sha,
+        "dtype": dtype,
+        "shape": shape,
+        "n_bougies": n_bougies,
+    }
+    # Si c'est un fichier timestamps (X.npy à 1 col, ou _ts.npy), extraire min/max.
+    if arr.ndim == 1 and n_bougies > 0:
+        info["start_ts_ms"] = int(arr[0])
+        info["end_ts_ms"] = int(arr[-1])
+    return info
+
+
 def make_data_version(
     ohlcv_paths: dict[str, Path],       # { "BTCUSD_1h": Path, ... }
     features_paths: dict[str, Path],    # idem
     config: EinherjarConfig,
     *,
     tag: Optional[str] = None,
+    tz_label: str = DEFAULT_TIMEZONE,
+    cleaning_rules: Optional[dict[str, Any]] = None,
 ) -> DataVersion:
     """Crée un DataVersion à partir des chemins de données et de la config.
 
-    Le hash est calculé sur les chemins + les coûts + les seuils (pour
-    qu'un changement de config qui affecte le calcul rende le hash
-    différent — sinon on aurait un faux sentiment de reproductibilité).
+    P1 #9 : le manifest capture schéma, hash du contenu, période, timezone,
+    règles de nettoyage. Le hash final est calculé sur le manifest complet,
+    ce qui garantit qu'une modification de n'importe quel élément change
+    la data_version (anti-faux sentiment de reproductibilité).
     """
+    cleaning_rules = cleaning_rules or DEFAULT_CLEANING_RULES
+    ohlcv_inspect: dict[str, Any] = {
+        k: _inspect_npy_file(p) for k, p in sorted(ohlcv_paths.items())
+    }
+    features_inspect: dict[str, Any] = {
+        k: _inspect_npy_file(p) for k, p in sorted(features_paths.items())
+    }
     manifest = {
-        "ohlcv_paths": {k: str(v.resolve()) for k, v in sorted(ohlcv_paths.items())},
-        "features_paths": {k: str(v.resolve()) for k, v in sorted(features_paths.items())},
+        "schema": {
+            "ohlcv": ohlcv_inspect,
+            "features": features_inspect,
+        },
+        "timezone": tz_label,
+        "cleaning_rules": cleaning_rules,
         "costs": config.costs,
         "thresholds_hash": _hash_dict(config.thresholds),
         "evaluation_hash": _hash_dict(config.evaluation),
@@ -74,7 +138,7 @@ def make_data_version(
         tag=final_tag,
         hash=h,
         manifest=manifest,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=datetime.now(dt_timezone.utc).isoformat(),
     )
 
 

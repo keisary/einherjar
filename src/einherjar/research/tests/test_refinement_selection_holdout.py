@@ -234,32 +234,39 @@ class TestHoldout(unittest.TestCase):
 
     def test_holdout_evaluator_runs_once(self):
         h, calibrated = self._make_hypothesis_and_calibrated()
-        # Évalue d'abord sur val pour avoir un Sharpe val.
         val_mesures = self.engine.test_on(h, self.val_ohlcv, self.val_feats, calibrated, "val")
-        # Crée un évaluateur holdout (utilise un engine "frais" pour ne pas muter self.engine._holdout_accessed).
         from einherjar.research.engine.evaluator import EvaluationEngine
-        fresh_engine = EvaluationEngine(config=self.config, data_version="v1", seed=42)
-        holdout_eval = HoldoutEvaluator(
-            engine=fresh_engine, config=self.config, data_version="v1", seed=42,
-        )
-        result = holdout_eval.evaluate(
-            h, calibrated, self.holdout_ohlcv, self.holdout_feats,
-            val_sharpe=val_mesures.sharpe_net,
-        )
-        self.assertIsInstance(result, HoldoutResult)
-        self.assertEqual(result.hypothesis_id, h.id)
-        self.assertIn(result.degradation_flag, ("OK", "WARNING", "CRITICAL"))
+        from einherjar.research.holdout.ledger import HoldoutLedger
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fresh_engine = EvaluationEngine(config=self.config, data_version="v1", seed=42)
+            holdout_eval = HoldoutEvaluator(
+                engine=fresh_engine, config=self.config, data_version="v1", seed=42,
+                ledger=HoldoutLedger(path=Path(tmpdir) / "ledger.jsonl"),
+            )
+            result = holdout_eval.evaluate(
+                h, calibrated, self.holdout_ohlcv, self.holdout_feats,
+                val_sharpe=val_mesures.sharpe_net,
+            )
+            self.assertIsInstance(result, HoldoutResult)
+            self.assertEqual(result.hypothesis_id, h.id)
+            self.assertIn(result.degradation_flag, ("OK", "WARNING", "CRITICAL"))
 
     def test_holdout_evaluator_refuses_second_call(self):
         h, calibrated = self._make_hypothesis_and_calibrated()
         from einherjar.research.engine.evaluator import EvaluationEngine
-        fresh_engine = EvaluationEngine(config=self.config, data_version="v1", seed=42)
-        holdout_eval = HoldoutEvaluator(
-            engine=fresh_engine, config=self.config, data_version="v1", seed=42,
-        )
-        holdout_eval.evaluate(h, calibrated, self.holdout_ohlcv, self.holdout_feats, val_sharpe=1.0)
-        with self.assertRaises(RuntimeError):
+        from einherjar.research.holdout.ledger import HoldoutLedger
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fresh_engine = EvaluationEngine(config=self.config, data_version="v1", seed=42)
+            holdout_eval = HoldoutEvaluator(
+                engine=fresh_engine, config=self.config, data_version="v1", seed=42,
+                ledger=HoldoutLedger(path=__import__("pathlib").Path(tmpdir) / "ledger.jsonl"),
+            )
             holdout_eval.evaluate(h, calibrated, self.holdout_ohlcv, self.holdout_feats, val_sharpe=1.0)
+            with self.assertRaises(RuntimeError):
+                holdout_eval.evaluate(h, calibrated, self.holdout_ohlcv, self.holdout_feats, val_sharpe=1.0)
 
 
 # =========================================================================== #

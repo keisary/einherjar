@@ -1,17 +1,32 @@
 """refinement/beam.py — Raffinement beam local autour des Einhers viables.
 
-Pour les Einhers qui passent l'admission (Step 5) mais sont sous-optimaux,
-on tente des mutations locales 1-paramètre-à-la-fois pour améliorer
-le score (Sharpe sur val) sans recalibrer SL/TP.
+⚠ P1 #2 : BeamRefiner est DEPRECIE pour le sprint en cours.
+Raison : il score les voisins sur val (le caller passe val_ohlcv/val_features),
+ce qui constitue une fuite de selection (la regle est optimisee sur val,
+donc son score val est surestime).
 
-Règle dure : SL et TP sont figés depuis le train (S-3.2 d'ONTOLOGY.md).
+Directive user : "regle BNF = identite stable ; toute variante = nouveau
+candidat reevalue integralement". Donc :
+  - Toute "variante" generee par BeamRefiner doit etre consideree comme
+    un NOUVEAU candidat, pas comme une amelioration de l'original.
+  - Le scoring sur val ne doit PAS optimiser la regle : chaque variante
+    doit passer par le pipeline COMPLET (calibration sur train + test sur val
+    + admission) pour etre evaluee.
+
+Pour V1, BeamRefiner reste implemente pour retrocompatibilite, mais il
+emet un DeprecationWarning au premier appel. Le caller (handle_refine)
+DOIT migrer vers la strategie "generer N nouvelles hypotheses via les
+generateurs (Random/TypedGP/NSGA-II) et les faire passer par le pipeline
+complet". C'est la migration recommandee.
+
+Regle dure conservee : SL et TP sont figes depuis le train (S-3.2 d'ONTOLOGY.md).
 Le raffinement ne peut modifier que :
-  - les conditions (features, opérateurs, seuils),
+  - les conditions (features, operateurs, seuils),
   - le cooldown K,
   - l'amplitude (en multiple_ATR par exemple).
 
-Mutations appliquées :
-  - Swap feature : remplace une feature par une autre du même type.
+Mutations appliquees :
+  - Swap feature : remplace une feature par une autre du meme type.
   - Swap operator : < → >, <= → >=, == → !=.
   - Tweak threshold : ±10%, ±25%, ±50%.
   - Tweak cooldown : K±1.
@@ -89,7 +104,13 @@ class RefinementResult:
 
 
 class BaseRefiner(ABC):
-    """Interface commune des refineurs."""
+    """Interface commune des refineurs.
+
+    ⚠ P1 #2 : DEPRECIE pour V2. Voir docstring du module.
+    Le caller DOIT migrer vers la strategie "generer N nouvelles hypotheses
+    via les generateurs (Random/TypedGP/NSGA-II) et les faire passer par le
+    pipeline complet (calibration + test + admission)".
+    """
 
     def __init__(self, config: EinherjarConfig, engine: EvaluationEngine, seed: int = 42) -> None:
         self.config = config
@@ -97,7 +118,19 @@ class BaseRefiner(ABC):
         self.seed = seed
         self._rng = random.Random(seed)
         self.name: str = type(self).__name__
-        logger.info("Refiner instancié : %s (seed=%d)", self.name, seed)
+        # P1 #2 : un seul warning par process (pas un warning par appel).
+        import warnings
+        if not getattr(self.__class__, "_p1_2_warned", False):
+            warnings.warn(
+                f"{self.name} est déprécié (P1 #2). Il score les voisins sur val, "
+                "ce qui constitue une fuite de sélection. Migrez vers la "
+                "génération de nouveaux candidats (Random/TypedGP/NSGA-II) + "
+                "pipeline complet (calibration + test + admission).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.__class__._p1_2_warned = True
+        logger.info("Refiner instancié : %s (seed=%d, ⚠ P1 #2 deprécié)", self.name, seed)
 
     @abstractmethod
     def refine(

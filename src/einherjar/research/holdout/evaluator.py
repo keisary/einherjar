@@ -28,6 +28,11 @@ from einherjar.research.config.loader import EinherjarConfig
 from einherjar.research.data.features import FeaturesFrame
 from einherjar.research.data.ohlcv import OhlcvFrame
 from einherjar.research.engine.evaluator import CalibratedParams, EvaluationEngine
+from einherjar.research.holdout.ledger import (
+    HoldoutAlreadyUsedError,
+    HoldoutEntry,
+    HoldoutLedger,
+)
 from einherjar.research.utils.types import MesuresBrutes
 
 logger = logging.getLogger(__name__)
@@ -91,6 +96,7 @@ class HoldoutEvaluator:
         seed: int = 42,
         degradation_warning_ratio: float = 0.30,
         degradation_critical_ratio: float = 0.60,
+        ledger: HoldoutLedger | None = None,
     ) -> None:
         self.engine = engine
         self.config = config
@@ -98,12 +104,15 @@ class HoldoutEvaluator:
         self.seed = seed
         self.degradation_warning_ratio = degradation_warning_ratio
         self.degradation_critical_ratio = degradation_critical_ratio
-        # Drapeau d'accès au holdout (True après le 1er evaluate).
+        # Ledger persistant (P1 #4) : non réinitialisable, atomique, anti-réentrance.
+        self._ledger: HoldoutLedger = ledger or HoldoutLedger()
+        # Drapeau d'accès au holdout (en mémoire, pour cette instance).
         self._holdout_used: bool = False
         logger.info(
             "HoldoutEvaluator instancié (data_version=%s, seed=%d, "
-            "warn=%.2f, crit=%.2f)",
+            "warn=%.2f, crit=%.2f, ledger=%s)",
             data_version, seed, degradation_warning_ratio, degradation_critical_ratio,
+            self._ledger.path,
         )
 
     def evaluate(
@@ -138,6 +147,12 @@ class HoldoutEvaluator:
                 "Si tu veux comparer plusieurs Einhers finaux, IL FAUT un nouveau holdout "
                 "(et donc un nouveau data_version)."
             )
+        # P1 #4 : vérification PERSISTANTE via le ledger (anti-réentrance post-redémarrage).
+        if self._ledger.has_access(hypothesis.id, self.data_version):
+            raise HoldoutAlreadyUsedError(
+                f"Holdout déjà consommé pour (strategy_id={hypothesis.id}, "
+                f"data_version={self.data_version}). Voir {self._ledger.path}."
+            )
         self._holdout_used = True
         timestamp = datetime.now(timezone.utc).isoformat()
         logger.warning(
@@ -167,7 +182,7 @@ class HoldoutEvaluator:
             "Holdout OK : %s — Sharpe val=%.4f, holdout=%.4f, degradation=%.2f%%, flag=%s",
             hypothesis.id, val_sharpe, holdout_sharpe, degradation_ratio * 100, flag,
         )
-        return HoldoutResult(
+        result = HoldoutResult(
             hypothesis_id=hypothesis.id,
             metrics_holdout=metrics_holdout,
             metrics_val_snapshot=val_metrics_snapshot or {},
@@ -179,6 +194,20 @@ class HoldoutEvaluator:
             meta={"degradation_warning_ratio": self.degradation_warning_ratio,
                   "degradation_critical_ratio": self.degradation_critical_ratio},
         )
+        # P1 #4 : append ATOMIQUE dans le ledger persistant.
+        self._ledger.record(HoldoutEntry(
+            strategy_id=hypothesis.id,
+            data_version=self.data_version,
+            timestamp=timestamp,
+            n_trades=metrics_holdout.n_signals,
+            sharpe=holdout_sharpe,
+            degradation_flag=flag,
+            metrics_snapshot=val_metrics_snapshot or {},
+            seed=self.seed,
+            meta={"degradation_warning_ratio": self.degradation_warning_ratio,
+                  "degradation_critical_ratio": self.degradation_critical_ratio},
+        ))
+        return result
 
 
 # --------------------------------------------------------------------------- #
