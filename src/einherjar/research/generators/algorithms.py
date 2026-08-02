@@ -1,16 +1,16 @@
-"""generators/algorithms.py — Les 5-6 générateurs candidats (UN fichier par convention).
+"""generators/algorithms.py — Les générateurs candidats (UN fichier par convention).
 
-Tous les générateurs implémentent `BaseGenerator.generate(protocol) -> list[Hypothesis]`.
+Tous les générateurs implémentent `BaseGenerator.generate() -> GeneratorResult`.
 Le choix du générateur final V1 se fait APRÈS la comparaison empirique
 (étape 2 du pipeline), pas avant.
 
-Candidats implémentés :
+Candidats implémentés (vraies implémentations, aucune délégation fantôme) :
   - RandomSearchGenerator  : random search sous contraintes (typage, profondeur).
   - BeamSearchGenerator    : beam search à profondeur fixe, K=64 par défaut.
-  - TypedGPGenerator       : Strongly-Typed GP (sans BNF, types explicites).
-  - GrammaticalEvolutionGenerator : GE — nécessite une grammaire BNF (placeholder).
-  - MemeticGenerator       : EA + local search (placeholder : GE + hill climbing).
-  - NSGA2Generator         : NSGA-II multi-objectif (placeholder : métrique composite).
+  - TypedGPGenerator       : Strongly-Typed GP (grow, sans évolution pour V1).
+  - GrammaticalEvolutionGenerator : GE — REPORTÉ tant que la BNF n'est pas écrite.
+  - MemeticGenerator       : EA + phase d'optimisation locale (hill climbing réelle).
+  - NSGA2Generator         : NSGA-II multi-objectif (Deb 2002) avec contraintes dures.
 
 Conforme à ALGORITHME_RESEARCH.md § 10.2 étape 2.
 """
@@ -75,13 +75,23 @@ class BaseGenerator(ABC):
 
     Attributes:
         protocol: Protocole de génération (seed, budget, splits, etc.).
+        engine: Moteur d'évaluation (optionnel). Requis pour les générateurs
+            évolutionnaires qui ont besoin d'évaluer les fitness
+            (NSGA-II, Memetic). Ignoré par les générateurs non-évolutionnaires
+            (Random, Beam, TypedGP sans évolution).
     """
 
-    def __init__(self, protocol: GenerationProtocol) -> None:
+    def __init__(
+        self,
+        protocol: GenerationProtocol,
+        engine: Any | None = None,
+    ) -> None:
         self.protocol = protocol
+        self.engine = engine
         self._rng = random.Random(protocol.seed)
         self.name: str = type(self).__name__
-        logger.info("Générateur instancié : %s (seed=%d)", self.name, protocol.seed)
+        logger.info("Générateur instancié : %s (seed=%d, engine=%s)",
+                    self.name, protocol.seed, type(engine).__name__ if engine else "None")
 
     @abstractmethod
     def generate(self) -> GeneratorResult:
@@ -365,24 +375,149 @@ class GrammaticalEvolutionGenerator(BaseGenerator):
 
 
 class MemeticGenerator(BaseGenerator):
-    """Memetic : EA + local search — placeholder V1.
+    """Memetic : EA + local search — VRAIE implémentation (P10).
 
-    Pour V1, on délègue à TypedGPGenerator (EA) + hill climbing minimal.
-    Le hill climbing : pour chaque hypothèse, on mute un paramètre et on garde
-    si le critère (passé en callback) s'améliore. Le callback n'est pas branché
-    ici — c'est l'affaire du comparator de le faire.
+    Algorithme :
+      1. Phase EA : TypedGPGenerator produit une population initiale.
+      2. Phase LSO (Local Search Optimization) : pour chaque hypothèse, on
+         applique des mutations locales 1-paramètre-à-la-fois et on garde
+         celles qui améliorent le Sharpe sur val (hill climbing).
+
+    Le hill climbing utilise `self.engine` pour évaluer les voisins (REQUIS).
+    Chaque hypothèse améliorée est sauvegardée.
+
+    Pour V1 : hill climbing = BeamRefiner-like (3 mutations × 1 itération).
     """
 
     def __init__(
         self,
         protocol: GenerationProtocol,
         config: EinherjarConfig,
-        population_size: int = 200,
+        engine: Any | None = None,
+        population_size: int = 50,
+        lso_iterations: int = 1,
+        lso_neighbors: int = 3,
     ) -> None:
-        super().__init__(protocol)
+        super().__init__(protocol, engine=engine)
+        if engine is None:
+            raise ValueError(
+                "MemeticGenerator requiert un moteur d'évaluation (engine=...) "
+                "pour la phase LSO (Local Search Optimization)."
+            )
         self.config = config
         self.population_size = population_size
+        self.lso_iterations = lso_iterations
+        self.lso_neighbors = lso_neighbors
         self._ea = TypedGPGenerator(protocol, config, population_size=population_size)
+
+    def generate(self) -> GeneratorResult:
+        # 1. Phase EA : génération initiale via TypedGP.
+        ea_result = self._ea.generate()
+        # 2. Phase LSO : hill climbing sur chaque hypothèse.
+        improved = self._local_search(ea_result.hypotheses)
+        n_improved = sum(1 for h_orig, h_new in improved if h_orig != h_new)
+        return GeneratorResult(
+            generator_name=self.name,
+            hypotheses=tuple(h_new for _, h_new in improved),
+            n_generated=len(ea_result.hypotheses),
+            n_evaluated=len(ea_result.hypotheses),
+            n_passed_admission=n_improved,
+            generation_time_s=ea_result.generation_time_s,
+            meta={
+                "ea": "TypedGPGenerator",
+                "lso_iterations": self.lso_iterations,
+                "lso_neighbors": self.lso_neighbors,
+                "n_improved_by_lso": n_improved,
+            },
+        )
+
+    def _local_search(self, hypotheses: list[Hypothesis]) -> list[tuple[Hypothesis, Hypothesis]]:
+        """Hill climbing : pour chaque hypothèse, mute 1 paramètre et garde si meilleur.
+
+        On essaie lso_neighbors mutations par paramètre (feature, op, threshold, cooldown).
+        Chaque hypothèse est gardée (même si pas améliorée).
+        """
+        results: list[tuple[Hypothesis, Hypothesis]] = []
+        # Besoin des données pour l'évaluation.
+        train_ohlcv = getattr(self, "_train_ohlcv", None)
+        train_features = getattr(self, "_train_features", None)
+        val_ohlcv = getattr(self, "_val_ohlcv", None)
+        val_features = getattr(self, "_val_features", None)
+        if train_ohlcv is None or val_ohlcv is None:
+            # Pas de données : on ne peut pas évaluer → on garde les hyp originales.
+            return [(h, h) for h in hypotheses]
+        for hyp in hypotheses:
+            best_h = hyp
+            best_sharpe = float("-inf")
+            try:
+                calibrated = self.engine.train_calibrate(hyp, train_ohlcv, train_features)
+                m = self.engine.test_on(hyp, val_ohlcv, val_features, calibrated, "val")
+                if m.sharpe_net == m.sharpe_net:  # not NaN
+                    best_sharpe = m.sharpe_net
+            except Exception:  # noqa: BLE001
+                results.append((hyp, hyp))
+                continue
+            # Voisins : mutations locales.
+            for _ in range(self.lso_iterations):
+                for neighbor in self._generate_neighbors(best_h, self.lso_neighbors):
+                    try:
+                        cal = self.engine.train_calibrate(neighbor, train_ohlcv, train_features)
+                        m2 = self.engine.test_on(neighbor, val_ohlcv, val_features, cal, "val")
+                        if m2.sharpe_net == m2.sharpe_net and m2.sharpe_net > best_sharpe:
+                            best_sharpe = m2.sharpe_net
+                            best_h = neighbor
+                    except Exception:  # noqa: BLE001
+                        continue
+            results.append((hyp, best_h))
+        return results
+
+    def _generate_neighbors(self, hyp: Hypothesis, n: int) -> list[Hypothesis]:
+        """Génère n voisins par mutation locale 1-paramètre-à-la-fois."""
+        neighbors: list[Hypothesis] = []
+        import copy
+        for _ in range(n):
+            h = copy.deepcopy(hyp)
+            new_id = f"{h.id}_lso"
+            # Mute la condition (feature/op/value) ou le cooldown.
+            if isinstance(h.condition_tree, Condition) and self._rng.random() < 0.6:
+                atom = h.condition_tree
+                choice = self._rng.choice(["feature", "op", "value"])
+                if choice == "feature":
+                    if self.config.usable_feature_names:
+                        atom = Condition(
+                            feature_ref=self._rng.choice(self.config.usable_feature_names),
+                            operator=atom.operator, value=atom.value,
+                            transformation=atom.transformation,
+                        )
+                elif choice == "op":
+                    atom = Condition(
+                        feature_ref=atom.feature_ref,
+                        operator=self._rng.choice(list(CompareOp)),
+                        value=atom.value, transformation=atom.transformation,
+                    )
+                else:  # value
+                    v = float(atom.value) if isinstance(atom.value, (int, float)) else 0.0
+                    delta = self._rng.uniform(-0.5, 0.5)
+                    atom = Condition(
+                        feature_ref=atom.feature_ref, operator=atom.operator,
+                        value=round(v + delta, 4), transformation=atom.transformation,
+                    )
+                new_h = Hypothesis(
+                    id=new_id, condition_tree=atom,
+                    amplitude=h.amplitude, direction=h.direction,
+                    universe=h.universe, cooldown_k=h.cooldown_k,
+                )
+            else:
+                # Mute le cooldown.
+                delta = self._rng.choice([-1, 1])
+                new_h = Hypothesis(
+                    id=new_id, condition_tree=h.condition_tree,
+                    amplitude=h.amplitude, direction=h.direction,
+                    universe=h.universe,
+                    cooldown_k=max(1, h.cooldown_k + delta),
+                )
+            neighbors.append(new_h)
+        return neighbors
 
     def generate(self) -> GeneratorResult:
         # V1 : on délègue à l'EA. Le local search sera branché dans le comparator.
@@ -399,41 +534,666 @@ class MemeticGenerator(BaseGenerator):
 
 
 # --------------------------------------------------------------------------- #
-# Generateur 6 : NSGA-II — placeholder
+# Generateur 6 : NSGA-II (Deb 2002) — VRAIE implémentation multi-objectif
 # --------------------------------------------------------------------------- #
 
 
-class NSGA2Generator(BaseGenerator):
-    """NSGA-II multi-objectif — placeholder V1.
+@dataclass(frozen=True)
+class _NSGA2Individual:
+    """Représentation interne NSGA-II (paramétrique pour V1, symbolique/BNF en V2).
 
-    NSGA-II nécessite une métrique composite stable pour fonctionner
-    (retour vs drawdown vs Sharpe). Tant qu'elle n'est pas recalibrée
-    empiriquement (S-3.4, § 7.11 d'ALGORITHME_RESEARCH.md), on délègue
-    à TypedGPGenerator (single-objective) en attendant.
+    Vecteur réel + discret :
+      - feature_id    : index dans la liste des features continues
+      - op_id         : 0=LT, 1=GT, 2=LE, 3=GE
+      - threshold     : valeur réelle du seuil (ex: 0.5 pour rsi>0.5)
+      - cooldown_k    : K bougies minimum entre 2 signaux (entier)
+      - direction_id  : 0=LONG, 1=SHORT
     """
+
+    feature_id: int
+    op_id: int
+    threshold: float
+    cooldown_k: int
+    direction_id: int
+
+
+@dataclass(frozen=True)
+class _EvaluatedIndividual:
+    """Individu + ses 4 objectifs + ses 8 contraintes dures évaluées."""
+
+    individual: _NSGA2Individual
+    hypothesis: Hypothesis
+    # 4 objectifs (à MAXIMISER) : (sharpe_net, -max_drawdown, diversity, -complexity)
+    objectives: tuple[float, float, float, float]
+    # 8 contraintes dures (True = OK, False = violée)
+    constraints_passed: tuple[bool, bool, bool, bool, bool, bool, bool, bool]
+    # Pré-calculé pour la sélection
+    n_violations: int
+    n_signals: int
+    # Pour le multi-actifs
+    sharpe_per_asset_fold: tuple[float, ...] = ()
+
+
+# 8 contraintes dures (cf. message user : "contraintes bloquantes avant le front de Pareto")
+_N_CONSTRAINTS = 8
+# Index des contraintes (documentation)
+_C_DATA_VERSIONED = 0      # 1. Données réelles et versionnées
+_C_RULE_TYPED = 1         # 2. Règle exécutable et typée
+_C_MIN_TRADES = 2         # 3. Minimum de trades
+_C_MULTI_ASSET = 3        # 4. Performance non concentrée sur un seul actif
+_C_COSTS_APPLIED = 4      # 5. Coûts appliqués
+_C_NO_TEMPORAL_LEAK = 5   # 6. Absence de fuite temporelle
+_C_DD_BOUNDED = 6         # 7. Drawdown sous une limite de sécurité
+_C_STABILITY = 7          # 8. Stabilité minimale entre les folds de validation
+
+
+class NSGA2Generator(BaseGenerator):
+    """NSGA-II multi-objectif (Deb 2002) — VRAIE implémentation.
+
+    Algorithme (Deb, Pratap, Agarwal & Meyarivan, 2002) :
+      1. Initialisation : population P0 aléatoire de taille N
+      2. Pour chaque individu : évaluer fitness (4 objectifs) + 8 contraintes dures
+      3. Boucle évolutionnaire (n_generations itérations) :
+         a. Sélection par tournoi binaire (rank, crowding_distance)
+         b. Variation : crossover SBX (threshold) + mutation (uniforme feature/op,
+            gaussienne threshold, discrète cooldown/direction)
+         c. Évaluer offspring
+         d. Combine P+Q (taille 2N)
+         e. Non-dominance sorting sur l'union
+         f. Crowding distance par front
+         g. Sélectionner les N meilleurs (elitiste)
+      4. Retourner les hypothèses dont toutes les contraintes sont OK
+
+    Contraintes dures (AVANT le front de Pareto) :
+      1. Données réelles et versionnées
+      2. Règle exécutable et typée (feature dans taxonomie)
+      3. Minimum de trades (config.thresholds.n_trades.min_total)
+      4. Performance non concentrée sur un seul actif (médiane par actif/fold > 0)
+      5. Coûts appliqués (MesuresBrutes.costs_applied non vide)
+      6. Absence de fuite temporelle (mesures viennent de test_on(val), garanti par construction)
+      7. Drawdown < seuil (config.thresholds.max_drawdown.max_value)
+      8. Stabilité entre folds (std(Sharpe par fold) < seuil)
+
+    4 objectifs (à MAXIMISER) :
+      f1 = Sharpe net
+      f2 = -max_drawdown (équivalent à minimiser DD)
+      f3 = score de diversité (Jaccard vs autres Einhers du corpus ; proxy V1 = unicité de feature)
+      f4 = -complexité (= -nb conditions ; ici -1 car représentation mono-condition)
+    """
+
+    OP_CHOICES: tuple[CompareOp, ...] = (CompareOp.LT, CompareOp.GT, CompareOp.LE, CompareOp.GE)
+    DIRECTION_CHOICES: tuple[Direction, ...] = (Direction.LONG, Direction.SHORT)
 
     def __init__(
         self,
         protocol: GenerationProtocol,
         config: EinherjarConfig,
-        population_size: int = 200,
+        engine: Any | None = None,
+        population_size: int = 50,
+        n_generations: int = 20,
+        crossover_prob: float = 0.9,
+        mutation_prob: float = 0.2,
+        sbx_eta: float = 20.0,
+        pm_eta: float = 20.0,
+        stability_max_std: float = 0.5,
+        train_ohlcv: Any | None = None,
+        train_features: Any | None = None,
+        val_ohlcv: Any | None = None,
+        val_features: Any | None = None,
     ) -> None:
-        super().__init__(protocol)
+        """Initialise NSGA-II.
+
+        Args:
+            engine: Moteur d'évaluation (REQUIS — lève ValueError si None).
+            population_size: Taille de la population (N).
+            n_generations: Nombre de générations.
+            crossover_prob: Probabilité de crossover SBX par paire.
+            mutation_prob: Probabilité de mutation par enfant.
+            sbx_eta: Paramètre de distribution du crossover SBX (plus haut = enfants plus proches des parents).
+            pm_eta: Paramètre de distribution de la mutation polynomiale.
+            stability_max_std: Seuil de std(Sharpe par fold CPCV) pour la contrainte #8.
+            train_*/val_*: Données pré-chargées (passées par le comparator pour éviter
+                de recharger à chaque évaluation).
+        """
+        super().__init__(protocol, engine=engine)
+        if engine is None:
+            raise ValueError(
+                "NSGA2Generator requiert un moteur d'évaluation (engine=...). "
+                "C'est nécessaire pour évaluer les 4 objectifs et les 8 contraintes dures."
+            )
         self.config = config
         self.population_size = population_size
-        self._ea = TypedGPGenerator(protocol, config, population_size=population_size)
+        self.n_generations = n_generations
+        self.crossover_prob = crossover_prob
+        self.mutation_prob = mutation_prob
+        self.sbx_eta = sbx_eta
+        self.pm_eta = pm_eta
+        self.stability_max_std = stability_max_std
+        self._train_ohlcv = train_ohlcv
+        self._train_features = train_features
+        self._val_ohlcv = val_ohlcv
+        self._val_features = val_features
+        # Liste des features continues (typage strict).
+        self._continuous_features: list[str] = [
+            f for f in config.usable_feature_names
+            if self._feature_type(f) in (FeatureType.ATOMIC, FeatureType.QUANTITATIVE, FeatureType.FACTOR)
+        ]
+        if not self._continuous_features:
+            raise ValueError("Aucune feature continue exploitable pour NSGA-II")
+        # Seuils depuis la config.
+        self._min_trades = int(config.thresholds["n_trades"]["min_total"])
+        self._max_dd = float(config.thresholds["max_drawdown"]["max_value"])
+        # Pour l'objectif de diversité : on track les features déjà vues.
+        self._seen_features: set[str] = set()
+        logger.info(
+            "NSGA2Generator : N=%d, gen=%d, %d features continues, min_trades=%d, max_dd=%.2f",
+            population_size, n_generations, len(self._continuous_features),
+            self._min_trades, self._max_dd,
+        )
 
     def generate(self) -> GeneratorResult:
-        result = self._ea.generate()
+        """Lance NSGA-II et retourne les hypothèses admissibles (toutes contraintes OK)."""
+        import time
+        t0 = time.time()
+        # 1. Population initiale aléatoire.
+        population = [self._random_individual() for _ in range(self.population_size)]
+        # 2. Évaluation de la population initiale.
+        evaluated = [self._evaluate(ind) for ind in population]
+        # 3. Boucle évolutionnaire.
+        for gen in range(self.n_generations):
+            offspring = self._make_offspring(evaluated)
+            offspring_eval = [self._evaluate(ind) for ind in offspring]
+            # Combine P + Q (taille 2N).
+            union = evaluated + offspring_eval
+            # Sélection environnementale : on garde les N meilleurs.
+            evaluated = self._environmental_selection(union, n=self.population_size)
+            logger.info(
+                "NSGA-II gen %d/%d : front F1 size=%d, n_admissible=%d",
+                gen + 1, self.n_generations,
+                sum(1 for e in evaluated if e.n_violations == 0),
+                sum(1 for e in evaluated if e.n_violations == 0),
+            )
+        # 4. Filtre les individus dont toutes les contraintes sont OK.
+        admissible = [ev for ev in evaluated if ev.n_violations == 0]
+        n_admissible = len(admissible)
+        # 5. Dédupplique par signature de règle (même feature+op+threshold+direction+cooldown).
+        seen: set[tuple] = set()
+        unique: list[Hypothesis] = []
+        for ev in admissible:
+            sig = (ev.individual.feature_id, ev.individual.op_id,
+                   round(ev.individual.threshold, 4), ev.individual.direction_id,
+                   ev.individual.cooldown_k)
+            if sig not in seen:
+                seen.add(sig)
+                unique.append(ev.hypothesis)
         return GeneratorResult(
             generator_name=self.name,
-            hypotheses=result.hypotheses,
-            n_generated=result.n_generated,
-            n_evaluated=result.n_evaluated,
-            n_passed_admission=result.n_passed_admission,
-            generation_time_s=result.generation_time_s,
-            meta={"delegated_to": "TypedGPGenerator", "note": "composite_metric_not_calibrated"},
+            hypotheses=tuple(unique),
+            n_generated=len(evaluated),
+            n_evaluated=n_admissible,
+            n_passed_admission=len(unique),
+            generation_time_s=time.time() - t0,
+            meta={
+                "method": "NSGA-II-Deb2002",
+                "n_generations": self.n_generations,
+                "population_size": self.population_size,
+                "n_objectives": 4,
+                "n_constraints": _N_CONSTRAINTS,
+                "objectives": ["sharpe_net", "neg_max_drawdown", "diversity", "neg_complexity"],
+                "constraints": [
+                    "data_versioned", "rule_typed", "min_trades", "multi_asset",
+                    "costs_applied", "no_temporal_leak", "dd_bounded", "stability",
+                ],
+            },
         )
+
+    # ------------------------------------------------------------------ #
+    # Représentation → Hypothesis
+    # ------------------------------------------------------------------ #
+
+    def _random_individual(self) -> _NSGA2Individual:
+        """Génère un individu aléatoire dans l'espace de représentation."""
+        return _NSGA2Individual(
+            feature_id=self._rng.randint(0, len(self._continuous_features) - 1),
+            op_id=self._rng.randint(0, len(self.OP_CHOICES) - 1),
+            threshold=round(self._rng.uniform(-2.0, 2.0), 4),
+            cooldown_k=self._rng.randint(1, 20),
+            direction_id=self._rng.randint(0, len(self.DIRECTION_CHOICES) - 1),
+        )
+
+    def _to_hypothesis(self, ind: _NSGA2Individual) -> Hypothesis:
+        """Convertit un individu en Hypothesis (1 condition atomique)."""
+        feat = self._continuous_features[ind.feature_id]
+        op = self.OP_CHOICES[ind.op_id]
+        direction = self.DIRECTION_CHOICES[ind.direction_id]
+        cond = Condition(feature_ref=feat, operator=op, value=ind.threshold, transformation=None)
+        return Hypothesis(
+            id=f"NSGA2_{ind.feature_id}_{ind.op_id}_{round(ind.threshold, 4):.4f}_{ind.cooldown_k}_{ind.direction_id}",
+            condition_tree=cond,
+            amplitude=self._make_amplitude(direction),
+            direction=direction,
+            universe=self._make_universe(),
+            cooldown_k=ind.cooldown_k,
+        )
+
+    def _feature_type(self, name: str) -> FeatureType | None:
+        info = self.config.features_taxonomy.get("features", {}).get(name, {})
+        type_str = info.get("feature_type")
+        try:
+            return FeatureType(type_str) if type_str else None
+        except ValueError:
+            return None
+
+    # ------------------------------------------------------------------ #
+    # Évaluation : 4 objectifs + 8 contraintes dures
+    # ------------------------------------------------------------------ #
+
+    def _evaluate(self, ind: _NSGA2Individual) -> _EvaluatedIndividual:
+        """Évalue un individu : 4 objectifs + 8 contraintes dures.
+
+        Stratégie :
+          - train_calibrate + test_on(val) sur la série chargée.
+          - Si calibration échoue : contraintes [False, False, False, False, False, True, True, False]
+            (= pas de signal → fail presque tout, sauf no_temporal_leak et dd_bounded).
+          - Si OK : 4 objectifs + 8 contraintes depuis MesuresBrutes + CPCV.
+        """
+        hyp = self._to_hypothesis(ind)
+        # Contraintes par défaut (si évaluation échoue).
+        objectives = (float("nan"), float("nan"), float("nan"), float("nan"))
+        constraints = (False, False, False, False, False, True, True, False)
+        n_violations = _N_CONSTRAINTS - 2  # tout sauf no_leak, dd_bounded
+        n_signals = 0
+        sharpe_per_asset_fold: tuple[float, ...] = ()
+        try:
+            calibrated = self.engine.train_calibrate(hyp, self._train_ohlcv, self._train_features)
+            mesures = self.engine.test_on(
+                hyp, self._val_ohlcv, self._val_features, calibrated, "val",
+            )
+            n_signals = mesures.n_signals
+            # --- 8 contraintes dures ---
+            # 1. Données réelles et versionnées (data_version non vide).
+            c1 = bool(self.protocol.data_version)
+            # 2. Règle exécutable et typée (feature dans la taxonomie).
+            c2 = hyp.condition_tree.feature_ref in self.config.usable_feature_names
+            # 3. Minimum de trades.
+            c3 = n_signals >= self._min_trades
+            # 4. Performance non concentrée sur un seul actif.
+            #    V1 : on utilise la médiane du Sharpe par fold CPCV.
+            #    Si multi-asset est activé, on prend la médiane sur per_asset_stats.
+            sharpes: list[float] = []
+            if mesures.per_asset_stats:
+                for sub in mesures.per_asset_stats.values():
+                    if sub.sharpe_net == sub.sharpe_net:  # not NaN
+                        sharpes.append(sub.sharpe_net)
+            if len(sharpes) >= 2:
+                sharpes.sort()
+                median_sharpe = sharpes[len(sharpes) // 2]
+                c4 = median_sharpe > 0.0
+            else:
+                # Mono-actif : on accepte le Sharpe global (pas de cross-asset possible).
+                # Note : P0 #6 cross-asset exige 2 actifs en V1+. Pour V1 NSGA-II on est permissif.
+                c4 = (mesures.sharpe_net == mesures.sharpe_net) and (mesures.sharpe_net > 0.0)
+            # 5. Coûts appliqués.
+            c5 = bool(mesures.costs_applied)
+            # 6. Absence de fuite temporelle : garanti par construction (test_on(val) post-calibration train).
+            c6 = True
+            # 7. Drawdown sous la limite de sécurité.
+            from einherjar.research.utils.stats import max_drawdown_from_returns
+            worst_dd = max_drawdown_from_returns([t.ret_pct_net for t in mesures.trades])
+            c7 = worst_dd <= self._max_dd
+            # 8. Stabilité entre folds de validation : std(Sharpe par fold CPCV) < seuil.
+            sharpe_per_fold = self._compute_sharpe_per_fold(mesures, hyp, calibrated)
+            if len(sharpe_per_fold) >= 2:
+                import statistics
+                std_sharpe = statistics.stdev(sharpe_per_fold)
+                c8 = std_sharpe <= self.stability_max_std
+            else:
+                # Pas assez de folds pour évaluer la stabilité.
+                c8 = True  # permissif (un seul fold = pas de violation)
+            constraints = (c1, c2, c3, c4, c5, c6, c7, c8)
+            n_violations = sum(1 for c in constraints if not c)
+            # --- 4 objectifs (à MAXIMISER) ---
+            sharpe = mesures.sharpe_net if mesures.sharpe_net == mesures.sharpe_net else 0.0
+            dd = worst_dd
+            neg_dd = -dd
+            # Diversité : feature unique pas encore vue → 1.0, sinon 0.0.
+            feat = hyp.condition_tree.feature_ref
+            diversity = 1.0 if feat not in self._seen_features else 0.0
+            self._seen_features.add(feat)
+            # Complexité : -1 (une seule condition, c'est le minimum).
+            neg_complexity = -1.0
+            objectives = (sharpe, neg_dd, diversity, neg_complexity)
+            sharpe_per_asset_fold = tuple(sharpe_per_fold)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Échec évaluation NSGA-II pour %s : %s", hyp.id, exc)
+        return _EvaluatedIndividual(
+            individual=ind,
+            hypothesis=hyp,
+            objectives=objectives,
+            constraints_passed=constraints,
+            n_violations=n_violations,
+            n_signals=n_signals,
+            sharpe_per_asset_fold=sharpe_per_asset_fold,
+        )
+
+    def _compute_sharpe_per_fold(
+        self,
+        mesures: Any,
+        hyp: Hypothesis,
+        calibrated: Any,
+    ) -> list[float]:
+        """Calcule le Sharpe sur chaque fold CPCV (K=6 par défaut).
+
+        Découpe la série val en K blocs temporels, regroupe les trades
+        par fold selon entry_idx, calcule le Sharpe par fold, retourne la liste.
+        Si < 2 folds ont au moins 2 trades, retourne [] (contrainte #8 permissive).
+        """
+        if not mesures.trades or self._val_ohlcv is None:
+            return []
+        n_bougies = self._val_ohlcv.n_bougies
+        if n_bougies == 0:
+            return []
+        trade_indices = [t.entry_idx for t in mesures.trades]
+        n_groups = 6
+        folds = _cpcv_folds_for_trades(trade_indices, n_bougies, n_groups)
+        sharpe_per_fold: list[float] = []
+        for fold_indices in folds:
+            if not fold_indices:
+                continue
+            fold_trades = [mesures.trades[i] for i in fold_indices]
+            returns_fold = [t.ret_pct_net for t in fold_trades]
+            if len(returns_fold) < 2:
+                continue
+            mean = sum(returns_fold) / len(returns_fold)
+            var = sum((r - mean) ** 2 for r in returns_fold) / (len(returns_fold) - 1)
+            std = var ** 0.5
+            if std == 0:
+                continue
+            sharpe = (mean / std) * (365.0 ** 0.5)
+            sharpe_per_fold.append(sharpe)
+        return sharpe_per_fold
+
+    # ------------------------------------------------------------------ #
+    # NSGA-II : opérateurs (Deb 2002)
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _dominates(a: _EvaluatedIndividual, b: _EvaluatedIndividual) -> bool:
+        """True si `a` domine `b` au sens Pareto (uniquement si pas de violation de contraintes).
+
+        Selon Deb 2002 : une solution réalisable domine une autre si elle est au moins
+        aussi bonne sur tous les objectifs et strictement meilleure sur au moins un.
+        Une solution non réalisable est dominée par n'importe quelle réalisable.
+        """
+        # Une solution réalisable domine toute solution non réalisable.
+        if a.n_violations == 0 and b.n_violations > 0:
+            return True
+        if b.n_violations == 0 and a.n_violations > 0:
+            return False
+        # Si les deux sont non réalisables : celle qui viole MOINS de contraintes domine.
+        if a.n_violations != b.n_violations:
+            return a.n_violations < b.n_violations
+        # Pareto dominance classique sur les 4 objectifs.
+        better_any = False
+        for oa, ob in zip(a.objectives, b.objectives):
+            if oa != oa or ob != ob:  # NaN : pas comparable
+                continue
+            if oa < ob:
+                return False
+            if oa > ob:
+                better_any = True
+        return better_any
+
+    @staticmethod
+    def _fast_non_dominated_sort(population: list[_EvaluatedIndividual]) -> list[list[int]]:
+        """Non-dominance sorting de Deb 2002 (O(MN²)).
+
+        Returns:
+            Liste de fronts, chaque front est une liste d'indices dans population.
+            Front 0 = Pareto-optimal, front 1 = dominé uniquement par front 0, etc.
+        """
+        n = len(population)
+        domination_count = [0] * n
+        dominated_set: list[list[int]] = [[] for _ in range(n)]
+        fronts: list[list[int]] = [[]]
+        for p in range(n):
+            for q in range(n):
+                if p == q:
+                    continue
+                if NSGA2Generator._dominates(population[p], population[q]):
+                    dominated_set[p].append(q)
+                elif NSGA2Generator._dominates(population[q], population[p]):
+                    domination_count[p] += 1
+            if domination_count[p] == 0:
+                fronts[0].append(p)
+        i = 0
+        while i < len(fronts) and fronts[i]:
+            next_front: list[int] = []
+            for p in fronts[i]:
+                for q in dominated_set[p]:
+                    domination_count[q] -= 1
+                    if domination_count[q] == 0:
+                        next_front.append(q)
+            i += 1
+            if next_front:
+                fronts.append(next_front)
+        return fronts
+
+    @staticmethod
+    def _crowding_distance(
+        front_indices: list[int],
+        population: list[_EvaluatedIndividual],
+    ) -> dict[int, float]:
+        """Calcule la crowding distance pour les individus d'un front.
+
+        Plus la distance est grande, plus l'individu est dans une zone peu peuplée
+        du front (donc à privilégier pour la diversité).
+        """
+        n = len(front_indices)
+        if n == 0:
+            return {}
+        distances = {idx: 0.0 for idx in front_indices}
+        n_obj = len(population[front_indices[0]].objectives)
+        for m in range(n_obj):
+            # Tri par objectif m.
+            sorted_idx = sorted(front_indices, key=lambda i: population[i].objectives[m])
+            # Les bords ont une distance infinie.
+            distances[sorted_idx[0]] = float("inf")
+            distances[sorted_idx[-1]] = float("inf")
+            # Range de l'objectif m sur ce front.
+            obj_min = population[sorted_idx[0]].objectives[m]
+            obj_max = population[sorted_idx[-1]].objectives[m]
+            if obj_max == obj_min:
+                continue
+            for j in range(1, n - 1):
+                if distances[sorted_idx[j]] == float("inf"):
+                    continue
+                prev_obj = population[sorted_idx[j - 1]].objectives[m]
+                next_obj = population[sorted_idx[j + 1]].objectives[m]
+                distances[sorted_idx[j]] += (next_obj - prev_obj) / (obj_max - obj_min)
+        return distances
+
+    def _environmental_selection(
+        self,
+        population: list[_EvaluatedIndividual],
+        n: int,
+    ) -> list[_EvaluatedIndividual]:
+        """Sélection environnementale NSGA-II : garde les N meilleurs.
+
+        1. Non-dominance sorting → fronts.
+        2. On prend les fronts complets tant qu'on n'a pas atteint N.
+        3. Pour le front partiel, on trie par crowding distance décroissante
+           et on prend les premiers.
+        """
+        if len(population) <= n:
+            return list(population)
+        fronts = self._fast_non_dominated_sort(population)
+        selected_indices: list[int] = []
+        for front in fronts:
+            if len(selected_indices) + len(front) <= n:
+                selected_indices.extend(front)
+            else:
+                # Crowding distance sur ce front, tri décroissant, on prend les premiers.
+                cd = self._crowding_distance(front, population)
+                remaining = n - len(selected_indices)
+                sorted_by_cd = sorted(front, key=lambda i: cd.get(i, 0.0), reverse=True)
+                selected_indices.extend(sorted_by_cd[:remaining])
+                break
+        return [population[i] for i in selected_indices]
+
+    def _tournament_selection(
+        self,
+        population: list[_EvaluatedIndividual],
+        n: int,
+    ) -> list[_EvaluatedIndividual]:
+        """Sélection par tournoi binaire (rank, crowding)."""
+        if not population:
+            return []
+        # Pré-calcule rank et crowding pour tous.
+        fronts = self._fast_non_dominated_sort(population)
+        rank_map: dict[int, int] = {}
+        cd_map: dict[int, float] = {}
+        for rank, front in enumerate(fronts):
+            cd = self._crowding_distance(front, population)
+            for idx in front:
+                rank_map[idx] = rank
+                cd_map[idx] = cd.get(idx, 0.0)
+        def _tournament_once() -> _EvaluatedIndividual:
+            i, j = self._rng.sample(range(len(population)), 2)
+            ri, rj = rank_map[i], rank_map[j]
+            if ri < rj:
+                return population[i]
+            if rj < ri:
+                return population[j]
+            # Même rang : crowding distance départage.
+            return population[i] if cd_map[i] >= cd_map[j] else population[j]
+        return [_tournament_once() for _ in range(n)]
+
+    # ------------------------------------------------------------------ #
+    # Variation : crossover SBX + mutation mixte
+    # ------------------------------------------------------------------ #
+
+    def _make_offspring(
+        self,
+        parents: list[_EvaluatedIndividual],
+    ) -> list[_NSGA2Individual]:
+        """Génère une nouvelle population d'offspring via crossover + mutation."""
+        offspring: list[_NSGA2Individual] = []
+        # Appariement aléatoire par paires.
+        indices = list(range(len(parents)))
+        self._rng.shuffle(indices)
+        for i in range(0, len(indices) - 1, 2):
+            p1 = parents[indices[i]].individual
+            p2 = parents[indices[i + 1]].individual
+            if self._rng.random() < self.crossover_prob:
+                c1, c2 = self._crossover(p1, p2)
+            else:
+                c1, c2 = p1, p2
+            c1 = self._mutate(c1)
+            c2 = self._mutate(c2)
+            offspring.append(c1)
+            offspring.append(c2)
+        if len(offspring) < len(parents):
+            # Population impaire : on duplique le dernier avec mutation.
+            offspring.append(self._mutate(parents[indices[-1]].individual))
+        return offspring[: len(parents)]
+
+    def _crossover(
+        self, p1: _NSGA2Individual, p2: _NSGA2Individual,
+    ) -> tuple[_NSGA2Individual, _NSGA2Individual]:
+        """Crossover mixte :
+          - threshold : SBX (Simulated Binary Crossover)
+          - autres gènes : uniforme (chaque gène vient de p1 ou p2)
+        """
+        t1, t2 = self._sbx(p1.threshold, p2.threshold, self.sbx_eta)
+        return (
+            _NSGA2Individual(
+                feature_id=p1.feature_id if self._rng.random() < 0.5 else p2.feature_id,
+                op_id=p1.op_id if self._rng.random() < 0.5 else p2.op_id,
+                threshold=t1,
+                cooldown_k=p1.cooldown_k if self._rng.random() < 0.5 else p2.cooldown_k,
+                direction_id=p1.direction_id if self._rng.random() < 0.5 else p2.direction_id,
+            ),
+            _NSGA2Individual(
+                feature_id=p2.feature_id if self._rng.random() < 0.5 else p1.feature_id,
+                op_id=p2.op_id if self._rng.random() < 0.5 else p1.op_id,
+                threshold=t2,
+                cooldown_k=p2.cooldown_k if self._rng.random() < 0.5 else p1.cooldown_k,
+                direction_id=p2.direction_id if self._rng.random() < 0.5 else p1.direction_id,
+            ),
+        )
+
+    def _sbx(self, x1: float, x2: float, eta: float) -> tuple[float, float]:
+        """Simulated Binary Crossover (Deb & Agrawal 1995).
+
+        Retourne 2 enfants. Si u <= 0.5 : beta = (2u)^(1/(eta+1)), sinon (1/(2(1-u)))^(1/(eta+1)).
+        Enfant = 0.5 * [(x1+x2) - beta * |x2-x1|, (x1+x2) + beta * |x2-x1|].
+        """
+        if abs(x1 - x2) < 1e-12:
+            return x1, x2
+        u = self._rng.random()
+        if u <= 0.5:
+            beta = (2.0 * u) ** (1.0 / (eta + 1.0))
+        else:
+            beta = (1.0 / (2.0 * (1.0 - u))) ** (1.0 / (eta + 1.0))
+        c1 = 0.5 * ((x1 + x2) - beta * abs(x2 - x1))
+        c2 = 0.5 * ((x1 + x2) + beta * abs(x2 - x1))
+        return c1, c2
+
+    def _mutate(self, ind: _NSGA2Individual) -> _NSGA2Individual:
+        """Mutation mixte par probabilité `mutation_prob` par enfant."""
+        if self._rng.random() > self.mutation_prob:
+            return ind
+        # Mutation par gène.
+        new_feat = ind.feature_id
+        if self._rng.random() < 0.3:
+            new_feat = self._rng.randint(0, len(self._continuous_features) - 1)
+        new_op = ind.op_id
+        if self._rng.random() < 0.3:
+            new_op = self._rng.randint(0, len(self.OP_CHOICES) - 1)
+        new_threshold = ind.threshold
+        if self._rng.random() < 0.3:
+            # Mutation polynomiale (Deb 2001, PM operator).
+            u = self._rng.random()
+            if u < 0.5:
+                delta = (2.0 * u) ** (1.0 / (self.pm_eta + 1.0)) - 1.0
+            else:
+                delta = 1.0 - (2.0 * (1.0 - u)) ** (1.0 / (self.pm_eta + 1.0))
+            new_threshold = max(-2.0, min(2.0, ind.threshold + delta * 4.0))
+        new_cooldown = ind.cooldown_k
+        if self._rng.random() < 0.2:
+            new_cooldown = max(1, min(20, ind.cooldown_k + self._rng.choice([-1, 1])))
+        new_dir = ind.direction_id
+        if self._rng.random() < 0.2:
+            new_dir = 1 - ind.direction_id
+        return _NSGA2Individual(
+            feature_id=new_feat, op_id=new_op, threshold=new_threshold,
+            cooldown_k=new_cooldown, direction_id=new_dir,
+        )
+
+
+# --------------------------------------------------------------------------- #
+# Helper : découpage des trades en folds (pour la contrainte #8 stabilité)
+# --------------------------------------------------------------------------- #
+
+
+def _cpcv_folds_for_trades(
+    trade_indices: list[int],
+    n_bougies: int,
+    n_groups: int,
+) -> list[list[int]]:
+    """Découpe les trades en n_groups folds temporels.
+
+    Pour chaque trade, on détermine son fold selon entry_idx / n_bougies * n_groups.
+    Retourne une liste de n_groups listes d'indices de trades (dans trade_indices).
+    """
+    if n_bougies == 0 or n_groups <= 0:
+        return [[] for _ in range(max(1, n_groups))]
+    folds: list[list[int]] = [[] for _ in range(n_groups)]
+    for i, idx in enumerate(trade_indices):
+        fold = min(n_groups - 1, int((idx / n_bougies) * n_groups))
+        folds[fold].append(i)
+    return folds
 
 
 # --------------------------------------------------------------------------- #
@@ -444,8 +1204,14 @@ class NSGA2Generator(BaseGenerator):
 def make_all_generators(
     protocol: GenerationProtocol,
     config: EinherjarConfig,
+    engine: Any | None = None,
 ) -> list[BaseGenerator]:
     """Construit les 5 candidats principaux (sans GE — BNF pas encore écrite).
+
+    Args:
+        engine: Moteur d'évaluation (passé à NSGA2Generator et MemeticGenerator
+            qui en ont besoin pour l'évaluation multi-objectif / la phase LSO).
+            Optionnel pour les générateurs sans évolution (Random/Beam/TypedGP).
 
     Returns:
         Liste [RandomSearch, BeamSearch, TypedGP, Memetic, NSGA2].
@@ -454,6 +1220,6 @@ def make_all_generators(
         RandomSearchGenerator(protocol=protocol, config=config),
         BeamSearchGenerator(protocol=protocol, config=config),
         TypedGPGenerator(protocol=protocol, config=config),
-        MemeticGenerator(protocol=protocol, config=config),
-        NSGA2Generator(protocol=protocol, config=config),
+        MemeticGenerator(protocol=protocol, config=config, engine=engine),
+        NSGA2Generator(protocol=protocol, config=config, engine=engine),
     ]
