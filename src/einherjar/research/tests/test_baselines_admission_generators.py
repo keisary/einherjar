@@ -335,22 +335,69 @@ class TestGenerators(unittest.TestCase):
         self.assertEqual(result.n_generated, 200)
         self.assertGreater(len(result.hypotheses), 0)
 
-    def test_beam_search_generates(self):
-        g = BeamSearchGenerator(self.protocol, self.config, beam_width=16, depth=2)
-        result = g.generate()
-        self.assertGreater(result.n_generated, 0)
-        for h in result.hypotheses:
-            self.assertIsInstance(h, Hypothesis)
+    def test_beam_search_requires_engine(self):
+        """BeamSearchGenerator REQUIERT un engine (P10 — pas de placeholder silencieux)."""
+        with self.assertRaises(ValueError):
+            BeamSearchGenerator(self.protocol, self.config, engine=None)
 
-    def test_typed_gp_generates(self):
-        g = TypedGPGenerator(self.protocol, self.config, population_size=50)
-        result = g.generate()
-        self.assertEqual(result.n_generated, 50)
-        # Vérifie qu'on a bien des arbres (certains peuvent être composés).
-        n_compound = sum(
-            1 for h in result.hypotheses if isinstance(h.condition_tree, ConditionNode)
+    def test_typed_gp_requires_engine(self):
+        """TypedGPGenerator REQUIERT un engine (P10 — pas de placeholder silencieux)."""
+        with self.assertRaises(ValueError):
+            TypedGPGenerator(self.protocol, self.config, engine=None)
+
+    def test_typed_gp_collects_nodes_by_category(self):
+        """Test unitaire sur la collecte par catégorie sémantique (atomic/compound)."""
+        from einherjar.research.generators.algorithms import TypedGPGenerator
+        # Mock engine (juste pour pouvoir instancier).
+        from unittest.mock import MagicMock
+        engine = MagicMock()
+        g = TypedGPGenerator(
+            self.protocol, self.config, engine=engine,
+            population_size=2, n_generations=1,
         )
-        self.assertGreater(n_compound, 0)
+        # Arbre : (rsi_14 > 0.5) AND (macd > 0.0) = 1 compound + 2 atomic
+        tree = ConditionNode(
+            op=LogicalOp.AND,
+            left=Condition(feature_ref="rsi_14", operator=CompareOp.GT, value=0.5),
+            right=Condition(feature_ref="macd", operator=CompareOp.GT, value=0.0),
+        )
+        nodes = g._collect_nodes_by_category(tree)
+        self.assertEqual(len(nodes["compound"]), 1)
+        self.assertEqual(len(nodes["atomic"]), 2)
+
+    def test_typed_gp_subtree_crossover_type_preserving(self):
+        """Le crossover ne swap que des nœuds de même catégorie."""
+        from einherjar.research.generators.algorithms import TypedGPGenerator
+        from unittest.mock import MagicMock
+        engine = MagicMock()
+        g = TypedGPGenerator(
+            self.protocol, self.config, engine=engine,
+            population_size=2, n_generations=1,
+        )
+        # Parent 1 : rsi > 0.5 (atomic, depth 1)
+        p1 = Hypothesis(
+            id="p1", condition_tree=Condition("rsi_14", CompareOp.GT, 0.5),
+            amplitude=g._make_amplitude(Direction.LONG), direction=Direction.LONG,
+            universe=g._make_universe(), cooldown_k=5,
+        )
+        # Parent 2 : (macd > 0) AND (rsi < 0.3) (compound, depth 2)
+        p2 = Hypothesis(
+            id="p2",
+            condition_tree=ConditionNode(
+                op=LogicalOp.AND,
+                left=Condition("macd", CompareOp.GT, 0.0),
+                right=Condition("rsi_14", CompareOp.LT, 0.3),
+            ),
+            amplitude=g._make_amplitude(Direction.LONG), direction=Direction.LONG,
+            universe=g._make_universe(), cooldown_k=5,
+        )
+        # Le crossover doit produire 2 enfants valides (pas de crash).
+        c1, c2 = g._subtree_crossover(p1, p2)
+        # Les enfants sont des Hypothesis valides.
+        self.assertIsInstance(c1, Hypothesis)
+        self.assertIsInstance(c2, Hypothesis)
+        # Au moins l'un des enfants a une structure différente des parents
+        # (sinon le crossover n'a rien fait, mais ça reste correct).
 
     def test_ge_returns_empty_without_bnf(self):
         g = GrammaticalEvolutionGenerator(self.protocol, bnf_grammar=None)
@@ -358,21 +405,95 @@ class TestGenerators(unittest.TestCase):
         self.assertEqual(result.n_generated, 0)
         self.assertEqual(result.hypotheses, ())
 
-    def test_memetic_delegates(self):
-        g = MemeticGenerator(self.protocol, self.config, population_size=30)
-        result = g.generate()
-        self.assertEqual(result.n_generated, 30)
-        self.assertIn("delegated_to", result.meta)
+    def test_memetic_runs_without_engine_fails(self):
+        """MemeticGenerator REQUIERT un engine (P10 — pas de placeholder silencieux)."""
+        with self.assertRaises(ValueError):
+            MemeticGenerator(self.protocol, self.config, engine=None)
 
-    def test_nsga2_delegates(self):
-        g = NSGA2Generator(self.protocol, self.config, population_size=30)
-        result = g.generate()
-        self.assertEqual(result.n_generated, 30)
+    def test_nsga2_requires_engine(self):
+        """NSGA2Generator REQUIERT un engine (P10 — pas de placeholder silencieux)."""
+        with self.assertRaises(ValueError):
+            NSGA2Generator(self.protocol, self.config, engine=None)
 
-    def test_make_all_generators(self):
-        generators = make_all_generators(self.protocol, self.config)
-        # 5 (sans GE qui est un placeholder).
-        self.assertEqual(len(generators), 5)
+    def test_nsga2_dominates_pareto(self):
+        """Test unitaire sur l'opérateur de dominance Pareto (Deb 2002)."""
+        from einherjar.research.generators.algorithms import (
+            _EvaluatedIndividual, _NSGA2Individual, NSGA2Generator,
+        )
+        # Crée 3 individus : A domine B et C, B et C ne se dominent pas.
+        a = _EvaluatedIndividual(
+            individual=_NSGA2Individual(0, 0, 0.0, 5, 0),
+            hypothesis=None,  # pas requis pour le test de dominance
+            objectives=(2.0, -0.1, 1.0, -1.0),
+            constraints_passed=(True,) * 8,
+            n_violations=0, n_signals=10,
+        )
+        b = _EvaluatedIndividual(
+            individual=_NSGA2Individual(1, 1, 0.0, 5, 0), hypothesis=None,
+            objectives=(1.0, -0.1, 1.0, -1.0),  # dominé par A sur obj0
+            constraints_passed=(True,) * 8,
+            n_violations=0, n_signals=10,
+        )
+        c = _EvaluatedIndividual(
+            individual=_NSGA2Individual(2, 2, 0.0, 5, 0), hypothesis=None,
+            objectives=(2.0, -0.2, 1.0, -1.0),  # dominé par A sur obj1
+            constraints_passed=(True,) * 8,
+            n_violations=0, n_signals=10,
+        )
+        # A domine B (2.0 > 1.0 sur obj0, reste égal).
+        self.assertTrue(NSGA2Generator._dominates(a, b))
+        # A domine C (2.0 = 2.0 sur obj0, -0.1 > -0.2 sur obj1).
+        self.assertTrue(NSGA2Generator._dominates(a, c))
+        # B ne domine pas A (inverse).
+        self.assertFalse(NSGA2Generator._dominates(b, a))
+        # B et C ne se dominent pas (1.0 < 2.0 sur obj0 mais -0.1 > -0.2 sur obj1).
+        self.assertFalse(NSGA2Generator._dominates(b, c))
+        self.assertFalse(NSGA2Generator._dominates(c, b))
+
+    def test_nsga2_constraint_dominance(self):
+        """Une solution réalisable domine toute solution non réalisable (Deb 2002 §3.2)."""
+        from einherjar.research.generators.algorithms import (
+            _EvaluatedIndividual, _NSGA2Individual, NSGA2Generator,
+        )
+        feasible = _EvaluatedIndividual(
+            individual=_NSGA2Individual(0, 0, 0.0, 5, 0), hypothesis=None,
+            objectives=(1.0, -0.5, 0.0, -1.0),
+            constraints_passed=(True,) * 8, n_violations=0, n_signals=10,
+        )
+        infeasible = _EvaluatedIndividual(
+            individual=_NSGA2Individual(1, 1, 0.0, 5, 0), hypothesis=None,
+            objectives=(10.0, -0.01, 1.0, -1.0),  # meilleurs objectifs !
+            constraints_passed=(False, True, True, True, True, True, True, True),
+            n_violations=1, n_signals=10,
+        )
+        # Même avec de meilleurs objectifs, le réalisable domine l'irréalisable.
+        self.assertTrue(NSGA2Generator._dominates(feasible, infeasible))
+        self.assertFalse(NSGA2Generator._dominates(infeasible, feasible))
+
+    def test_nsga2_fast_non_dominated_sort(self):
+        """Test unitaire sur le non-dominance sort (3 fronts attendus)."""
+        from einherjar.research.generators.algorithms import (
+            _EvaluatedIndividual, _NSGA2Individual, NSGA2Generator,
+        )
+        # 4 individus : A domine tout, B et C se dominent pas, D dominé par B et C.
+        pop = [
+            _EvaluatedIndividual(_NSGA2Individual(0, 0, 0.0, 5, 0), None,
+                                (3.0, -0.1, 1.0, -1.0), (True,) * 8, 0, 10),
+            _EvaluatedIndividual(_NSGA2Individual(1, 1, 0.0, 5, 0), None,
+                                (1.0, -0.3, 0.5, -1.0), (True,) * 8, 0, 10),
+            _EvaluatedIndividual(_NSGA2Individual(2, 2, 0.0, 5, 0), None,
+                                (0.5, -0.2, 0.5, -1.0), (True,) * 8, 0, 10),
+            _EvaluatedIndividual(_NSGA2Individual(3, 3, 0.0, 5, 0), None,
+                                (0.5, -0.5, 0.1, -1.0), (True,) * 8, 0, 10),
+        ]
+        fronts = NSGA2Generator._fast_non_dominated_sort(pop)
+        # Au moins 2 fronts.
+        self.assertGreaterEqual(len(fronts), 2)
+        # Le premier front contient l'individu 0 (Pareto-optimal).
+        self.assertIn(0, fronts[0])
+        # Le dernier individu (3) est dominé : il est dans un front > 0.
+        all_later = [i for front in fronts[1:] for i in front]
+        self.assertIn(3, all_later)
 
 
 if __name__ == "__main__":

@@ -271,11 +271,8 @@ def handle_compare(args: argparse.Namespace) -> int:
     from einherjar.research.generators.comparator import GeneratorComparator
     from einherjar.research.generators.protocol import make_protocol
     engine = EvaluationEngine(config=config, data_version=args.data_version or "v1", seed=args.seed)
-    protocol = make_protocol(
-        config, data_version=args.data_version or "v1",
-        seed=args.seed, n_eval_budget=args.n_eval or 200,
-    )
-    generators = make_all_generators(protocol, config)
+    # Charge les données AVANT les générateurs : les générateurs évolutionnaires
+    # (NSGA-II, Memetic) ont besoin d'accéder aux données pour évaluer leur fitness.
     try:
         train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
             config=config,
@@ -285,6 +282,36 @@ def handle_compare(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
+    protocol = make_protocol(
+        config, data_version=args.data_version or "v1",
+        seed=args.seed, n_eval_budget=args.n_eval or 200,
+    )
+    # Si l'utilisateur a filtré via --generator, on n'instancie que celui-là.
+    all_generators = make_all_generators(protocol, config, engine=engine)
+    if args.generator:
+        # Match par sous-chaine insensible à la casse sur le nom de classe.
+        # Aliases : stgp=TypedGPGenerator, nsga2=NSGA2Generator, etc.
+        alias = args.generator.lower()
+        alias_to_class = {
+            "stgp": "TypedGPGenerator",
+            "nsga2": "NSGA2Generator",
+            "nsga": "NSGA2Generator",
+            "ge": "GrammaticalEvolutionGenerator",
+        }
+        target = alias_to_class.get(alias, alias)
+        all_generators = [g for g in all_generators if g.name.lower() == target.lower()]
+        if not all_generators:
+            logger.error("Aucun générateur ne matche --generator=%s (cible=%s)", args.generator, target)
+            return 2
+        logger.info("Filtre --generator=%s : %d générateur(s) actif(s)", args.generator, len(all_generators))
+    # Injecte les données dans les générateurs qui en ont besoin (NSGA-II, Memetic).
+    for gen in all_generators:
+        if hasattr(gen, "_train_ohlcv"):
+            gen._train_ohlcv = train_ohlcv
+            gen._train_features = train_features
+            gen._val_ohlcv = val_ohlcv
+            gen._val_features = val_features
+    generators = all_generators
     comparator = GeneratorComparator(generators=generators, protocol=protocol, engine=engine, config=config)
     report = comparator.run(
         train_ohlcv=train_ohlcv, train_features=train_features,
@@ -317,7 +344,7 @@ def handle_select(args: argparse.Namespace) -> int:
         config, data_version=args.data_version or "v1",
         seed=args.seed, n_eval_budget=args.n_eval or 200,
     )
-    generators = make_all_generators(protocol, config)
+    generators = make_all_generators(protocol, config, engine=engine)
     try:
         train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
             config=config,
