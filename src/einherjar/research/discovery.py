@@ -289,9 +289,19 @@ def handle_compare(args: argparse.Namespace) -> int:
     # Si l'utilisateur a filtré via --generator, on n'instancie que celui-là.
     all_generators = make_all_generators(protocol, config, engine=engine)
     if args.generator:
-        all_generators = [g for g in all_generators if g.name.lower().startswith(args.generator)]
+        # Match par sous-chaine insensible à la casse sur le nom de classe.
+        # Aliases : stgp=TypedGPGenerator, nsga2=NSGA2Generator, etc.
+        alias = args.generator.lower()
+        alias_to_class = {
+            "stgp": "TypedGPGenerator",
+            "nsga2": "NSGA2Generator",
+            "nsga": "NSGA2Generator",
+            "ge": "GrammaticalEvolutionGenerator",
+        }
+        target = alias_to_class.get(alias, alias)
+        all_generators = [g for g in all_generators if g.name.lower() == target.lower()]
         if not all_generators:
-            logger.error("Aucun générateur ne matche --generator=%s", args.generator)
+            logger.error("Aucun générateur ne matche --generator=%s (cible=%s)", args.generator, target)
             return 2
         logger.info("Filtre --generator=%s : %d générateur(s) actif(s)", args.generator, len(all_generators))
     # Injecte les données dans les générateurs qui en ont besoin (NSGA-II, Memetic).

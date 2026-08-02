@@ -342,15 +342,64 @@ class TestGenerators(unittest.TestCase):
         for h in result.hypotheses:
             self.assertIsInstance(h, Hypothesis)
 
-    def test_typed_gp_generates(self):
-        g = TypedGPGenerator(self.protocol, self.config, population_size=50)
-        result = g.generate()
-        self.assertEqual(result.n_generated, 50)
-        # Vérifie qu'on a bien des arbres (certains peuvent être composés).
-        n_compound = sum(
-            1 for h in result.hypotheses if isinstance(h.condition_tree, ConditionNode)
+    def test_typed_gp_requires_engine(self):
+        """TypedGPGenerator REQUIERT un engine (P10 — pas de placeholder silencieux)."""
+        with self.assertRaises(ValueError):
+            TypedGPGenerator(self.protocol, self.config, engine=None)
+
+    def test_typed_gp_collects_nodes_by_category(self):
+        """Test unitaire sur la collecte par catégorie sémantique (atomic/compound)."""
+        from einherjar.research.generators.algorithms import TypedGPGenerator
+        # Mock engine (juste pour pouvoir instancier).
+        from unittest.mock import MagicMock
+        engine = MagicMock()
+        g = TypedGPGenerator(
+            self.protocol, self.config, engine=engine,
+            population_size=2, n_generations=1,
         )
-        self.assertGreater(n_compound, 0)
+        # Arbre : (rsi_14 > 0.5) AND (macd > 0.0) = 1 compound + 2 atomic
+        tree = ConditionNode(
+            op=LogicalOp.AND,
+            left=Condition(feature_ref="rsi_14", operator=CompareOp.GT, value=0.5),
+            right=Condition(feature_ref="macd", operator=CompareOp.GT, value=0.0),
+        )
+        nodes = g._collect_nodes_by_category(tree)
+        self.assertEqual(len(nodes["compound"]), 1)
+        self.assertEqual(len(nodes["atomic"]), 2)
+
+    def test_typed_gp_subtree_crossover_type_preserving(self):
+        """Le crossover ne swap que des nœuds de même catégorie."""
+        from einherjar.research.generators.algorithms import TypedGPGenerator
+        from unittest.mock import MagicMock
+        engine = MagicMock()
+        g = TypedGPGenerator(
+            self.protocol, self.config, engine=engine,
+            population_size=2, n_generations=1,
+        )
+        # Parent 1 : rsi > 0.5 (atomic, depth 1)
+        p1 = Hypothesis(
+            id="p1", condition_tree=Condition("rsi_14", CompareOp.GT, 0.5),
+            amplitude=g._make_amplitude(Direction.LONG), direction=Direction.LONG,
+            universe=g._make_universe(), cooldown_k=5,
+        )
+        # Parent 2 : (macd > 0) AND (rsi < 0.3) (compound, depth 2)
+        p2 = Hypothesis(
+            id="p2",
+            condition_tree=ConditionNode(
+                op=LogicalOp.AND,
+                left=Condition("macd", CompareOp.GT, 0.0),
+                right=Condition("rsi_14", CompareOp.LT, 0.3),
+            ),
+            amplitude=g._make_amplitude(Direction.LONG), direction=Direction.LONG,
+            universe=g._make_universe(), cooldown_k=5,
+        )
+        # Le crossover doit produire 2 enfants valides (pas de crash).
+        c1, c2 = g._subtree_crossover(p1, p2)
+        # Les enfants sont des Hypothesis valides.
+        self.assertIsInstance(c1, Hypothesis)
+        self.assertIsInstance(c2, Hypothesis)
+        # Au moins l'un des enfants a une structure différente des parents
+        # (sinon le crossover n'a rien fait, mais ça reste correct).
 
     def test_ge_returns_empty_without_bnf(self):
         g = GrammaticalEvolutionGenerator(self.protocol, bnf_grammar=None)

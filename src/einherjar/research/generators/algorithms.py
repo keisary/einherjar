@@ -261,35 +261,114 @@ class BeamSearchGenerator(BaseGenerator):
 # --------------------------------------------------------------------------- #
 
 
-class TypedGPGenerator(BaseGenerator):
-    """Strongly-Typed Genetic Programming (sans grammaire BNF).
+# --------------------------------------------------------------------------- #
+# Catégories de nœuds pour le contrôle des types (STGP)
+# --------------------------------------------------------------------------- #
 
-    Chaque noeud de l'arbre est typé (feature, op, value). Mutation et
-    crossover respectent les types. Pour V1, on implémente juste l'initialisation
-    (grow + full), pas l'évolution complète (à brancher sur DEAP ou ECJ).
+# Catégories sémantiques utilisées par TypedGP pour le contrôle des types :
+# - "atomic" : Condition (feuille : feature + op + value)
+# - "compound" : ConditionNode (interne : LogicalOp + 2 enfants)
+_NODE_CATEGORIES = ("atomic", "compound")
+
+
+class TypedGPGenerator(BaseGenerator):
+    """Strongly-Typed Genetic Programming (STGP) — VRAIE implémentation évolutionnaire.
+
+    Algorithme (Koza 1992 + Montana 1995 pour le typage strict) :
+      1. Initialisation : population de N arbres (méthode grow + full).
+      2. Évaluation : fitness = Sharpe net sur val (via engine).
+      3. Boucle évolutionnaire (n_generations itérations) :
+         a. Sélection par tournoi binaire (taille k=3) sur la fitness.
+         b. Crossover sous-arbre : sélectionne un nœud de même catégorie
+            (atomic/compound) dans chaque parent, swap.
+         c. Mutation sous-arbre : remplace un sous-arbre par un nouveau
+            (méthode grow) avec probabilité `mutation_prob`.
+         d. Évalue l'offspring.
+         e. Remplace la population (elitiste : on garde les N meilleurs).
+      4. Retourne la population finale (les arbres viables).
+
+    Contrôle strict des types (STGP) :
+      - Chaque nœud a une "catégorie" : atomic (feuille) ou compound (interne).
+      - Le crossover ne swap que des nœuds de même catégorie.
+      - La mutation remplace par un sous-arbre de même catégorie.
+      - Le grow respecte la profondeur max.
+
+    Cohérence avec le moteur d'évaluation :
+      - engine.train_calibrate + engine.test_on sont utilisés pour la fitness.
+      - Si engine=None : seule l'initialisation est faite (mode "population seule"),
+        refusé par défaut (ValueError) pour forcer l'évolution réelle.
+
+    Différent de NSGA-II : TypedGP est mono-objectif (Sharpe net) avec représentation
+    arborescente (multi-conditions). NSGA-II est multi-objectif avec représentation
+    paramétrique (1 condition).
     """
 
     def __init__(
         self,
         protocol: GenerationProtocol,
         config: EinherjarConfig,
-        population_size: int = 200,
+        engine: Any | None = None,
+        population_size: int = 50,
+        n_generations: int = 10,
+        crossover_prob: float = 0.8,
+        mutation_prob: float = 0.2,
+        tournament_size: int = 3,
+        elitism: int = 2,
     ) -> None:
-        super().__init__(protocol)
+        """Initialise TypedGP.
+
+        Args:
+            engine: Moteur d'évaluation (REQUIS pour l'évolution ; sans engine,
+                on ne fait que l'initialisation, ce qui n'a aucun sens pour P10).
+            population_size: Taille de la population.
+            n_generations: Nombre de générations.
+            crossover_prob: Probabilité de crossover par paire de parents.
+            mutation_prob: Probabilité de mutation par enfant.
+            tournament_size: Taille du tournoi pour la sélection.
+            elitism: Nombre de meilleurs individus préservés à chaque génération.
+        """
+        super().__init__(protocol, engine=engine)
+        if engine is None:
+            raise ValueError(
+                "TypedGPGenerator requiert un moteur d'évaluation (engine=...) "
+                "pour évaluer la fitness (Sharpe net) pendant l'évolution."
+            )
         self.config = config
         self.population_size = population_size
-
-    def generate(self) -> GeneratorResult:
-        import time
-        t0 = time.time()
-        continuous = [
-            f for f in self.config.usable_feature_names
+        self.n_generations = n_generations
+        self.crossover_prob = crossover_prob
+        self.mutation_prob = mutation_prob
+        self.tournament_size = tournament_size
+        self.elitism = elitism
+        # Pool de features continues pour les feuilles atomiques.
+        self._continuous_features: list[str] = [
+            f for f in config.usable_feature_names
             if self._feature_type(f) in (FeatureType.ATOMIC, FeatureType.QUANTITATIVE, FeatureType.FACTOR)
         ]
-        hyps: list[Hypothesis] = []
-        for i in range(min(self.population_size, self.protocol.n_eval_budget)):
+        if not self._continuous_features:
+            raise ValueError("Aucune feature continue exploitable pour TypedGP")
+        logger.info(
+            "TypedGPGenerator : N=%d, gen=%d, %d features continues, "
+            "crossover=%.2f, mutation=%.2f, tournament=%d, elitism=%d",
+            population_size, n_generations, len(self._continuous_features),
+            crossover_prob, mutation_prob, tournament_size, elitism,
+        )
+
+    def generate(self) -> GeneratorResult:
+        """Lance TypedGP et retourne la population finale.
+
+        Pour la V1 : on retourne TOUS les individus (admissibles ou non).
+        Le filtrage admission est appliqué par le comparator via admission_fn.
+        """
+        import time
+        t0 = time.time()
+        # 1. Population initiale : 50% grow, 50% full (diversité).
+        max_depth = self.protocol.max_conditions
+        population: list[Hypothesis] = []
+        for i in range(self.population_size):
+            method = "grow" if i % 2 == 0 else "full"
+            tree = self._init_tree(method=method, max_depth=max_depth)
             direction = self._rng.choice([Direction.LONG, Direction.SHORT])
-            tree = self._grow_tree(continuous, max_depth=self.protocol.max_conditions)
             h = Hypothesis(
                 id=f"{self.name}_{i:06d}",
                 condition_tree=tree,
@@ -298,27 +377,114 @@ class TypedGPGenerator(BaseGenerator):
                 universe=self._make_universe(),
                 cooldown_k=self.protocol.cooldown_k,
             )
-            hyps.append(h)
+            population.append(h)
+        # 2. Évaluation initiale.
+        fitness = self._evaluate_population(population)
+        # 3. Boucle évolutionnaire.
+        train_ohlcv = getattr(self, "_train_ohlcv", None)
+        train_features = getattr(self, "_train_features", None)
+        val_ohlcv = getattr(self, "_val_ohlcv", None)
+        val_features = getattr(self, "_val_features", None)
+        for gen in range(self.n_generations):
+            # 3a. Sélection des parents.
+            parents = self._tournament_selection(population, fitness, n=self.population_size)
+            # 3b. Reproduction : crossover + mutation.
+            offspring: list[Hypothesis] = []
+            for i in range(0, len(parents) - 1, 2):
+                p1, p2 = parents[i], parents[i + 1]
+                if self._rng.random() < self.crossover_prob:
+                    c1, c2 = self._subtree_crossover(p1, p2)
+                else:
+                    c1, c2 = p1, p2
+                c1 = self._subtree_mutation(c1)
+                c2 = self._subtree_mutation(c2)
+                offspring.append(c1)
+                offspring.append(c2)
+            if len(offspring) < self.population_size:
+                offspring.append(self._subtree_mutation(parents[-1]))
+            offspring = offspring[: self.population_size]
+            # 3c. Évaluation offspring.
+            offspring_fitness = self._evaluate_population(
+                offspring, train_ohlcv, train_features, val_ohlcv, val_features,
+            )
+            # 3d. Combine P + Q (taille 2N).
+            union_pop = population + offspring
+            union_fit = fitness + offspring_fitness
+            # 3e. Sélection élitiste : on garde les N meilleurs.
+            order = sorted(range(len(union_pop)), key=lambda i: union_fit[i], reverse=True)
+            order = order[: self.population_size]
+            population = [union_pop[i] for i in order]
+            fitness = [union_fit[i] for i in order]
+            logger.info(
+                "TypedGP gen %d/%d : best_sharpe=%.4f, mean_sharpe=%.4f",
+                gen + 1, self.n_generations, fitness[0],
+                sum(fitness) / max(1, len(fitness)),
+            )
+        # 4. Déduplique par signature de règle.
+        seen: set[tuple] = set()
+        unique: list[Hypothesis] = []
+        for h in population:
+            sig = (h.condition_tree, h.direction, h.cooldown_k)
+            if sig not in seen:
+                seen.add(sig)
+                unique.append(h)
         return GeneratorResult(
             generator_name=self.name,
-            hypotheses=tuple(hyps),
-            n_generated=len(hyps),
-            n_evaluated=0,
-            n_passed_admission=0,
+            hypotheses=tuple(unique),
+            n_generated=len(population),
+            n_evaluated=len(unique),
+            n_passed_admission=0,  # admission appliquée par le comparator
             generation_time_s=time.time() - t0,
-            meta={"population_size": self.population_size, "method": "grow"},
+            meta={
+                "method": "TypedGP-Koza+Montana",
+                "n_generations": self.n_generations,
+                "population_size": self.population_size,
+                "init_methods": ("grow", "full"),
+                "crossover": "subtree_type_preserving",
+                "mutation": "subtree_regrow",
+                "selection": f"tournament_k={self.tournament_size}",
+            },
         )
 
-    def _grow_tree(self, pool: Sequence[str], max_depth: int) -> Condition | ConditionNode:
-        if max_depth <= 1 or self._rng.random() < 0.5:
-            return self._atom(pool)
-        left = self._grow_tree(pool, max_depth - 1)
-        right = self._grow_tree(pool, max_depth - 1)
-        return ConditionNode(op=LogicalOp.AND, left=left, right=right)
+    # ------------------------------------------------------------------ #
+    # Initialisation (Koza : grow + full)
+    # ------------------------------------------------------------------ #
 
-    def _atom(self, pool: Sequence[str]) -> Condition:
-        feat = self._rng.choice(pool)
-        op = self._rng.choice([CompareOp.LT, CompareOp.GT])
+    def _init_tree(self, method: str, max_depth: int) -> Condition | ConditionNode:
+        """Initialise un arbre par grow ou full."""
+        if method == "grow":
+            return self._grow(max_depth=max_depth, depth=0)
+        return self._full(max_depth=max_depth, depth=0)
+
+    def _grow(self, max_depth: int, depth: int) -> Condition | ConditionNode:
+        """Méthode grow : à chaque niveau, 50% chance de retourner une feuille."""
+        if depth >= max_depth or (depth > 0 and self._rng.random() < 0.5):
+            return self._atom()
+        op = self._rng.choice(list(LogicalOp))
+        if op == LogicalOp.NOT:
+            # NOT unaire : un seul enfant.
+            child = self._grow(max_depth=max_depth, depth=depth + 1)
+            return ConditionNode(op=op, left=child, right=None)
+        left = self._grow(max_depth=max_depth, depth=depth + 1)
+        right = self._grow(max_depth=max_depth, depth=depth + 1)
+        return ConditionNode(op=op, left=left, right=right)
+
+    def _full(self, max_depth: int, depth: int) -> Condition | ConditionNode:
+        """Méthode full : tous les nœuds à profondeur max sont des feuilles."""
+        if depth >= max_depth:
+            return self._atom()
+        op = self._rng.choice(list(LogicalOp))
+        if op == LogicalOp.NOT:
+            child = self._full(max_depth=max_depth, depth=depth + 1)
+            return ConditionNode(op=op, left=child, right=None)
+        left = self._full(max_depth=max_depth, depth=depth + 1)
+        right = self._full(max_depth=max_depth, depth=depth + 1)
+        return ConditionNode(op=op, left=left, right=right)
+
+    def _atom(self) -> Condition:
+        """Crée une feuille : feature (typée) + op + value."""
+        feat = self._rng.choice(self._continuous_features)
+        op = self._rng.choice([CompareOp.LT, CompareOp.GT, CompareOp.LE, CompareOp.GE])
         value = round(self._rng.uniform(-2.0, 2.0), 4)
         return Condition(feature_ref=feat, operator=op, value=value, transformation=None)
 
@@ -329,6 +495,205 @@ class TypedGPGenerator(BaseGenerator):
             return FeatureType(type_str) if type_str else None
         except ValueError:
             return None
+
+    # ------------------------------------------------------------------ #
+    # Évaluation de la fitness (Sharpe net)
+    # ------------------------------------------------------------------ #
+
+    def _evaluate_population(
+        self,
+        population: list[Hypothesis],
+        train_ohlcv: Any | None = None,
+        train_features: Any | None = None,
+        val_ohlcv: Any | None = None,
+        val_features: Any | None = None,
+    ) -> list[float]:
+        """Évalue la fitness (Sharpe net) de chaque individu via engine.
+
+        Retourne une liste de floats (NaN si l'évaluation échoue).
+        """
+        train_ohlcv = train_ohlcv or getattr(self, "_train_ohlcv", None)
+        train_features = train_features or getattr(self, "_train_features", None)
+        val_ohlcv = val_ohlcv or getattr(self, "_val_ohlcv", None)
+        val_features = val_features or getattr(self, "_val_features", None)
+        if train_ohlcv is None or val_ohlcv is None:
+            return [float("nan")] * len(population)
+        fitness: list[float] = []
+        for h in population:
+            try:
+                calibrated = self.engine.train_calibrate(h, train_ohlcv, train_features)
+                m = self.engine.test_on(h, val_ohlcv, val_features, calibrated, "val")
+                fitness.append(m.sharpe_net if m.sharpe_net == m.sharpe_net else float("nan"))
+            except Exception:  # noqa: BLE001
+                fitness.append(float("nan"))
+        return fitness
+
+    # ------------------------------------------------------------------ #
+    # Sélection par tournoi
+    # ------------------------------------------------------------------ #
+
+    def _tournament_selection(
+        self,
+        population: list[Hypothesis],
+        fitness: list[float],
+        n: int,
+    ) -> list[Hypothesis]:
+        """Sélection par tournoi binaire (taille = self.tournament_size)."""
+        if not population:
+            return []
+        selected: list[Hypothesis] = []
+        for _ in range(n):
+            # Tire k indices aléatoires.
+            indices = self._rng.sample(range(len(population)), min(self.tournament_size, len(population)))
+            # Garde celui avec la meilleure fitness (NaN traité comme -inf).
+            best_i = max(indices, key=lambda i: (fitness[i] if fitness[i] == fitness[i] else float("-inf")))
+            selected.append(population[best_i])
+        return selected
+
+    # ------------------------------------------------------------------ #
+    # Crossover sous-arbre (type-preserving)
+    # ------------------------------------------------------------------ #
+
+    def _subtree_crossover(
+        self,
+        p1: Hypothesis,
+        p2: Hypothesis,
+    ) -> tuple[Hypothesis, Hypothesis]:
+        """Crossover : sélectionne un nœud de même catégorie dans chaque parent, swap.
+
+        Type-preserving : on ne peut swapper qu'un atomic avec un atomic,
+        ou un compound avec un compound. Sinon, on retourne les parents tels quels.
+        """
+        # Liste les nœuds par catégorie pour chaque parent.
+        nodes1 = self._collect_nodes_by_category(p1.condition_tree)
+        nodes2 = self._collect_nodes_by_category(p2.condition_tree)
+        # Choisit une catégorie commune (atomic ou compound).
+        common = [c for c in _NODE_CATEGORIES if nodes1[c] and nodes2[c]]
+        if not common:
+            return p1, p2  # pas de swap possible
+        cat = self._rng.choice(common)
+        # Sélectionne un nœud aléatoire dans chaque parent (de cette catégorie).
+        path1 = self._rng.choice(nodes1[cat])
+        path2 = self._rng.choice(nodes2[cat])
+        # Swap les sous-arbres.
+        new_tree1 = self._swap_subtree(p1.condition_tree, path1, p2.condition_tree, path2)
+        new_tree2 = self._swap_subtree(p2.condition_tree, path2, p1.condition_tree, path1)
+        return (
+            self._clone_with_tree(p1, new_tree1),
+            self._clone_with_tree(p2, new_tree2),
+        )
+
+    def _collect_nodes_by_category(
+        self, tree: Condition | ConditionNode,
+    ) -> dict[str, list[list[bool]]]:
+        """Collecte tous les nœuds d'un arbre, groupés par catégorie.
+
+        Returns:
+            Dict {"atomic": [path1, path2, ...], "compound": [path1, ...]}
+            où path = liste de booléens (False=gauche, True=droite pour CompoundNode,
+            pas de direction pour Condition feuille).
+        """
+        result: dict[str, list[list[bool]]] = {"atomic": [], "compound": []}
+        def _walk(node: Condition | ConditionNode, path: list[bool]) -> None:
+            if isinstance(node, Condition):
+                result["atomic"].append(path)
+                return
+            # ConditionNode = compound.
+            result["compound"].append(path)
+            _walk(node.left, path + [False])
+            if node.right is not None:
+                _walk(node.right, path + [True])
+        _walk(tree, [])
+        return result
+
+    def _swap_subtree(
+        self,
+        tree: Condition | ConditionNode,
+        path: list[bool],
+        donor: Condition | ConditionNode,
+        donor_path: list[bool],
+    ) -> Condition | ConditionNode:
+        """Remplace le sous-arbre de `tree` à `path` par le sous-arbre de `donor` à `donor_path`."""
+        # Extrait le sous-arbre du donneur.
+        donor_subtree = self._get_subtree(donor, donor_path)
+        # Si path est vide, on remplace la racine.
+        if not path:
+            return donor_subtree
+        # Sinon, on reconstruit l'arbre en remplaçant à l'index path[-1].
+        return self._replace_subtree(tree, path, donor_subtree)
+
+    def _get_subtree(
+        self, node: Condition | ConditionNode, path: list[bool],
+    ) -> Condition | ConditionNode:
+        if not path:
+            return node
+        if isinstance(node, Condition):
+            return node  # on ne peut pas descendre plus loin
+        if path[0]:  # droite
+            assert node.right is not None
+            return self._get_subtree(node.right, path[1:])
+        # gauche
+        return self._get_subtree(node.left, path[1:])
+
+    def _replace_subtree(
+        self,
+        node: Condition | ConditionNode,
+        path: list[bool],
+        new_subtree: Condition | ConditionNode,
+    ) -> Condition | ConditionNode:
+        """Reconstruit l'arbre avec `new_subtree` à l'emplacement `path`."""
+        import copy
+        if not path:
+            return copy.deepcopy(new_subtree)
+        if isinstance(node, Condition):
+            return node
+        if path[0]:  # droite
+            new_right = self._replace_subtree(node.right, path[1:], new_subtree) if node.right else None
+            return ConditionNode(op=node.op, left=copy.deepcopy(node.left), right=new_right)
+        new_left = self._replace_subtree(node.left, path[1:], new_subtree)
+        return ConditionNode(op=node.op, left=new_left, right=copy.deepcopy(node.right))
+
+    # ------------------------------------------------------------------ #
+    # Mutation sous-arbre
+    # ------------------------------------------------------------------ #
+
+    def _subtree_mutation(self, h: Hypothesis) -> Hypothesis:
+        """Mutation : avec probabilité `mutation_prob`, remplace un sous-arbre par un nouveau.
+
+        Type-preserving : le nouveau sous-arbre a la même catégorie que celui qu'il remplace.
+        Si aucun sous-arbre n'est sélectionné (ou que la mutation n'a pas lieu), retourne l'hypothèse telle quelle.
+        """
+        if self._rng.random() > self.mutation_prob:
+            return h
+        nodes = self._collect_nodes_by_category(h.condition_tree)
+        cat = self._rng.choice(_NODE_CATEGORIES)
+        if not nodes[cat]:
+            return h  # pas de nœud de cette catégorie
+        path = self._rng.choice(nodes[cat])
+        # Génère un nouveau sous-arbre de la même catégorie.
+        max_depth = self.protocol.max_conditions
+        if cat == "atomic":
+            new_sub = self._atom()
+        else:
+            depth_remaining = max(1, max_depth - len(path))
+            new_sub = self._grow(max_depth=depth_remaining, depth=0)
+        new_tree = self._swap_subtree(h.condition_tree, path, new_sub, [])
+        return self._clone_with_tree(h, new_tree)
+
+    def _clone_with_tree(
+        self, h: Hypothesis, new_tree: Condition | ConditionNode,
+    ) -> Hypothesis:
+        """Clone une hypothèse avec un nouveau condition_tree et un nouvel id."""
+        import copy
+        new_h = Hypothesis(
+            id=f"{h.id}_x{self._rng.randint(0, 9999):04d}",
+            condition_tree=copy.deepcopy(new_tree),
+            amplitude=h.amplitude,
+            direction=h.direction,
+            universe=h.universe,
+            cooldown_k=h.cooldown_k,
+        )
+        return new_h
 
 
 # --------------------------------------------------------------------------- #
@@ -408,7 +773,9 @@ class MemeticGenerator(BaseGenerator):
         self.population_size = population_size
         self.lso_iterations = lso_iterations
         self.lso_neighbors = lso_neighbors
-        self._ea = TypedGPGenerator(protocol, config, population_size=population_size)
+        self._ea = TypedGPGenerator(
+            protocol, config, engine=engine, population_size=population_size,
+        )
 
     def generate(self) -> GeneratorResult:
         # 1. Phase EA : génération initiale via TypedGP.
@@ -1209,9 +1576,9 @@ def make_all_generators(
     """Construit les 5 candidats principaux (sans GE — BNF pas encore écrite).
 
     Args:
-        engine: Moteur d'évaluation (passé à NSGA2Generator et MemeticGenerator
-            qui en ont besoin pour l'évaluation multi-objectif / la phase LSO).
-            Optionnel pour les générateurs sans évolution (Random/Beam/TypedGP).
+        engine: Moteur d'évaluation (passé à tous les générateurs évolutionnaires :
+            TypedGP, Memetic, NSGA2). Optionnel pour les générateurs sans évolution
+            (Random, Beam) qui sont construits sans engine.
 
     Returns:
         Liste [RandomSearch, BeamSearch, TypedGP, Memetic, NSGA2].
@@ -1219,7 +1586,7 @@ def make_all_generators(
     return [
         RandomSearchGenerator(protocol=protocol, config=config),
         BeamSearchGenerator(protocol=protocol, config=config),
-        TypedGPGenerator(protocol=protocol, config=config),
+        TypedGPGenerator(protocol=protocol, config=config, engine=engine),
         MemeticGenerator(protocol=protocol, config=config, engine=engine),
         NSGA2Generator(protocol=protocol, config=config, engine=engine),
     ]
