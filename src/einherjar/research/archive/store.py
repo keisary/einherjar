@@ -112,6 +112,7 @@ def _entry_from_dict(d: dict) -> ArchiveEntry:
         fingerprint_structurel=d.get("fingerprint_structurel", ""),
         fingerprint_comportemental=d.get("fingerprint_comportemental", ""),
         fingerprint=d.get("fingerprint", ""),
+        ret_series=tuple(d.get("ret_series", ())),
         element_ref_id=d.get("element_ref_id", ""),
         # mesures_brutes_train/val non reconstruits ici (best-effort, allourdit)
     )

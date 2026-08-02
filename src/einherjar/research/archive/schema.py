@@ -16,7 +16,18 @@ from einherjar.research.utils.types import MesuresBrutes, RejectionReason
 
 @dataclass
 class ArchiveEntry:
-    """Une entrée d'archive = un rejet (hypothèse ou einher rejeté)."""
+    """Une entrée d'archive = un rejet (hypothèse ou einher rejeté).
+
+    P1 #8 : le schéma capture TOUT ce qui est nécessaire pour audit
+    et reproductibilité :
+      - Règle BNF canonique (via fingerprint_structurel)
+      - Paramètres figés (via mesures_brutes_val + seed + data_version)
+      - Version données (data_version, seed, splits)
+      - Métriques (mesures_brutes, metriques_portefeuille, bootstrap_ci, DSR, PBO)
+      - Décision (raison_rejet, date_rejet)
+      - Séries de retours (ret_series, ajoutées en P1 #8 pour la diversité)
+      - Descripteurs comportementaux
+    """
 
     id: str
     type_élément: str                       # 'hypothesis' | 'einher'
@@ -44,6 +55,9 @@ class ArchiveEntry:
     fingerprint_comportemental: str = ""
     fingerprint: str = ""
 
+    # P1 #8 : série de rendements nets par trade (pour corrélation diversité).
+    ret_series: tuple[float, ...] = ()
+
     # Référence à l'élément rejeté (juste l'id, pas l'objet complet — déjà dans l'Archive)
     element_ref_id: str = ""
 
@@ -66,6 +80,7 @@ class ArchiveEntry:
             "fingerprint_structurel": self.fingerprint_structurel,
             "fingerprint_comportemental": self.fingerprint_comportemental,
             "fingerprint": self.fingerprint,
+            "ret_series": list(self.ret_series),
             "element_ref_id": self.element_ref_id,
         }
         if self.mesures_brutes_train is not None:
