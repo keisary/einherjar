@@ -115,14 +115,24 @@ class BaseGenerator(ABC):
 
 
 class RandomSearchGenerator(BaseGenerator):
-    """Random search sous contraintes (typage, profondeur, ratios)."""
+    """Random search sous contraintes (typage, profondeur, ratios) — VRAIE implémentation.
+
+    Note : pas d'évolution (random search pur). Accepte `engine` pour
+    l'uniformité d'API avec les autres générateurs, mais ne l'utilise pas.
+
+    Cohérence avec le système :
+      - Mêmes features continues (ATOMIC/QUANTITATIVE/FACTOR) que TypedGP/Beam/NSGA-II.
+      - Mêmes opérateurs logiques (AND/OR/NOT/XOR) que TypedGP.
+      - Pas de fallback silencieux : ValueError si aucune feature continue.
+    """
 
     def __init__(
         self,
         protocol: GenerationProtocol,
         config: EinherjarConfig,
+        engine: Any | None = None,  # ignoré, pour uniformité d'API
     ) -> None:
-        super().__init__(protocol)
+        super().__init__(protocol, engine=engine)
         self.config = config
 
     def generate(self) -> GeneratorResult:
