@@ -41,7 +41,7 @@ from einherjar.research.engine.bootstrap import (
     bootstrap_sharpe,
 )
 from einherjar.research.engine.simulator import simulate
-from einherjar.research.utils.stats import atr_wilder, percentile
+from einherjar.research.utils.stats import atr_wilder, percentile, periods_per_year_for_timeframe
 from einherjar.research.utils.types import (
     AmplitudeUnit,
     CompareOp,
@@ -468,10 +468,18 @@ class _TradeRunner:
 class _MesuresAggregator:
     """Agrège une liste de TradeMesure en MesuresBrutes + calcule le block bootstrap CI."""
 
-    def __init__(self, config: EinherjarConfig, calibrated: CalibratedParams, costs: TradingCosts) -> None:
+    def __init__(
+        self,
+        config: EinherjarConfig,
+        calibrated: CalibratedParams,
+        costs: TradingCosts,
+        timeframe: str = "1d",
+    ) -> None:
         self._config = config
         self._calibrated = calibrated
         self._costs = costs
+        # P2 #1 : periods_per_year dynamique selon le timeframe (plus de sqrt(365) hardcoded).
+        self._periods_per_year = periods_per_year_for_timeframe(timeframe)
 
     def aggregate(
         self,
@@ -499,7 +507,7 @@ class _MesuresAggregator:
         ret_mean = float(np.mean(returns_net)) if n else float("nan")
         ret_std = float(np.std(returns_net, ddof=1)) if n > 1 else float("nan")
         if ret_std and not math.isnan(ret_std) and ret_std > 0:
-            sharpe = (ret_mean / ret_std) * math.sqrt(365.0)
+            sharpe = (ret_mean / ret_std) * math.sqrt(self._periods_per_year)
         else:
             sharpe = float("nan")
 
@@ -561,7 +569,7 @@ class _MesuresAggregator:
             float(np.std(returns, ddof=1)) if n > 1 else float("nan")
         )
         ret_mean = float(np.mean(returns)) if n else float("nan")
-        sharpe = (ret_mean / ret_std) * math.sqrt(365.0) if ret_std and ret_std > 0 else float("nan")
+        sharpe = (ret_mean / ret_std) * math.sqrt(self._periods_per_year) if ret_std and ret_std > 0 else float("nan")
         return MesuresBrutes(
             n_signals=n, n_tp_hit=n_tp, n_sl_hit=n_sl, n_timeout=n_to,
             mfe_mean_pct=float(np.mean(mfe)), mae_mean_pct=float(np.mean(mae)),
@@ -834,7 +842,7 @@ class EvaluationEngine:
                 trades.append(trade)
 
         # Agrège.
-        aggregator = _MesuresAggregator(self.config, calibrated, costs)
+        aggregator = _MesuresAggregator(self.config, calibrated, costs, timeframe=ohlcv.timeframe)
         # Per-asset : ici un seul asset, mais on garde la structure.
         per_asset = {ohlcv.asset: trades} if trades else {}
         mesures = aggregator.aggregate(trades=trades, per_asset_trades=per_asset)

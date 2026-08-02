@@ -108,6 +108,44 @@ class BaseGenerator(ABC):
     def _make_universe(self) -> Universe:
         return Universe(assets=self.protocol.assets, timeframes=self.protocol.timeframes)
 
+    # ------------------------------------------------------------------ #
+    # Seuils calibrés (P1 #1) — quantiles par feature sur le train
+    # ------------------------------------------------------------------ #
+
+    _FALLBACK_THRESHOLD_POOL: tuple[float, ...] = (-2.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0)
+
+    def _ensure_threshold_quantiles(self) -> dict[str, list[float]]:
+        """Calcule les quantiles par feature sur le train si pas déjà fait (lazy)."""
+        if getattr(self, "_threshold_quantiles", None) is not None:
+            return self._threshold_quantiles
+        from einherjar.research.data.threshold_calibration import (
+            compute_feature_quantiles,
+            merge_quantile_pools,
+        )
+        train_features = getattr(self, "_train_features", None)
+        if train_features is None:
+            # Pas de train : on construit un pool par défaut par feature (uniforme).
+            self._threshold_quantiles = {
+                name: list(self._FALLBACK_THRESHOLD_POOL)
+                for name in self.config.usable_feature_names
+            }
+        else:
+            raw = compute_feature_quantiles(train_features)
+            self._threshold_quantiles = merge_quantile_pools(
+                raw, fallback_pool=self._FALLBACK_THRESHOLD_POOL,
+            )
+        return self._threshold_quantiles
+
+    def _sample_threshold_for(self, feature_name: str) -> float:
+        """Tire un seuil dans le pool calibré pour `feature_name` (P1 #1).
+
+        Si la feature n'a pas de pool calibré (feature inconnue), fallback
+        sur le pool par défaut.
+        """
+        pools = self._ensure_threshold_quantiles()
+        pool = pools.get(feature_name) or list(self._FALLBACK_THRESHOLD_POOL)
+        return float(self._rng.choice(pool))
+
 
 # --------------------------------------------------------------------------- #
 # Generateur 1 : Random Search
@@ -176,7 +214,8 @@ class RandomSearchGenerator(BaseGenerator):
     def _sample_atomic(self, pool: Sequence[str]) -> Condition:
         feat = self._rng.choice(pool)
         op = self._rng.choice([CompareOp.LT, CompareOp.GT])
-        value = round(self._rng.uniform(-2.0, 2.0), 4)
+        # P1 #1 : seuil tiré depuis le pool calibré sur le train (plus d'uniforme -2..2).
+        value = round(self._sample_threshold_for(feat), 4)
         return Condition(feature_ref=feat, operator=op, value=value, transformation=None)
 
     def _feature_type(self, name: str) -> FeatureType | None:
@@ -622,7 +661,8 @@ class TypedGPGenerator(BaseGenerator):
         """Crée une feuille : feature (typée) + op + value."""
         feat = self._rng.choice(self._continuous_features)
         op = self._rng.choice([CompareOp.LT, CompareOp.GT, CompareOp.LE, CompareOp.GE])
-        value = round(self._rng.uniform(-2.0, 2.0), 4)
+        # P1 #1 : seuil tiré depuis le pool calibré sur le train (plus d'uniforme -2..2).
+        value = round(self._sample_threshold_for(feat), 4)
         return Condition(feature_ref=feat, operator=op, value=value, transformation=None)
 
     def _feature_type(self, name: str) -> FeatureType | None:
@@ -1257,10 +1297,14 @@ class NSGA2Generator(BaseGenerator):
 
     def _random_individual(self) -> _NSGA2Individual:
         """Génère un individu aléatoire dans l'espace de représentation."""
+        feat_id = self._rng.randint(0, len(self._continuous_features) - 1)
+        # P1 #1 : seuil tiré depuis le pool calibré pour la feature choisie.
+        feat_name = self._continuous_features[feat_id]
+        threshold = round(self._sample_threshold_for(feat_name), 4)
         return _NSGA2Individual(
-            feature_id=self._rng.randint(0, len(self._continuous_features) - 1),
+            feature_id=feat_id,
             op_id=self._rng.randint(0, len(self.OP_CHOICES) - 1),
-            threshold=round(self._rng.uniform(-2.0, 2.0), 4),
+            threshold=threshold,
             cooldown_k=self._rng.randint(1, 20),
             direction_id=self._rng.randint(0, len(self.DIRECTION_CHOICES) - 1),
         )

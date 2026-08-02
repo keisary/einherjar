@@ -174,6 +174,48 @@ def sharpe_ratio(returns: Sequence[float], periods_per_year: float = 365.0) -> f
 
 
 # --------------------------------------------------------------------------- #
+# Annualisation cohérente avec le timeframe
+# --------------------------------------------------------------------------- #
+
+
+# Mapping timeframe -> bougies par an (1 bougie = 1 trade dans notre cas).
+# Convention : 24/7 pour crypto (8760 h/an), jours ouvrés ~252 pour actions.
+# Pour notre moteur (qui trade 24/7 sur crypto), on prend crypto = 24/7.
+_PERIODS_PER_YEAR: dict[str, float] = {
+    "1m": 365.0 * 24 * 60,         # 525 600
+    "5m": 365.0 * 24 * 12,         # 105 120
+    "15m": 365.0 * 24 * 4,         # 35 040
+    "30m": 365.0 * 24 * 2,         # 17 520
+    "1h": 365.0 * 24,              # 8 760
+    "2h": 365.0 * 12,              # 4 380
+    "4h": 365.0 * 6,               # 2 190
+    "6h": 365.0 * 4,               # 1 460
+    "8h": 365.0 * 3,               # 1 095
+    "12h": 365.0 * 2,              # 730
+    "1d": 365.0,                    # 365
+    "3d": 365.0 / 3,                # ~122
+    "1w": 52.0,                     # 52
+}
+_DEFAULT_PERIODS_PER_YEAR: float = 365.0
+
+
+def periods_per_year_for_timeframe(timeframe: str) -> float:
+    """Retourne le nb de périodes par an pour un timeframe donné.
+
+    Utilisé par le moteur d'évaluation pour annualiser le Sharpe de manière
+    cohérente avec la fréquence des trades (plus de sqrt(365) codé en dur).
+
+    Args:
+        timeframe: Code timeframe ('1m', '5m', '15m', '30m', '1h', '2h', '4h',
+                   '6h', '8h', '12h', '1d', '3d', '1w').
+
+    Returns:
+        Nombre de périodes par an (float). Défaut : 365 si timeframe inconnu.
+    """
+    return _PERIODS_PER_YEAR.get(timeframe, _DEFAULT_PERIODS_PER_YEAR)
+
+
+# --------------------------------------------------------------------------- #
 # Max drawdown (sur courbe d'equity cumulée)
 # --------------------------------------------------------------------------- #
 
