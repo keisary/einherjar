@@ -153,20 +153,30 @@ def _max_pearson(
     this_series: tuple[float, ...],
     corpus_series: list[tuple[float, ...]],
 ) -> float:
-    """Pearson max (en valeur absolue) entre une série et une liste."""
+    """Pearson max (en valeur absolue) entre une série et une liste (P1 #5).
+
+    Accepte des séries de longueurs DIFFERENTES (les ret_series par trade
+    n'ont pas la même longueur pour des Einhers différents). On aligne
+    par le début commun (les n premiers trades de chaque série où n est
+    le min des deux longueurs).
+    """
     if not corpus_series or not this_series or len(this_series) < 2:
         return 0.0
-    n = len(this_series)
     cmax = 0.0
     for s in corpus_series:
-        if len(s) != n or len(s) < 2:
+        if len(s) < 2:
             continue
+        n = min(len(this_series), len(s))
+        if n < 2:
+            continue
+        a = this_series[:n]
+        b = s[:n]
         try:
-            mean_a = sum(this_series) / n
-            mean_b = sum(s) / n
-            num = sum((this_series[i] - mean_a) * (s[i] - mean_b) for i in range(n))
-            den_a = math.sqrt(sum((x - mean_a) ** 2 for x in this_series))
-            den_b = math.sqrt(sum((x - mean_b) ** 2 for x in s))
+            mean_a = sum(a) / n
+            mean_b = sum(b) / n
+            num = sum((a[i] - mean_a) * (b[i] - mean_b) for i in range(n))
+            den_a = math.sqrt(sum((x - mean_a) ** 2 for x in a))
+            den_b = math.sqrt(sum((x - mean_b) ** 2 for x in b))
             if den_a == 0 or den_b == 0:
                 continue
             cmax = max(cmax, abs(num / (den_a * den_b)))
