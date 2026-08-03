@@ -28,7 +28,6 @@ Statut :
   - 31/218 features QUANTITATIVES (Lot 2) : entropies (4), autocorrelations
     (6), volatilite (5), risque (5), regime de marche (4), momentum quant (2),
     microstructure (2), spectral (2), variance ratio (1).
-    NOTE : 4 features quantitative `_signal` fantomes exclues, 31/35 traitees.
   - 26/218 features (Lot 3) : 4 atomic restants + 9 composite_derived signaux
     + 13 factors (scores agreges en [0, 1]).
   - 15/218 patterns chandeliers simples (Lot 4a) : 5 dojis, 4 single-candle
@@ -45,10 +44,12 @@ Statut :
   - 6/218 patterns chartistes (Lot 4c-4) : 2 S/R (support/resistance),
     3 islands (reversal/top/bottom), 1 Wolfe Wave (5 vagues predictif).
     Binaires.
+  - 2/218 patterns Fibonacci (Lot 4c-5) : retracement (23.6/38.2/50/61.8/78.6)
+    + extension (127.2/161.8/261.8/423.6). Binaires.
   - 1 bloc de relations OHLCV : `OHLCV_RELATIONS_GRAMMAR` (traitement
     conjoint open/high/low/close/volume, e.g. "close > open").
-  - Reste : 39 features `pattern` (autres chartistes 15, regimes 3,
-    three_drives 1, harmoniques 10, autres 10).
+  - Reste : 37 features `pattern` (Elliott 3, three_drives 1, harmoniques
+    10, regimes 3, autres 20).
 """
 
 from __future__ import annotations
@@ -1865,6 +1866,57 @@ FEATURE_GRAMMARS_LOT4C4: dict[str, str] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Lot 4c-5 : patterns chartistes - Fibonacci retracement/extension (2)
+#            famille market_structure
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte (Identifier -> Comprendre -> Concevoir -> Verifier ->
+# Valider -> Ecrire) appliquee pour chaque pattern ci-dessous.
+#
+# Outils de Fibonacci (Leonardo Fibonacci, 1170-1250) appliques au trading
+# par Ralph Nelson Elliott puis popularises par Robert Miner dans les
+# annees 1980-90.
+#
+# Tous binaires {0, 1}. Reutilise _signal_grammar du Lot 4a.
+
+
+# pattern_fibonacci_retracement : sur un mouvement A->B, on identifie
+# des niveaux de retracement (zones de pullback) :
+#   - 23.6% (retracement faible)
+#   - 38.2% (retracement modere)
+#   - 50%  (milieu, pas un ratio Fibonacci pur mais tres utilise)
+#   - 61.8% (golden ratio, le plus important)
+#   - 78.6% (retracement fort)
+# Detection = le prix teste un de ces niveaux et rebondit. Utilise pour
+# determiner ou acheter sur un pullback dans une tendance haussiere (ou
+# vendre sur un rallye dans une tendance baissiere). NEUTRE sur la
+# direction (depend du contexte de la tendance).
+PATTERN_FIBONACCI_RETRACEMENT_GRAMMAR: str = _signal_grammar(
+    "pattern_fibonacci_retracement", (0, 1),
+)
+
+# pattern_fibonacci_extension : niveaux d'extension AU-DELA du mouvement
+# initial A->B, utilises comme cibles de prise de profit apres un
+# retracement. Niveaux d'extension classiques :
+#   - 127.2% (extension 1)
+#   - 161.8% (extension 2, le plus important)
+#   - 261.8% (extension 3)
+#   - 423.6% (extension 4)
+# Detection = le prix atteint un de ces niveaux d'extension. Utilise pour
+# determiner ou prendre ses profits. NEUTRE sur la direction.
+PATTERN_FIBONACCI_EXTENSION_GRAMMAR: str = _signal_grammar(
+    "pattern_fibonacci_extension", (0, 1),
+)
+
+
+# Mapping etendu pour le Lot 4c-5 (2 patterns Fibonacci).
+FEATURE_GRAMMARS_LOT4C5: dict[str, str] = {
+    "pattern_fibonacci_retracement": PATTERN_FIBONACCI_RETRACEMENT_GRAMMAR,
+    "pattern_fibonacci_extension":   PATTERN_FIBONACCI_EXTENSION_GRAMMAR,
+}
+
+
 # Bloc de relations OHLCV (traitement conjoint des 5 features).
 # Permet de generer des conditions qui exploitent la semantique partagee
 # des 5 features OHLCV (par opposition a des comparaisons feat-vs-quantile).
@@ -1910,6 +1962,7 @@ FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C1)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C2)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C3)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C4)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C5)
 
 
 # Mapping des grammaires de relations (vs. grammaires par feature).
