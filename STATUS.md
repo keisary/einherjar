@@ -5,7 +5,7 @@
 >
 > **Statuts** : ✅ implémenté et testé · 🟡 partiel · ⏸ reporté · 🚧 en cours
 
-**Dernière mise à jour** : 2026-08-02 (sprint P1 coherence-persistance)
+**Dernière mise à jour** : 2026-08-03 (BNF chantier Phase 1-4 + comparateur multi-obj + pilotage)
 
 ---
 
@@ -47,7 +47,7 @@
 | TypedGPGenerator | ✅ | STGP complet (Koza 1992 + Montana 1995) : grow+full init, sélection tournoi k=3, crossover sous-arbre type-preserving, mutation sous-arbre, élitisme. Requiert engine. |
 | MemeticGenerator | ✅ | EA TypedGP + phase LSO (hill climbing réel via engine). Requiert engine. |
 | NSGA2Generator | ✅ | Deb 2002 complet : non-dominance sort + crowding + SBX + 8 contraintes dures + 4 objectifs. Médiane multi-actifs (P1 #6). Requiert engine. |
-| GrammaticalEvolutionGenerator | ⏸ | **REPORTÉ** : chantier BNF en dernier (par décision user). |
+| GrammaticalEvolutionGenerator | ✅ | **RÉACTIVÉ** (BNF Phase 4) : chromosome 8 bits × 12 gènes, décodage via `BNFCodec` (Ryan 1998), produit des Hypothèses valides. Tire au hasard parmi 218 features + bloc relations OHLCV. Branche `bnf-ge-integration`. |
 
 ---
 
@@ -56,35 +56,44 @@
 | Bloc | Statut | Notes |
 |---|---|---|
 | Raffinement | 🟡 (déprécié) | `BeamRefiner` déprécié (P1 #2). Migration vers "générer N nouveaux candidats via les générateurs + pipeline complet". |
-| Comparateur | 🟡 | `GeneratorComparator` partage l'engine avec les générateurs. Score actuel = admission_rate × Sharpe médian. À enrichir pour multi-objectif (NSGA-II). |
+| Comparateur multi-objectif | ✅ | `GeneratorComparator` partage l'engine avec les générateurs. Score composite = 0.40·sharpe + 0.30·admission + 0.15·diversity + 0.15·coherence (normalisation min-max entre moteurs, redistribution des poids si coherence=0). Branche `comparator-multiobj`. |
 | Admission (7 critères S-3.4) | ✅ | `evaluate_all_criteria` (DSR, PBO, bootstrap CI, n_trades, cross-asset, max_dd). |
 | Admission (multi-actifs strict) | ✅ | P0 #6 : médiane par actif/fold (pas moyenne), `min_n_assets=2`. |
 | Holdout persistant | ✅ | `HoldoutEvaluator` + `HoldoutLedger` (anti-réentrance post-redémarrage, atomique). |
-| Pilotage (rapport par moteur) | 🟡 | `BaselineReport` et `ComparisonReport` existent. À enrichir (candidats valides, temps, conso, diversité, métriques, admissions, rejets). |
+| Pilotage (rapport par moteur) | ✅ | Module `pilotage.py` : `PilotageReport` (volume/perf/diversité/admissions/rejets par moteur + synthèse globale + winner). Branche `pilotage-report`. |
 
 ---
 
 ## BNF (chantier séparé, en dernier)
 
-| # | Item | Statut | Notes |
+| # | Phase | Statut | Notes |
 |---|---|---|---|
-| P0 #8 | Contraintes anti-tautologies | ⏸ | En dernier (chantier BNF) |
-| P0 #9 | Terminaux BNF depuis schéma réel | ⏸ | En dernier |
-| | Orientation sémantique des patterns | ⏸ | En dernier |
-| | Parser BNF → Condition/ConditionNode | ⏸ | En dernier (permet de réactiver `GrammaticalEvolutionGenerator`) |
+| Phase 1 | Terminaux BNF (218 features) | ✅ | 100% (Lots 0-4e, 218/218 features couvertes). 4 helpers (`_default_atomic_grammar`, `_oscillator_grammar`, `_unit_bounded_grammar`, `_correlation_grammar`, `_signal_grammar`) + 1 bloc relations OHLCV. |
+| Phase 2 | Anti-tautologies (`compute_ohlcv_range_quantiles` pour `q_range_pX`) | ⏸ | **DIFFÉRÉ** à la demande user — peut attendre. |
+| Phase 3 | Orientation sémantique des patterns (108) | ✅ | Module `bnf_semantic.py` : `SemanticOrientation` enum (BULLISH/BEARISH/NEUTRAL) + heuristique de classification (cas exacts prioritaires puis suffixes). `GrammaticalEvolutionGenerator` ajoute `meta.semantic_orientation`. Branche `bnf-phase-3-semantic`. |
+| Phase 4 | Parser BNF → Condition/ConditionNode + intégration GE | ✅ | Module `bnf_parser.py` : parser BNF textuel + décodeur GE (Ryan 1998, codon % nb_productions, wraparound) + mapper AST→Condition (4 cas : quantile/discret/composé/featureref). `GrammaticalEvolutionGenerator` réactivé (plus de `NotImplementedError`). 30 tests bout-en-bout. Branches `bnf-phase-4-parser` + `bnf-ge-integration`. |
 
 ---
 
 ## Tests
 
-- **84 tests verts** au total (`python -m unittest discover -s src/einherjar/research/tests -p 'test_*.py'`)
-- Couverture par bloc : moteur, admission, corpus, holdout, validation, diversité, raffinement, démarrage
+- **169 tests verts** au total (`python -m unittest discover -s src/einherjar/research/tests -p 'test_*.py'`)
+- Répartition : 84 socle + 30 parser BNF + 39 sémantique + 15 pilotage + 1 adapt
+- Couverture par bloc : moteur, admission, corpus, holdout, validation, diversité, raffinement, démarrage, BNF (parser, sémantique), pilotage
 - Ruff clean (line length 100, conventions Google)
 
 ---
 
-## Branches actives
+## Branches mergées sur main (par sprint)
 
-- `main` : socle complet, pipeline 7 étapes fonctionnel
-- `p10-moteurs-reels` : historique (mergé sur main)
-- `sprint-p1-coherence-persistance` : sprint en cours (P1/P2)
+- `p10-moteurs-reels` : 5 générateurs vrais (Random, Beam, TypedGP, Memetic, NSGA-II)
+- `sprint-p1-coherence-persistance` : P1 #2-#8 + P2 #1-#4
+- `bnf-ohlcv` : 5 features OHLCV + bloc relations (Lot 0)
+- `bnf-lot1` à `bnf-lot4e` : 213 features restantes en 11 sous-lots
+- `bnf-phase-4-parser` : parser BNF + mapper
+- `bnf-ge-integration` : réactivation `GrammaticalEvolutionGenerator`
+- `bnf-phase-3-semantic` : orientation sémantique 108 patterns
+- `comparator-multiobj` : score composite 4 axes
+- `pilotage-report` : rapport structuré par moteur
+
+`main` : **socle complet + BNF chantier Phase 1/3/4 + comparateur multi-obj + pilotage**, pipeline 7 étapes fonctionnel, 6 générateurs.

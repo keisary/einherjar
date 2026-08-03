@@ -834,6 +834,19 @@ L'architecture recommandée **n'est PAS un seul algorithme** mais un **pipeline 
 | 5 | **Quotas + descripteurs comportementaux + fingerprint canonique** | Admission au corpus |
 | 6 | **Holdout sacré** (une seule passe) | Évaluation finale |
 
+**Note 2026-08-03** : La **Grammatical Evolution** (GE) est désormais **opérationnelle** (chantier BNF Phase 1/3/4 livré). 6 générateurs sont implémentés et comparables via `make_all_generators` :
+  1. `RandomSearchGenerator` (random search, pas d'engine)
+  2. `BeamSearchGenerator` (vraie expansion par niveaux, requiert engine)
+  3. `TypedGPGenerator` (STGP Koza+Montana, requiert engine)
+  4. `GrammaticalEvolutionGenerator` (BNF 218 features + bloc relations OHLCV, chromosome 8 bits × 12 gènes, décodeur Ryan 1998, requiert engine)
+  5. `MemeticGenerator` (EA TypedGP + LSO hill climbing, requiert engine)
+  6. `NSGA2Generator` (Deb 2002 multi-objectif, requiert engine)
+
+Le **comparateur multi-objectif** (Phase 4) classe les générateurs via un score composite :
+  `0.40·norm_sharpe + 0.30·norm_admission + 0.15·norm_diversity + 0.15·norm_coherence`
+  avec normalisation min-max entre moteurs, redistribution des poids si coherence=0.
+  Le **pilotage** (`pilotage.py`) produit un rapport structuré par moteur (volume, perf, diversité, admissions, rejets).
+
 ### 10.5 Algorithmes à explorer en V2
 
 | Algorithme | Bénéfice attendu | Trigger de passage en V2 |
@@ -912,17 +925,27 @@ Le pipeline peut être implémenté en quelques milliers de lignes de Python, av
 - **Sur-confiance dans le DSR/PBO** : DSR et PBO sont des outils statistiques, pas des oracles. Avec 10 000-100 000 candidats, la barre DSR > 0.95 peut être trop laxiste ou trop stricte selon le régime. À calibrer empiriquement.
 - **Look-ahead résiduel** : malgré le split train/val/holdout + purging + embargo, des fuites subtiles peuvent subsister (ex : features à fenêtre glissante qui dépassent la borne, par effet de rolling). Audit manuel requis sur les premiers runs.
 
-### 11.5 Prochaines étapes concrètes (révisées 2026-08-01)
+### 11.5 Prochaines étapes concrètes (révisées 2026-08-03)
 
-1. **Implémenter le moteur d'évaluation** (priorité 0), conforme à `ONTOLOGY.md` S-2 et S-3.1-S-3.3. Tests de non-régression et de non-fuite.
-2. **Lancer les baselines** : règle humaine, énumération peu profonde, random search. Mesurer la distribution de Sharpe et PnL sur le val.
-3. **Lancer la comparaison reproductible des générateurs** (random / GE / GP typé / beam), mêmes seeds, splits, budget, métriques, coûts. Choisir sur résultats.
-4. **Écrire la grammaire BNF** (si GE est retenu) couvrant : amplitude, univers, direction, constantes, canonisation, limites de profondeur. Sinon, formaliser la représentation interne de GP typé / beam.
-5. **Implémenter les descripteurs comportementaux** et le calcul de fingerprint canonique (structurel + comportemental).
-6. **Implémenter l'Archive enrichie** (nouveau schéma de stockage).
-7. **Lancer un premier run de bout en bout** sur 1 actif × 1 timeframe, en respectant scrupuleusement la discipline train/val/holdout.
-8. **Calibrer** les seuils S-3.4 et la métrique composite (si retenue) sur les résultats des baselines et des premiers runs.
-9. **Étendre** progressivement à plus d'actifs et de timeframes.
+1. **Implémenter le moteur d'évaluation** (priorité 0), conforme à `ONTOLOGY.md` S-2 et S-3.1-S-3.3. Tests de non-régression et de non-fuite. ✅ FAIT
+2. **Lancer les baselines** : règle humaine, énumération peu profonde, random search. Mesurer la distribution de Sharpe et PnL sur le val. ✅ FAIT
+3. **Lancer la comparaison reproductible des générateurs** (random / GE / GP typé / beam), mêmes seeds, splits, budget, métriques, coûts. Choisir sur résultats. ✅ FAIT (6 générateurs comparables)
+4. **Écrire la grammaire BNF** (si GE est retenu) couvrant : amplitude, univers, direction, constantes, canonisation, limites de profondeur. Sinon, formaliser la représentation interne de GP typé / beam. ✅ FAIT (BNF Phase 1 : 218/218 terminaux + bloc relations OHLCV, Lots 0-4e)
+5. **Implémenter les descripteurs comportementaux** et le calcul de fingerprint canonique (structurel + comportemental). ✅ FAIT (P1 #7, P1 #8)
+6. **Implémenter l'Archive enrichie** (nouveau schéma de stockage). ✅ FAIT (P1 #7, P1 #8)
+7. **Lancer un premier run de bout en bout** sur 1 actif × 1 timeframe, en respectant scrupuleusement la discipline train/val/holdout. ⏳ Reste à faire
+8. **Calibrer** les seuils S-3.4 et la métrique composite (si retenue) sur les résultats des baselines et des premiers runs. ⏳ Reste à faire
+9. **Étendre** progressivement à plus d'actifs et de timeframes. ⏳ Reste à faire
+
+**Chantier BNF (récap)** :
+  - **Phase 1** (terminaux 218 features) : ✅ FAIT
+  - **Phase 2** (anti-tautologies `compute_ohlcv_range_quantiles`) : ⏸ DIFFÉRÉ à la demande user
+  - **Phase 3** (orientation sémantique 108 patterns) : ✅ FAIT
+  - **Phase 4** (parser BNF + intégration GE) : ✅ FAIT
+
+**Chantiers complémentaires livrés** :
+  - **Comparateur multi-objectif** : ✅ FAIT (score composite 4 axes, branche `comparator-multiobj`)
+  - **Pilotage** : ✅ FAIT (rapport structuré par moteur, branche `pilotage-report`)
 
 ---
 
