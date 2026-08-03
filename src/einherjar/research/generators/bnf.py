@@ -50,9 +50,11 @@ Statut :
     Impulsions haussieres 1/3/5 (les 3 vagues d'un cycle).
   - 10/218 patterns harmoniques (Lot 4c-7) : Gartley, Butterfly, Bat,
     Crab, Shark (chacun en bull/bear). Ratios Fibonacci specifiques.
+  - 4/218 patterns (Lot 4d) : 3 regimes (uptrend/downtrend/sideways) +
+    1 three_drives (harmonique de continuation). Binaires.
   - 1 bloc de relations OHLCV : `OHLCV_RELATIONS_GRAMMAR` (traitement
     conjoint open/high/low/close/volume, e.g. "close > open").
-  - Reste : 24 features `pattern` (three_drives 1, regimes 3, autres 20).
+  - Reste : 20 features `pattern` (Lot 4e, a inventorier).
 """
 
 from __future__ import annotations
@@ -2072,6 +2074,57 @@ FEATURE_GRAMMARS_LOT4C7: dict[str, str] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Lot 4d : patterns regime de marche (3) + three_drives (1) = 4 features
+#          famille market_regime / other
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte appliquee pour chaque pattern ci-dessous.
+#
+# Tous binaires {0, 1}. Direction dans le nom (uptrend, downtrend) ou
+# implicite (sideways = range, three_drives = continuation).
+# Reutilise _signal_grammar du Lot 4a.
+
+
+# --- Patterns de regime (3) --- #
+# pattern_uptrend : tendance haussiere identifiee. Caracterisee par
+# des higher highs (sommets de plus en plus hauts) et higher lows
+# (creux de plus en plus hauts). Detection par algorithme (ex: pente
+# de regression positive sur les N dernieres bougies, avec confirmation
+# par les creux ascendants). BULLISH.
+PATTERN_UPTREND_GRAMMAR: str = _signal_grammar("pattern_uptrend", (0, 1))
+
+# pattern_downtrend : symetrique. Lower highs + lower lows. BEARISH.
+PATTERN_DOWNTREND_GRAMMAR: str = _signal_grammar("pattern_downtrend", (0, 1))
+
+# pattern_sideways_trend : range, ni hausse ni baisse marquee. Le prix
+# oscille entre un support et une resistance horizontalement. NEUTRE.
+# Souvent precede ou suivi d'un breakout directionnel.
+PATTERN_SIDEWAYS_TREND_GRAMMAR: str = _signal_grammar(
+    "pattern_sideways_trend", (0, 1),
+)
+
+
+# --- Three drives (1) --- #
+# pattern_three_drives (Scott Carney) : pattern harmonique de continuation
+# base sur 3 mouvements successifs ("drives") avec des retracements
+# 0.618 entre chaque drive, et le 3eme drive atteint une extension
+# 1.272. Structure : 3 drives haussiers (bull) ou baissiers (bear) avec
+# retracements 0.618. CONTINUATION du mouvement initial.
+PATTERN_THREE_DRIVES_GRAMMAR: str = _signal_grammar("pattern_three_drives", (0, 1))
+
+
+# Mapping etendu pour le Lot 4d (3 regimes + three_drives = 4 patterns).
+FEATURE_GRAMMARS_LOT4D: dict[str, str] = {
+    # Regimes (3)
+    "pattern_uptrend":         PATTERN_UPTREND_GRAMMAR,
+    "pattern_downtrend":       PATTERN_DOWNTREND_GRAMMAR,
+    "pattern_sideways_trend":  PATTERN_SIDEWAYS_TREND_GRAMMAR,
+    # Three drives (1)
+    "pattern_three_drives":    PATTERN_THREE_DRIVES_GRAMMAR,
+}
+
+
 # Bloc de relations OHLCV (traitement conjoint des 5 features).
 # Permet de generer des conditions qui exploitent la semantique partagee
 # des 5 features OHLCV (par opposition a des comparaisons feat-vs-quantile).
@@ -2120,6 +2173,7 @@ FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C4)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C5)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C6)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C7)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4D)
 
 
 # Mapping des grammaires de relations (vs. grammaires par feature).
