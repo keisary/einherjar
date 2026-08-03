@@ -28,17 +28,17 @@ Statut :
   - 31/218 features QUANTITATIVES (Lot 2) : entropies (4), autocorrelations
     (6), volatilite (5), risque (5), regime de marche (4), momentum quant (2),
     microstructure (2), spectral (2), variance ratio (1).
-    NOTE : 4 features quantitative `_signal` (quant_hurst_exponent_signal,
-    quant_realized_vol_10_signal, quant_shannon_entropy_signal,
-    quant_vol_persistence_signal) sont dans la taxonomie mais marquees
-    excluded=True (fantomes), donc 31/35 traitees.
-  - 26/218 features (Lot 3) : 4 atomic restants (choppiness_index,
-    kurtosis_risk, skewness_risk, vwap) + 9 composite_derived signaux
-    (adx/aroon/bb_width/macd/obv/supertrend/volume_ratio/volume_sma/vwap
-    _signal) + 13 factors (scores agreges en [0, 1]).
+    NOTE : 4 features quantitative `_signal` fantomes exclues, 31/35 traitees.
+  - 26/218 features (Lot 3) : 4 atomic restants + 9 composite_derived signaux
+    + 13 factors (scores agreges en [0, 1]).
+  - 15/218 patterns chandeliers simples (Lot 4a) : 5 dojis, 4 single-candle
+    reversal (hammer/hanging/inverted/shooting), 2 marubozu, 4 multi-candle
+    (spinning/high_wave/three_white/three_black). Tous en hypothese binaire
+    {0, 1} a valider contre le FeatureEngine reel.
   - 1 bloc de relations OHLCV : `OHLCV_RELATIONS_GRAMMAR` (traitement
     conjoint open/high/low/close/volume, e.g. "close > open").
-  - Reste : 107 features `pattern` (gros morceau, BNF specialisee).
+  - Reste : 92 features `pattern` (chandeliers composes, chartistes,
+    harmoniques, S/R, breakouts, regimes).
 """
 
 from __future__ import annotations
@@ -1196,6 +1196,134 @@ FEATURE_GRAMMARS_LOT3: dict[str, str] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Lot 4a : patterns chandeliers simples (15) — famille price_action
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte (Identifier -> Comprendre -> Concevoir -> Verifier ->
+# Valider -> Ecrire) appliquee pour chaque pattern ci-dessous.
+#
+# HYPOTHESE importante : tous les patterns sont traites comme BINAIRES
+# (0 = non detecte, 1 = detecte a la bougie t). La direction (haussier /
+# baissier) est codee dans le nom du pattern (ex: marubozu_bull,
+# marubozu_bear, three_white_soldiers, three_black_crows), PAS dans la
+# valeur du signal.
+#
+# A VERIFIER contre le FeatureEngine reel : si les patterns sont des
+# scores continus de confiance [0, 1], remplacer `_signal_grammar((0, 1))`
+# par `_unit_bounded_grammar(0.0, 1.0)` (quantiles continus).
+#
+# 4 sous-groupes de patterns :
+#   1. Dojis (5)              : indecision / retournement
+#   2. Single reversal (4)    : retournement a 1 bougie
+#   3. Marubozu (2)           : continuite forte, sans meches
+#   4. Multi-candle (4)       : continuite / indcision sur 3 bougies
+
+
+# --- Sous-groupe 1 : Dojis (5) --- #
+# pattern_doji : open ~ close, indecision. Definition typique : |body| < X%
+# du range. Plus la meche est longue, plus l'indecision est forte.
+PATTERN_DOJI_GRAMMAR: str = _signal_grammar("pattern_doji", (0, 1))
+
+# pattern_dragonfly_doji : open = close = high, longue meche basse. En bas
+# de tendance baissiere = retournement haussier (les acheteurs ont rejete
+# la baisse). Dragonfly = libellule (forme de T inversee).
+PATTERN_DRAGONFLY_DOJI_GRAMMAR: str = _signal_grammar("pattern_dragonfly_doji", (0, 1))
+
+# pattern_four_price_doji : open = high = low = close, vol ~ 0. Quasi-zero
+# volatilite (rare sur crypto 24/7).
+PATTERN_FOUR_PRICE_DOJI_GRAMMAR: str = _signal_grammar("pattern_four_price_doji", (0, 1))
+
+# pattern_gravestone_doji : open = close = low, longue meche haute. En haut
+# de tendance haussiere = retournement baissier (les vendeurs ont rejete
+# la hausse). Pierre tombale.
+PATTERN_GRAVESTONE_DOJI_GRAMMAR: str = _signal_grammar("pattern_gravestone_doji", (0, 1))
+
+# pattern_long_legged_doji : open ~ close, meches haute et basse tres
+# longues. Forte indecision (marche "tire dans tous les sens").
+PATTERN_LONG_LEGGED_DOJI_GRAMMAR: str = _signal_grammar("pattern_long_legged_doji", (0, 1))
+
+
+# --- Sous-groupe 2 : Single-candle reversal (4) --- #
+# pattern_hammer : petit corps en haut de la bougie, longue meche basse
+# (>= 2x corps), peu ou pas de meche haute. En BAS de tendance baissiere
+# = retournement haussier (les acheteurs ont rejete la baisse).
+PATTERN_HAMMER_GRAMMAR: str = _signal_grammar("pattern_hammer", (0, 1))
+
+# pattern_hanging_man : meme forme que hammer mais en HAUT de tendance
+# haussiere = retournement baissier. Meme morphologie, contexte different.
+PATTERN_HANGING_MAN_GRAMMAR: str = _signal_grammar("pattern_hanging_man", (0, 1))
+
+# pattern_inverted_hammer : petit corps en BAS de la bougie, longue meche
+# haute, peu ou pas de meche basse. En bas de tendance = signal haussier
+# faible (les acheteurs tentent de pousser mais sans succes encore).
+PATTERN_INVERTED_HAMMER_GRAMMAR: str = _signal_grammar("pattern_inverted_hammer", (0, 1))
+
+# pattern_shooting_star : meme forme que inverted_hammer mais en HAUT de
+# tendance = retournement baissier. Etoile filante.
+PATTERN_SHOOTING_STAR_GRAMMAR: str = _signal_grammar("pattern_shooting_star", (0, 1))
+
+
+# --- Sous-groupe 3 : Marubozu (2) --- #
+# Marubozu = corps plein sans meches (ou quasi). Signal de continuation
+# fort (le marche a decide dans une direction).
+# pattern_marubozu_bull : open = low, close = high, tout vert. Continuation
+# haussiere. "Tori" en japonais = sans cheveux (pas de meches).
+PATTERN_MARUBOZU_BULL_GRAMMAR: str = _signal_grammar("pattern_marubozu_bull", (0, 1))
+
+# pattern_marubozu_bear : open = high, close = low, tout rouge. Continuation
+# baissiere.
+PATTERN_MARUBOZU_BEAR_GRAMMAR: str = _signal_grammar("pattern_marubozu_bear", (0, 1))
+
+
+# --- Sous-groupe 4 : Multi-candle et indcision (4) --- #
+# pattern_spinning_top : petit corps central, meches haute et basse
+# symetriques. Indecision neutre (ni haussier ni baissier).
+PATTERN_SPINNING_TOP_GRAMMAR: str = _signal_grammar("pattern_spinning_top", (0, 1))
+
+# pattern_high_wave_candle : similaire a spinning top mais avec meches
+# encore plus longues. Indecision extreme.
+PATTERN_HIGH_WAVE_CANDLE_GRAMMAR: str = _signal_grammar("pattern_high_wave_candle", (0, 1))
+
+# pattern_three_white_soldiers : 3 bougies haussieres consecutives, chacune
+# avec open dans le corps de la precedente et close plus haute. Signal de
+# continuation haussiere tres fort.
+PATTERN_THREE_WHITE_SOLDIERS_GRAMMAR: str = _signal_grammar(
+    "pattern_three_white_soldiers", (0, 1),
+)
+
+# pattern_three_black_crows : 3 bougies baissieres consecutives, chacune
+# avec open dans le corps de la precedente et close plus basse. Symetrique
+# baissier des three white soldiers.
+PATTERN_THREE_BLACK_CROWS_GRAMMAR: str = _signal_grammar(
+    "pattern_three_black_crows", (0, 1),
+)
+
+
+# Mapping etendu pour le Lot 4a (15 patterns chandeliers simples).
+FEATURE_GRAMMARS_LOT4A: dict[str, str] = {
+    # Dojis (5)
+    "pattern_doji":              PATTERN_DOJI_GRAMMAR,
+    "pattern_dragonfly_doji":    PATTERN_DRAGONFLY_DOJI_GRAMMAR,
+    "pattern_four_price_doji":   PATTERN_FOUR_PRICE_DOJI_GRAMMAR,
+    "pattern_gravestone_doji":   PATTERN_GRAVESTONE_DOJI_GRAMMAR,
+    "pattern_long_legged_doji":  PATTERN_LONG_LEGGED_DOJI_GRAMMAR,
+    # Single-candle reversal (4)
+    "pattern_hammer":            PATTERN_HAMMER_GRAMMAR,
+    "pattern_hanging_man":       PATTERN_HANGING_MAN_GRAMMAR,
+    "pattern_inverted_hammer":   PATTERN_INVERTED_HAMMER_GRAMMAR,
+    "pattern_shooting_star":     PATTERN_SHOOTING_STAR_GRAMMAR,
+    # Marubozu (2)
+    "pattern_marubozu_bull":     PATTERN_MARUBOZU_BULL_GRAMMAR,
+    "pattern_marubozu_bear":     PATTERN_MARUBOZU_BEAR_GRAMMAR,
+    # Multi-candle (4)
+    "pattern_spinning_top":            PATTERN_SPINNING_TOP_GRAMMAR,
+    "pattern_high_wave_candle":        PATTERN_HIGH_WAVE_CANDLE_GRAMMAR,
+    "pattern_three_white_soldiers":    PATTERN_THREE_WHITE_SOLDIERS_GRAMMAR,
+    "pattern_three_black_crows":       PATTERN_THREE_BLACK_CROWS_GRAMMAR,
+}
+
+
 # Bloc de relations OHLCV (traitement conjoint des 5 features).
 # Permet de generer des conditions qui exploitent la semantique partagee
 # des 5 features OHLCV (par opposition a des comparaisons feat-vs-quantile).
@@ -1235,6 +1363,7 @@ FEATURE_GRAMMARS: dict[str, str] = {
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT1)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT2)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT3)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4A)
 
 
 # Mapping des grammaires de relations (vs. grammaires par feature).
