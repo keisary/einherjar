@@ -32,10 +32,13 @@ Statut :
     quant_realized_vol_10_signal, quant_shannon_entropy_signal,
     quant_vol_persistence_signal) sont dans la taxonomie mais marquees
     excluded=True (fantomes), donc 31/35 traitees.
+  - 26/218 features (Lot 3) : 4 atomic restants (choppiness_index,
+    kurtosis_risk, skewness_risk, vwap) + 9 composite_derived signaux
+    (adx/aroon/bb_width/macd/obv/supertrend/volume_ratio/volume_sma/vwap
+    _signal) + 13 factors (scores agreges en [0, 1]).
   - 1 bloc de relations OHLCV : `OHLCV_RELATIONS_GRAMMAR` (traitement
     conjoint open/high/low/close/volume, e.g. "close > open").
-  - Les features specialisees (pattern, factor, composite_derived, signal)
-    necessiteront des regles specifiques par la suite.
+  - Reste : 107 features `pattern` (gros morceau, BNF specialisee).
 """
 
 from __future__ import annotations
@@ -269,6 +272,26 @@ def _correlation_grammar(feature_name: str, lag: int | None = None) -> str:
     )
     return (
         f'# {feature_name} : {lag_info}, borne dans [-1, +1]\n'
+        f'<{feature_name}_cond> ::= "{feature_name}" <{feature_name}_op> <{feature_name}_threshold>\n'
+        f'<{feature_name}_op> ::= {ops}\n'
+        f'<{feature_name}_threshold> ::= {thresholds}'
+    )
+
+
+def _signal_grammar(feature_name: str, values: tuple[int, ...]) -> str:
+    """Helper pour signaux discrets (binarises ou trinaires).
+
+    Args:
+        feature_name: nom exact dans la taxonomie (ex: "obv_signal").
+        values: valeurs discretes prises par le signal (ex: (0, 1) ou (-1, 0, 1)).
+
+    Note: les terminaux sont nommes `v_<feat>_<N>` (vs `q_<feat>_pX` pour
+    les quantiles continus) pour distinguer valeur discrete vs quantile.
+    """
+    ops = " | ".join(f'"{op.value}"' for op in DEFAULT_ATOMIC_OPERATORS)
+    thresholds = " | ".join(f"v_{feature_name}_{v}" for v in values)
+    return (
+        f'# {feature_name} : signal discret dans {values}\n'
         f'<{feature_name}_cond> ::= "{feature_name}" <{feature_name}_op> <{feature_name}_threshold>\n'
         f'<{feature_name}_op> ::= {ops}\n'
         f'<{feature_name}_threshold> ::= {thresholds}'
@@ -974,6 +997,205 @@ FEATURE_GRAMMARS_LOT2: dict[str, str] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Lot 3 : 4 atomic restants + 9 composite_derived (signaux) + 13 factors
+#         (26 features au total)
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte (Identifier -> Comprendre -> Concevoir -> Verifier ->
+# Valider -> Ecrire) appliquee pour chaque feature ci-dessous.
+#
+# Verification inventaire : toutes les features sont filtrees sur
+# `usable_feature_names` (pas seulement la taxonomie JSON brute), suite a
+# l'erreur du Lot 2 ou 4 features quantitative `_signal` fantomes avaient
+# ete incluses a tort.
+#
+# Helper additionnel :
+#   - _signal_grammar(feat, values) : signaux discrets (valeurs fixes, pas
+#     quantiles continus) ; terminaux nommes `v_<feat>_<N>`.
+
+
+# --- Sous-famille 1 : 4 atomic restants --- #
+# Feature 86/218 : "choppiness_index" (E.W. Dreiss).
+#   - Identifier  : atomic, float, family=market_regime
+#   - Comprendre  : 100 * log10(sum(ATR_N) / range_N) / log10(N). Borne
+#     [0, 100]. > 61.8 = tres choppy (range), < 38.2 = trending.
+#   - Concevoir   : _oscillator_grammar (borne [0, 100]).
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+# Feature 87/218 : "kurtosis_risk" (kurtosis rolling).
+#   - Identifier  : atomic, float, family=risk
+#   - Comprendre  : exces de kurtosis sur fenetre glissante. PAS de borne
+#     stricte, typique [0, 30]. > 0 = fat tails vs gaussien.
+#   - Concevoir   : _default_atomic_grammar.
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+# Feature 88/218 : "skewness_risk" (skewness rolling).
+#   - Identifier  : atomic, float, family=risk
+#   - Comprendre  : asymetrie sur fenetre. PAS de borne stricte, typique
+#     [-3, +3]. < 0 = skewed a gauche (pertes), > 0 = skewed a droite.
+#   - Concevoir   : _default_atomic_grammar.
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+# Feature 89/218 : "vwap" (Volume-Weighted Average Price).
+#   - Identifier  : atomic, float, family=price_action
+#   - Comprendre  : sum(close * volume) / sum(volume) (rolling). Suit le
+#     prix, pas de borne stricte. Indicateur intraday de prix moyen pondere
+#     par le volume (zones de gros volume = support/resistance).
+#   - Concevoir   : _default_atomic_grammar.
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+CHOPPINESS_INDEX_GRAMMAR: str = _oscillator_grammar("choppiness_index", 14)
+KURTOSIS_RISK_GRAMMAR: str = _default_atomic_grammar("kurtosis_risk")
+SKEWNESS_RISK_GRAMMAR: str = _default_atomic_grammar("skewness_risk")
+VWAP_GRAMMAR: str = _default_atomic_grammar("vwap")
+
+
+# --- Sous-famille 2 : 9 composite_derived (signaux discrets) --- #
+# Pattern : les `_signal` sont des features binarisees (0/1) ou trinaires
+# (-1/0/1) obtenues par seuillage de la feature continue parente. Operateurs
+# >, <, >=, <= fonctionnent aussi, mais on garde les memes pour coherence.
+# Seuils = valeurs discretes (PAS quantiles).
+# Feature 90/218 : "adx_strength_signal" (seuillage adx_14).
+#   - Identifier  : composite_derived, family=trend
+#   - Comprendre  : typiquement 1 si adx_14 > 25 (tendance forte), 0 sinon.
+#     Valeurs discretes {0, 1}.
+#   - Concevoir   : _signal_grammar((0, 1)).
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+# Feature 91/218 : "aroon_trend_signal" (seuillage aroon_up vs aroon_down).
+#   - Composite_derived, family=trend. Typiquement {-1, 0, 1}.
+#   - Concevoir   : _signal_grammar((-1, 0, 1)).
+# Feature 92/218 : "bb_width_signal" (seuillage volatilite BB squeeze).
+#   - Composite_derived, family=volatility. Typiquement {0, 1}.
+#   - Concevoir   : _signal_grammar((0, 1)).
+# Feature 93/218 : "macd_trend_signal" (croisement macd_line / macd_signal).
+#   - Composite_derived, family=trend. Typiquement {-1, 0, 1}.
+#   - Concevoir   : _signal_grammar((-1, 0, 1)).
+# Feature 94/218 : "obv_signal" (seuillage tendance OBV).
+#   - Composite_derived, family=volume_flow. Typiquement {0, 1}.
+#   - Concevoir   : _signal_grammar((0, 1)).
+# Feature 95/218 : "supertrend_signal" (sens du supertrend).
+#   - Composite_derived, family=trend. Typiquement {-1, 0, 1}.
+#   - Concevoir   : _signal_grammar((-1, 0, 1)).
+# Feature 96/218 : "volume_ratio_signal" (seuillage volume_ratio > 1).
+#   - Composite_derived, family=volume_flow. Typiquement {0, 1}.
+#   - Concevoir   : _signal_grammar((0, 1)).
+# Feature 97/218 : "volume_sma_signal" (seuillage volume_sma_20).
+#   - Composite_derived, family=volume_flow. Typiquement {0, 1}.
+#   - Concevoir   : _signal_grammar((0, 1)).
+# Feature 98/218 : "vwap_signal" (close > vwap ou close < vwap).
+#   - Composite_derived, family=price_action. Typiquement {-1, 0, 1}.
+#   - Concevoir   : _signal_grammar((-1, 0, 1)).
+ADX_STRENGTH_SIGNAL_GRAMMAR: str = _signal_grammar("adx_strength_signal", (0, 1))
+AROON_TREND_SIGNAL_GRAMMAR: str = _signal_grammar("aroon_trend_signal", (-1, 0, 1))
+BB_WIDTH_SIGNAL_GRAMMAR: str = _signal_grammar("bb_width_signal", (0, 1))
+MACD_TREND_SIGNAL_GRAMMAR: str = _signal_grammar("macd_trend_signal", (-1, 0, 1))
+OBV_SIGNAL_GRAMMAR: str = _signal_grammar("obv_signal", (0, 1))
+SUPERTREND_SIGNAL_GRAMMAR: str = _signal_grammar("supertrend_signal", (-1, 0, 1))
+VOLUME_RATIO_SIGNAL_GRAMMAR: str = _signal_grammar("volume_ratio_signal", (0, 1))
+VOLUME_SMA_SIGNAL_GRAMMAR: str = _signal_grammar("volume_sma_signal", (0, 1))
+VWAP_SIGNAL_GRAMMAR: str = _signal_grammar("vwap_signal", (-1, 0, 1))
+
+
+# --- Sous-famille 3 : 13 factors (scores agreges) --- #
+# Scores combinant plusieurs features en un seul signal. Bornes typiques
+# [0, 1] (scores normalises) ou [0, 100] (scores en %). On part sur [0, 1]
+# par defaut, le parser verifiera la distribution reelle.
+# Feature 99/218 : "Factor_Candlestick_Bullish_Score" (famille price_action).
+#   - Identifier  : factor, family=price_action
+#   - Comprendre  : score agrege des patterns chandeliers haussiers. Borne
+#     typique [0, 1]. Plus eleve = plus de patterns haussiers.
+#   - Concevoir   : _unit_bounded_grammar(0.0, 1.0).
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+# Feature 100/218 : "Factor_Candlestick_Bearish_Score" (price_action). Idem mais baissier.
+# Feature 101/218 : "Factor_Chart_Patterns_Score" (market_structure). Patterns chartistes reconnus.
+# Feature 102/218 : "Factor_Harmonic_Patterns_Score" (market_structure). Patterns harmoniques.
+# Feature 103/218 : "Factor_Momentum_Score" (momentum). Score momentum agrege.
+# Feature 104/218 : "Factor_Persistence_Score" (statistical). Score autocorrelation/persistence.
+# Feature 105/218 : "Factor_Quantitative_Score" (statistical). Score agrege des quantitative.
+# Feature 106/218 : "Factor_Regime_Hurst_Score" (market_regime). Score regime base sur Hurst.
+# Feature 107/218 : "Factor_Risk_TailEvent_Score" (risk). Score risque de queues epaisses.
+# Feature 108/218 : "Factor_Support_Resistance_Score" (market_structure). Proximite S/R.
+# Feature 109/218 : "Factor_Trend_Score" (trend). Score tendance agrege.
+# Feature 110/218 : "Factor_Volatility_Score" (volatility). Score volatilite.
+# Feature 111/218 : "Factor_Volume_Score" (volume_flow). Score volume.
+FACTOR_CANDLESTICK_BULLISH_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Candlestick_Bullish_Score", 0.0, 1.0,
+)
+FACTOR_CANDLESTICK_BEARISH_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Candlestick_Bearish_Score", 0.0, 1.0,
+)
+FACTOR_CHART_PATTERNS_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Chart_Patterns_Score", 0.0, 1.0,
+)
+FACTOR_HARMONIC_PATTERNS_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Harmonic_Patterns_Score", 0.0, 1.0,
+)
+FACTOR_MOMENTUM_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Momentum_Score", 0.0, 1.0,
+)
+FACTOR_PERSISTENCE_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Persistence_Score", 0.0, 1.0,
+)
+FACTOR_QUANTITATIVE_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Quantitative_Score", 0.0, 1.0,
+)
+FACTOR_REGIME_HURST_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Regime_Hurst_Score", 0.0, 1.0,
+)
+FACTOR_RISK_TAILEVENT_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Risk_TailEvent_Score", 0.0, 1.0,
+)
+FACTOR_SUPPORT_RESISTANCE_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Support_Resistance_Score", 0.0, 1.0,
+)
+FACTOR_TREND_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Trend_Score", 0.0, 1.0,
+)
+FACTOR_VOLATILITY_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Volatility_Score", 0.0, 1.0,
+)
+FACTOR_VOLUME_SCORE_GRAMMAR: str = _unit_bounded_grammar(
+    "Factor_Volume_Score", 0.0, 1.0,
+)
+
+
+# Mapping etendu pour le Lot 3 (4 atomic + 9 signals + 13 factors = 26).
+FEATURE_GRAMMARS_LOT3: dict[str, str] = {
+    # 4 atomic restants
+    "choppiness_index":  CHOPPINESS_INDEX_GRAMMAR,
+    "kurtosis_risk":     KURTOSIS_RISK_GRAMMAR,
+    "skewness_risk":     SKEWNESS_RISK_GRAMMAR,
+    "vwap":              VWAP_GRAMMAR,
+    # 9 composite_derived (signaux discrets)
+    "adx_strength_signal":  ADX_STRENGTH_SIGNAL_GRAMMAR,
+    "aroon_trend_signal":   AROON_TREND_SIGNAL_GRAMMAR,
+    "bb_width_signal":      BB_WIDTH_SIGNAL_GRAMMAR,
+    "macd_trend_signal":    MACD_TREND_SIGNAL_GRAMMAR,
+    "obv_signal":           OBV_SIGNAL_GRAMMAR,
+    "supertrend_signal":    SUPERTREND_SIGNAL_GRAMMAR,
+    "volume_ratio_signal":  VOLUME_RATIO_SIGNAL_GRAMMAR,
+    "volume_sma_signal":    VOLUME_SMA_SIGNAL_GRAMMAR,
+    "vwap_signal":          VWAP_SIGNAL_GRAMMAR,
+    # 13 factors
+    "Factor_Candlestick_Bullish_Score":  FACTOR_CANDLESTICK_BULLISH_SCORE_GRAMMAR,
+    "Factor_Candlestick_Bearish_Score":  FACTOR_CANDLESTICK_BEARISH_SCORE_GRAMMAR,
+    "Factor_Chart_Patterns_Score":       FACTOR_CHART_PATTERNS_SCORE_GRAMMAR,
+    "Factor_Harmonic_Patterns_Score":    FACTOR_HARMONIC_PATTERNS_SCORE_GRAMMAR,
+    "Factor_Momentum_Score":             FACTOR_MOMENTUM_SCORE_GRAMMAR,
+    "Factor_Persistence_Score":          FACTOR_PERSISTENCE_SCORE_GRAMMAR,
+    "Factor_Quantitative_Score":         FACTOR_QUANTITATIVE_SCORE_GRAMMAR,
+    "Factor_Regime_Hurst_Score":         FACTOR_REGIME_HURST_SCORE_GRAMMAR,
+    "Factor_Risk_TailEvent_Score":       FACTOR_RISK_TAILEVENT_SCORE_GRAMMAR,
+    "Factor_Support_Resistance_Score":   FACTOR_SUPPORT_RESISTANCE_SCORE_GRAMMAR,
+    "Factor_Trend_Score":                FACTOR_TREND_SCORE_GRAMMAR,
+    "Factor_Volatility_Score":           FACTOR_VOLATILITY_SCORE_GRAMMAR,
+    "Factor_Volume_Score":               FACTOR_VOLUME_SCORE_GRAMMAR,
+}
+
+
 # Bloc de relations OHLCV (traitement conjoint des 5 features).
 # Permet de generer des conditions qui exploitent la semantique partagee
 # des 5 features OHLCV (par opposition a des comparaisons feat-vs-quantile).
@@ -1012,6 +1234,7 @@ FEATURE_GRAMMARS: dict[str, str] = {
 }
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT1)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT2)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT3)
 
 
 # Mapping des grammaires de relations (vs. grammaires par feature).
