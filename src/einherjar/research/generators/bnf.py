@@ -46,10 +46,13 @@ Statut :
     Binaires.
   - 2/218 patterns Fibonacci (Lot 4c-5) : retracement (23.6/38.2/50/61.8/78.6)
     + extension (127.2/161.8/261.8/423.6). Binaires.
+  - 3/218 patterns Elliott Wave (Lot 4c-6) : elliott_wave_1, _3, _5.
+    Impulsions haussieres 1/3/5 (les 3 vagues d'un cycle).
+  - 10/218 patterns harmoniques (Lot 4c-7) : Gartley, Butterfly, Bat,
+    Crab, Shark (chacun en bull/bear). Ratios Fibonacci specifiques.
   - 1 bloc de relations OHLCV : `OHLCV_RELATIONS_GRAMMAR` (traitement
     conjoint open/high/low/close/volume, e.g. "close > open").
-  - Reste : 37 features `pattern` (Elliott 3, three_drives 1, harmoniques
-    10, regimes 3, autres 20).
+  - Reste : 24 features `pattern` (three_drives 1, regimes 3, autres 20).
 """
 
 from __future__ import annotations
@@ -1917,6 +1920,158 @@ FEATURE_GRAMMARS_LOT4C5: dict[str, str] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Lot 4c-6 : patterns chartistes - Elliott Wave 1/3/5 (3) — famille
+#            market_structure
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte (Identifier -> Comprendre -> Concevoir -> Verifier ->
+# Valider -> Ecrire) appliquee pour chaque pattern ci-dessous.
+#
+# Elliott Wave (Ralph Nelson Elliott, 1930s) : le marche evolue en cycles
+# de 5 vagues haussieres (1-2-3-4-5) suivies de 3 vagues correctives
+# (a-b-c). Vagues 1, 3, 5 = vagues d'impulsion (direction de la tendance),
+# vagues 2, 4 = corrections intra-tendance, a/b/c = correction majeure.
+#
+# Regles cles d'Elliott :
+#   - Vague 2 ne retrace JAMAIS 100% de la vague 1.
+#   - Vague 3 n'est JAMAIS la plus courte des 3 vagues d'impulsion
+#     (1, 3, 5). C'est generalement la plus longue.
+#   - Vague 4 n'entre jamais dans le territoire de prix de la vague 1
+#     (pas de chevauchement).
+#   - Vague 5 montre souvent une DIVERGENCE avec les oscillateurs
+#     (RSI, MACD) par rapport aux vagues 3.
+#
+# On ne code que les 3 vagues d'impulsion haussieres (1, 3, 5). Les
+# variantes baissieres (vague 1/3/5 descendante) sont implicitement
+# capturees par l'operateur `>` / `<` sur le close.
+#
+# Tous binaires {0, 1}. Reutilise _signal_grammar du Lot 4a.
+
+
+# pattern_elliott_wave_1 : PREMIERE vague d'un cycle d'impulsion. Le prix
+# commence a monter (sortie d'une phase de base). Souvent la plus
+# petite des 3 vagues d'impulsion. Volume commence a augmenter.
+PATTERN_ELLIOTT_WAVE_1_GRAMMAR: str = _signal_grammar(
+    "pattern_elliott_wave_1", (0, 1),
+)
+
+# pattern_elliott_wave_3 : vague d'impulsion la plus FORTE et la plus
+# LONGUE (jamais la plus courte). Confirmee par un volume eleve et
+# souvent des nouvelles fondamentales positives. Cible = extension
+# 1.618 de la vague 1 (niveau Fibonacci).
+PATTERN_ELLIOTT_WAVE_3_GRAMMAR: str = _signal_grammar(
+    "pattern_elliott_wave_3", (0, 1),
+)
+
+# pattern_elliott_wave_5 : vague finale du cycle d'impulsion. Plus
+# FAIBLE que la vague 3 (en general). Montre souvent une DIVERGENCE
+# baissiere avec les oscillateurs (le prix fait un nouveau plus haut
+# mais le RSI/MACD n'y arrive pas). Signal de fin de tendance.
+PATTERN_ELLIOTT_WAVE_5_GRAMMAR: str = _signal_grammar(
+    "pattern_elliott_wave_5", (0, 1),
+)
+
+
+# Mapping etendu pour le Lot 4c-6 (3 patterns Elliott Wave).
+FEATURE_GRAMMARS_LOT4C6: dict[str, str] = {
+    "pattern_elliott_wave_1": PATTERN_ELLIOTT_WAVE_1_GRAMMAR,
+    "pattern_elliott_wave_3": PATTERN_ELLIOTT_WAVE_3_GRAMMAR,
+    "pattern_elliott_wave_5": PATTERN_ELLIOTT_WAVE_5_GRAMMAR,
+}
+
+
+# --------------------------------------------------------------------------- #
+# Lot 4c-7 : patterns harmoniques (10) — famille market_structure
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte appliquee pour chaque pattern ci-dessous.
+#
+# Patterns harmoniques : structures de prix en 5 points (X-A-B-C-D)
+# utilisant des RATIOS FIBONACCI SPECIFIQUES entre les jambes pour
+# identifier des zones de retournement. Tous binaires {0, 1}.
+# Reutilise _signal_grammar.
+#
+# 5 sous-familles (2 par pattern : bull/bear) :
+#   1. Gartley (2)    : H.M. Gartley 1932, le "pere" des harmoniques
+#   2. Butterfly (2)  : Bryce Gilmore / Scott Carney 1990s
+#   3. Bat (2)        : Scott Carney 2001
+#   4. Crab (2)       : Scott Carney 2000
+#   5. Shark (2)      : Scott Carney 2011
+
+
+# --- Sous-famille 1 : Gartley (2) --- #
+# pattern_gartley_bull : H.M. Gartley 1932. Structure XABCD haussiere.
+# Ratios : B = 0.618 retracement de XA, D = 0.786 retracement de XA
+# (PRZ - Potential Reversal Zone), C = 0.382-0.886 retracement de AB.
+# Signal BULLISH : le prix rebondit dans la PRZ.
+PATTERN_GARTLEY_BULL_GRAMMAR: str = _signal_grammar("pattern_gartley_bull", (0, 1))
+
+# pattern_gartley_bear : symetrique baissier.
+PATTERN_GARTLEY_BEAR_GRAMMAR: str = _signal_grammar("pattern_gartley_bear", (0, 1))
+
+
+# --- Sous-famille 2 : Butterfly (2) --- #
+# pattern_butterfly_bull : Bryce Gilmore / Scott Carney. Structure XABCD
+# haussiere. D = 1.27 ou 1.618 EXTENSION de XA (au-dela de X). Cible
+# tres precise, B = 0.786 retracement de XA.
+PATTERN_BUTTERFLY_BULL_GRAMMAR: str = _signal_grammar("pattern_butterfly_bull", (0, 1))
+
+# pattern_butterfly_bear : symetrique baissier.
+PATTERN_BUTTERFLY_BEAR_GRAMMAR: str = _signal_grammar("pattern_butterfly_bear", (0, 1))
+
+
+# --- Sous-groupe 3 : Bat (2) --- #
+# pattern_bat_bull : Scott Carney 2001. Structure XABCD haussiere.
+# D = 0.886 retracement de XA (tres precis, PRZ etroite). B = 0.382-
+# 0.50 retracement de XA. Plus serre que le Gartley.
+PATTERN_BAT_BULL_GRAMMAR: str = _signal_grammar("pattern_bat_bull", (0, 1))
+
+# pattern_bat_bear : symetrique baissier.
+PATTERN_BAT_BEAR_GRAMMAR: str = _signal_grammar("pattern_bat_bear", (0, 1))
+
+
+# --- Sous-groupe 4 : Crab (2) --- #
+# pattern_crab_bull : Scott Carney 2000. Structure XABCD haussiere.
+# D = 1.618 EXTENSION de XA (PRZ tres extreme). B = 0.382-0.618
+# retracement de XA. Signal tres fort mais PRZ tres eloignee.
+PATTERN_CRAB_BULL_GRAMMAR: str = _signal_grammar("pattern_crab_bull", (0, 1))
+
+# pattern_crab_bear : symetrique baissier.
+PATTERN_CRAB_BEAR_GRAMMAR: str = _signal_grammar("pattern_crab_bear", (0, 1))
+
+
+# --- Sous-groupe 5 : Shark (2) --- #
+# pattern_shark_bull : Scott Carney 2011. Structure 0-X-A-B-C haussiere
+# (5 points mais ordre different des autres harmoniques). Ratios :
+# B = 1.13 retracement de 0X, C = 1.618 extension de 0X, PRZ autour
+# de C. Signal BULLISH : retournement dans la PRZ.
+PATTERN_SHARK_BULL_GRAMMAR: str = _signal_grammar("pattern_shark_bull", (0, 1))
+
+# pattern_shark_bear : symetrique baissier.
+PATTERN_SHARK_BEAR_GRAMMAR: str = _signal_grammar("pattern_shark_bear", (0, 1))
+
+
+# Mapping etendu pour le Lot 4c-7 (10 patterns harmoniques).
+FEATURE_GRAMMARS_LOT4C7: dict[str, str] = {
+    # Gartley (2)
+    "pattern_gartley_bull":   PATTERN_GARTLEY_BULL_GRAMMAR,
+    "pattern_gartley_bear":   PATTERN_GARTLEY_BEAR_GRAMMAR,
+    # Butterfly (2)
+    "pattern_butterfly_bull": PATTERN_BUTTERFLY_BULL_GRAMMAR,
+    "pattern_butterfly_bear": PATTERN_BUTTERFLY_BEAR_GRAMMAR,
+    # Bat (2)
+    "pattern_bat_bull":       PATTERN_BAT_BULL_GRAMMAR,
+    "pattern_bat_bear":       PATTERN_BAT_BEAR_GRAMMAR,
+    # Crab (2)
+    "pattern_crab_bull":      PATTERN_CRAB_BULL_GRAMMAR,
+    "pattern_crab_bear":      PATTERN_CRAB_BEAR_GRAMMAR,
+    # Shark (2)
+    "pattern_shark_bull":     PATTERN_SHARK_BULL_GRAMMAR,
+    "pattern_shark_bear":     PATTERN_SHARK_BEAR_GRAMMAR,
+}
+
+
 # Bloc de relations OHLCV (traitement conjoint des 5 features).
 # Permet de generer des conditions qui exploitent la semantique partagee
 # des 5 features OHLCV (par opposition a des comparaisons feat-vs-quantile).
@@ -1963,6 +2118,8 @@ FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C2)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C3)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C4)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C5)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C6)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C7)
 
 
 # Mapping des grammaires de relations (vs. grammaires par feature).
