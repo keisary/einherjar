@@ -8,7 +8,7 @@ Candidats implémentés (vraies implémentations, aucune délégation fantôme) 
   - RandomSearchGenerator  : random search sous contraintes (typage, profondeur).
   - BeamSearchGenerator    : beam search à profondeur fixe, K=64 par défaut.
   - TypedGPGenerator       : Strongly-Typed GP (grow, sans évolution pour V1).
-  - GrammaticalEvolutionGenerator : GE — REPORTÉ tant que la BNF n'est pas écrite.
+  - GrammaticalEvolutionGenerator : GE avec BNF 218 features (BNF Phase 4).
   - MemeticGenerator       : EA + phase d'optimisation locale (hill climbing réelle).
   - NSGA2Generator         : NSGA-II multi-objectif (Deb 2002) avec contraintes dures.
 
@@ -879,35 +879,157 @@ class TypedGPGenerator(BaseGenerator):
 
 
 class GrammaticalEvolutionGenerator(BaseGenerator):
-    """Grammatical Evolution (GE) — placeholder tant que la BNF n'est pas écrite.
+    """Grammatical Evolution (GE) — VRAIE implementation (BNF Phase 4).
 
-    Pour V1, ce générateur est un placeholder qui refuse de tourner
-    explicitement (NotImplementedError) tant que la grammaire BNF n'est
-    pas fournie. Voir § 11.5 d'ALGORITHME_RESEARCH.md (BNF à écrire).
+    Algorithme (Ryan et al. 1998) :
+      1. Pour chaque candidat du budget n_eval_budget :
+         a. Choisir au hasard : soit (i) une feature parmi les 218 de la
+            taxonomie, soit (ii) le bloc relations OHLCV
+            (probabilite = relations_probability).
+         b. Generer un chromosome = liste de `chromosome_length` entiers
+            tires uniformement dans [0, 255] (8 bits, classique GE).
+         c. Decoder le chromosome via BNFCodec (cf. bnf_parser.py) :
+            consume les codons un par un, choix de production
+            = codon % nb_productions, wraparound si epuise.
+         d. Le decoder produit une Condition ou ConditionNode
+            (cf. utils/types.py).
+         e. Sample direction (LONG/SHORT) et amplitude (depuis le
+            protocol). Construire l'Hypothesis.
+      2. Si le decoder leve BNFDecodeError (chromosome trop court,
+         impasse), on skip le candidat et on continue (pas de
+         fallback silencieux : on documente le skip dans meta).
+
+    Branche dediee : bnf-ge-integration.
+
+    Attributes:
+        config: Configuration Einherjar (pour taxonomie 218 + bnf.py).
+        bnf_grammar: Override de la grammaire BNF (None = tirer au hasard).
+        chromosome_length: Taille du chromosome (10-20 typique).
+        relations_probability: Probabilite d'utiliser le bloc relations
+            OHLCV plutot qu'une feature.
     """
 
-    def __init__(self, protocol: GenerationProtocol, bnf_grammar: str | None = None) -> None:
-        super().__init__(protocol)
+    def __init__(
+        self,
+        protocol: GenerationProtocol,
+        config: EinherjarConfig,
+        engine: Any | None = None,  # ignore, uniformite d'API
+        bnf_grammar: str | None = None,
+        chromosome_length: int = 12,
+        relations_probability: float = 0.2,
+    ) -> None:
+        super().__init__(protocol, engine=engine)
+        self.config = config
         self.bnf_grammar = bnf_grammar
+        self.chromosome_length = chromosome_length
+        self.relations_probability = relations_probability
+        # Import paresseux pour eviter cycle au chargement du module.
+        from einherjar.research.generators.bnf import (
+            FEATURE_GRAMMARS,
+            get_relations_grammar,
+        )
+        from einherjar.research.generators.bnf_parser import BNFCodec
+        self._BNFCodec = BNFCodec
+        self._FEATURE_GRAMMARS = FEATURE_GRAMMARS
+        self._get_relations_grammar = get_relations_grammar
 
     def generate(self) -> GeneratorResult:
-        if not self.bnf_grammar:
-            logger.warning(
-                "%s : grammaire BNF absente — retourne un résultat vide. "
-                "Voir ALGORITHME_RESEARCH.md § 11.5 (BNF à écrire).",
-                self.name,
-            )
-            return GeneratorResult(
-                generator_name=self.name,
-                hypotheses=(),
-                n_generated=0,
-                n_evaluated=0,
-                n_passed_admission=0,
-                generation_time_s=0.0,
-                meta={"bnf_grammar_provided": False, "note": "placeholder"},
-            )
-        raise NotImplementedError(
-            "GE complète non implémentée — BNF fournie mais mapping chromosome→arbre à coder."
+        import time
+        t0 = time.time()
+        hyps: list[Hypothesis] = []
+        n_skipped: int = 0
+        n_relations: int = 0
+        n_atomic: int = 0
+        n_compose: int = 0
+        # Cache des codecs (une grammaire = un codec, on l'instancie 1 fois).
+        codec_cache: dict[str, Any] = {}
+        i = 0
+        while i < self.protocol.n_eval_budget:
+            try:
+                # 1) Choisir la source : override, relations OHLCV, ou feature random.
+                if self.bnf_grammar is not None:
+                    source_key = "__override__"
+                    grammar_text = self.bnf_grammar
+                elif self._rng.random() < self.relations_probability:
+                    source_key = "__ohlcv_relations__"
+                    grammar_text = self._get_relations_grammar("ohlcv")
+                else:
+                    feature_name = self._rng.choice(
+                        self.config.usable_feature_names,
+                    )
+                    source_key = feature_name
+                    grammar_text = self._FEATURE_GRAMMARS.get(feature_name)
+                    if grammar_text is None:
+                        # Feature sans grammaire custom, on prend le
+                        # pattern par defaut.
+                        from einherjar.research.generators.bnf import (
+                            get_feature_grammar,
+                        )
+                        grammar_text = get_feature_grammar(
+                            feature_name, self.config,
+                        )
+                # 2) Codec (cache).
+                if source_key not in codec_cache:
+                    codec_cache[source_key] = self._BNFCodec.from_text(
+                        grammar_text,
+                    )
+                codec = codec_cache[source_key]
+                # 3) Generer le chromosome.
+                chromosome = [
+                    self._rng.randint(0, 255)
+                    for _ in range(self.chromosome_length)
+                ]
+                # 4) Decoder.
+                cond = codec.decode(chromosome=chromosome)
+                # Stats
+                if source_key == "__ohlcv_relations__":
+                    n_relations += 1
+                elif isinstance(cond, ConditionNode):
+                    n_compose += 1
+                else:
+                    n_atomic += 1
+                # 5) Sample direction + amplitude.
+                direction = self._rng.choice([Direction.LONG, Direction.SHORT])
+                # 6) Construire Hypothesis.
+                h = Hypothesis(
+                    id=f"{self.name}_{i:06d}",
+                    condition_tree=cond,
+                    amplitude=self._make_amplitude(direction),
+                    direction=direction,
+                    universe=self._make_universe(),
+                    cooldown_k=self.protocol.cooldown_k,
+                    meta={
+                        "bnf_source": source_key,
+                        "chromosome": chromosome,
+                    },
+                )
+                hyps.append(h)
+                i += 1
+            except Exception as exc:  # noqa: BLE001
+                # BNFDecodeError (chromosome trop court / impasse) ou
+                # autre erreur de decodage : on skip et on continue.
+                logger.debug(
+                    "%s : skip candidat %d (decode error: %s)",
+                    self.name, i, exc,
+                )
+                n_skipped += 1
+                i += 1
+        return GeneratorResult(
+            generator_name=self.name,
+            hypotheses=tuple(hyps),
+            n_generated=len(hyps),
+            n_evaluated=0,
+            n_passed_admission=0,
+            generation_time_s=time.time() - t0,
+            meta={
+                "budget_used": len(hyps),
+                "n_skipped": n_skipped,
+                "n_atomic": n_atomic,
+                "n_compose": n_compose,
+                "n_relations": n_relations,
+                "chromosome_length": self.chromosome_length,
+                "relations_probability": self.relations_probability,
+            },
         )
 
 
@@ -1754,20 +1876,21 @@ def make_all_generators(
     config: EinherjarConfig,
     engine: Any | None = None,
 ) -> list[BaseGenerator]:
-    """Construit les 5 candidats principaux (sans GE — BNF pas encore écrite).
+    """Construit les 6 candidats principaux (avec GE — BNF Phase 4 livree).
 
     Args:
         engine: Moteur d'évaluation (passé à tous les générateurs évolutionnaires :
-            TypedGP, Memetic, NSGA2). Optionnel pour les générateurs sans évolution
+            TypedGP, Memetic, NSGA2, GE). Optionnel pour les générateurs sans évolution
             (Random, Beam) qui sont construits sans engine.
 
     Returns:
-        Liste [RandomSearch, BeamSearch, TypedGP, Memetic, NSGA2].
+        Liste [RandomSearch, BeamSearch, TypedGP, GE, Memetic, NSGA2].
     """
     return [
         RandomSearchGenerator(protocol=protocol, config=config),
         BeamSearchGenerator(protocol=protocol, config=config, engine=engine),
         TypedGPGenerator(protocol=protocol, config=config, engine=engine),
+        GrammaticalEvolutionGenerator(protocol=protocol, config=config, engine=engine),
         MemeticGenerator(protocol=protocol, config=config, engine=engine),
         NSGA2Generator(protocol=protocol, config=config, engine=engine),
     ]
