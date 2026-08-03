@@ -52,10 +52,16 @@ Statut :
     Crab, Shark (chacun en bull/bear). Ratios Fibonacci specifiques.
   - 4/218 patterns (Lot 4d) : 3 regimes (uptrend/downtrend/sideways) +
     1 three_drives (harmonique de continuation). Binaires.
+  - 20/218 patterns (Lot 4e) : 4 stars, 2 pin bars, 2 kicking, 6 gaps,
+    4 three inside/outside, 2 divers. Binaires. TOTALITE des 218 features
+    couvertes par la BNF.
   - 1 bloc de relations OHLCV : `OHLCV_RELATIONS_GRAMMAR` (traitement
     conjoint open/high/low/close/volume, e.g. "close > open").
-  - Reste : 20 features `pattern` (Lot 4e, a inventorier).
+  - Reste : 0 feature BNF. Phase 1 (terminaux) complete a 100%.
+    Reste les Phases 2 (anti-tautologies), 3 (orientation semantique),
+    4 (parser GE) et reactivation de GrammaticalEvolutionGenerator.
 """
+
 
 from __future__ import annotations
 
@@ -2125,6 +2131,174 @@ FEATURE_GRAMMARS_LOT4D: dict[str, str] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Lot 4e : 20 patterns price_action restants — stars, pin bars, kicking,
+#          gaps, three inside/outside, divers
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte appliquee pour chaque pattern ci-dessous. Tous
+# binaires {0, 1}. Direction dans le nom ou implicite selon le pattern.
+# Reutilise _signal_grammar du Lot 4a.
+#
+# 6 sous-groupes :
+#   1. Stars (4)              : retournement ou indecision en 3 bougies
+#   2. Pin bars (2)           : rejet directionnel (longue meche)
+#   3. Kicking (2)            : 2 marubozu opposes avec gap
+#   4. Gaps (6)               : detection de gaps et comportements
+#   5. Three inside/outside (4) : confirmations multi-bougies
+#   6. Divers (2)             : advance_block, unique_three_river_bottom
+
+
+# --- Sous-groupe 1 : Stars (4) --- #
+# pattern_morning_star (3 bougies, BULLISH) : grosse bougie baissiere +
+# petite bougie (doji ou petit corps, gap down ideal) + grosse bougie
+# haussiere. Retournement haussier classique, equivalent a un "soleil
+# levant" apres la nuit.
+PATTERN_MORNING_STAR_GRAMMAR: str = _signal_grammar("pattern_morning_star", (0, 1))
+
+# pattern_evening_star (3 bougies, BEARISH) : symetrique baissier du
+# morning star. Grosse haussiere + petite + grosse baissiere.
+PATTERN_EVENING_STAR_GRAMMAR: str = _signal_grammar("pattern_evening_star", (0, 1))
+
+# pattern_tri_star (3 dojis consecutifs, NEUTRE) : 3 bougies avec open
+# proche du close, separees par des gaps. Indcision extreme, precede
+# souvent un retournement violent. Tres rare en pratique.
+PATTERN_TRI_STAR_GRAMMAR: str = _signal_grammar("pattern_tri_star", (0, 1))
+
+# pattern_rickshaw_man (doji specifique, NEUTRE) : doji avec corps
+# minuscule au centre + meches tres longues. Indcision extreme, proche
+# du spinning_top mais en plus prononce.
+PATTERN_RICKSHAW_MAN_GRAMMAR: str = _signal_grammar("pattern_rickshaw_man", (0, 1))
+
+
+# --- Sous-groupe 2 : Pin bars (2) --- #
+# pattern_pin_bar_bull (BULLISH) : longue meche basse (>= 2/3 de la
+# bougie totale) + petit corps en haut de la bougie + peu ou pas de
+# meche haute. Signal de rejet a la baisse par les acheteurs. Equivalent
+# au hammer mais sans la condition de tendance prealable.
+PATTERN_PIN_BAR_BULL_GRAMMAR: str = _signal_grammar("pattern_pin_bar_bull", (0, 1))
+
+# pattern_pin_bar_bear (BEARISH) : symetrique. Longue meche haute +
+# petit corps en bas. Rejet de la hausse par les vendeurs.
+PATTERN_PIN_BAR_BEAR_GRAMMAR: str = _signal_grammar("pattern_pin_bar_bear", (0, 1))
+
+
+# --- Sous-groupe 3 : Kicking (2) --- #
+# pattern_kicking_bull (BULLISH) : marubozu baissier (petit) + gap up
+# + marubozu haussier (grand). Retournement haussier extremement fort
+# (les vendeurs n'ont aucun controle, les acheteurs prennent le pouvoir).
+# Pattern rare mais signal tres fiable.
+PATTERN_KICKING_BULL_GRAMMAR: str = _signal_grammar("pattern_kicking_bull", (0, 1))
+
+# pattern_kicking_bear (BEARISH) : symetrique.
+PATTERN_KICKING_BEAR_GRAMMAR: str = _signal_grammar("pattern_kicking_bear", (0, 1))
+
+
+# --- Sous-groupe 4 : Gaps (6) --- #
+# pattern_gap_up (BULLISH continuation) : le prix ouvre au-dessus du
+# close de la bougie precedente. Indique une pression acheteuse nette.
+PATTERN_GAP_UP_GRAMMAR: str = _signal_grammar("pattern_gap_up", (0, 1))
+
+# pattern_gap_down (BEARISH continuation) : symetrique.
+PATTERN_GAP_DOWN_GRAMMAR: str = _signal_grammar("pattern_gap_down", (0, 1))
+
+# pattern_gap_fill (NEUTRE) : le prix revient remplir un gap anterieur
+# (zone de prix ou il y avait un trou qui se referme). Convergence vers
+# l'equilibre. Indication de range / indecision.
+PATTERN_GAP_FILL_GRAMMAR: str = _signal_grammar("pattern_gap_fill", (0, 1))
+
+# pattern_gap_and_go (continuation) : gap suivi immediatement d'un
+# mouvement directionnel fort dans la meme direction. Confirme la
+# validite du gap. Equivalent a un breakout sur gap.
+PATTERN_GAP_AND_GO_GRAMMAR: str = _signal_grammar("pattern_gap_and_go", (0, 1))
+
+# pattern_runaway_gap (BULLISH continuation) : gap en milieu de tendance
+# (generalement vers la 3eme vague d'un mouvement, pas au debut).
+# Confirme la force de la tendance en cours. Equivalent a un "measuring
+# gap".
+PATTERN_RUNAWAY_GAP_GRAMMAR: str = _signal_grammar("pattern_runaway_gap", (0, 1))
+
+# pattern_exhaustion_gap (fin de tendance) : gap en fin de tendance,
+# suivi d'une chute brutale des volumes et d'un retournement. Le marche
+# "s'aspire" avant de retourner. Signal de retournement.
+PATTERN_EXHAUSTION_GAP_GRAMMAR: str = _signal_grammar("pattern_exhaustion_gap", (0, 1))
+
+
+# --- Sous-groupe 5 : Three inside/outside (4) --- #
+# pattern_three_inside_up (BULLISH) : 3 bougies. Bougie 1 baissiere
+# (longue), bougie 2 haussiere (petite, dans le corps de la 1 = harami
+# haussier), bougie 3 haussiere (longue, ferme au-dessus de la bougie
+# 1) = confirmation du retournement.
+PATTERN_THREE_INSIDE_UP_GRAMMAR: str = _signal_grammar(
+    "pattern_three_inside_up", (0, 1),
+)
+
+# pattern_three_inside_down (BEARISH) : symetrique.
+PATTERN_THREE_INSIDE_DOWN_GRAMMAR: str = _signal_grammar(
+    "pattern_three_inside_down", (0, 1),
+)
+
+# pattern_three_outside_up (BULLISH) : 3 bougies. Bougie 1 baissiere
+# (petite), bougie 2 haussiere (grande, engloutit la 1 = engulfing
+# haussier), bougie 3 haussiere (ferme au-dessus de la bougie 2) =
+# confirmation de continuation.
+PATTERN_THREE_OUTSIDE_UP_GRAMMAR: str = _signal_grammar(
+    "pattern_three_outside_up", (0, 1),
+)
+
+# pattern_three_outside_down (BEARISH) : symetrique.
+PATTERN_THREE_OUTSIDE_DOWN_GRAMMAR: str = _signal_grammar(
+    "pattern_three_outside_down", (0, 1),
+)
+
+
+# --- Sous-groupe 6 : Divers (2) --- #
+# pattern_advance_block (BEARISH) : 3 bougies haussieres consecutives
+# avec un essoufflement progressif (la 3eme bougie a un petit corps
+# et des meches, malgre un open plus haut). Le marche s'epuise,
+# signal de fin de tendance haussiere.
+PATTERN_ADVANCE_BLOCK_GRAMMAR: str = _signal_grammar("pattern_advance_block", (0, 1))
+
+# pattern_unique_three_river_bottom (BULLISH) : retournement 3 bougies
+# en forme de "riviere". Bougie 1 longue baissiere, bougie 2 petit
+# marubozu haussier (dans la moitie inferieure de la bougie 1), bougie
+# 3 confirmation haussiere. Pattern rare, signal de retournement fiable.
+PATTERN_UNIQUE_THREE_RIVER_BOTTOM_GRAMMAR: str = _signal_grammar(
+    "pattern_unique_three_river_bottom", (0, 1),
+)
+
+
+# Mapping etendu pour le Lot 4e (20 patterns price_action restants).
+FEATURE_GRAMMARS_LOT4E: dict[str, str] = {
+    # Stars (4)
+    "pattern_morning_star":            PATTERN_MORNING_STAR_GRAMMAR,
+    "pattern_evening_star":            PATTERN_EVENING_STAR_GRAMMAR,
+    "pattern_tri_star":                PATTERN_TRI_STAR_GRAMMAR,
+    "pattern_rickshaw_man":            PATTERN_RICKSHAW_MAN_GRAMMAR,
+    # Pin bars (2)
+    "pattern_pin_bar_bull":            PATTERN_PIN_BAR_BULL_GRAMMAR,
+    "pattern_pin_bar_bear":            PATTERN_PIN_BAR_BEAR_GRAMMAR,
+    # Kicking (2)
+    "pattern_kicking_bull":            PATTERN_KICKING_BULL_GRAMMAR,
+    "pattern_kicking_bear":            PATTERN_KICKING_BEAR_GRAMMAR,
+    # Gaps (6)
+    "pattern_gap_up":                  PATTERN_GAP_UP_GRAMMAR,
+    "pattern_gap_down":                PATTERN_GAP_DOWN_GRAMMAR,
+    "pattern_gap_fill":                PATTERN_GAP_FILL_GRAMMAR,
+    "pattern_gap_and_go":              PATTERN_GAP_AND_GO_GRAMMAR,
+    "pattern_runaway_gap":             PATTERN_RUNAWAY_GAP_GRAMMAR,
+    "pattern_exhaustion_gap":          PATTERN_EXHAUSTION_GAP_GRAMMAR,
+    # Three inside/outside (4)
+    "pattern_three_inside_up":         PATTERN_THREE_INSIDE_UP_GRAMMAR,
+    "pattern_three_inside_down":       PATTERN_THREE_INSIDE_DOWN_GRAMMAR,
+    "pattern_three_outside_up":        PATTERN_THREE_OUTSIDE_UP_GRAMMAR,
+    "pattern_three_outside_down":      PATTERN_THREE_OUTSIDE_DOWN_GRAMMAR,
+    # Divers (2)
+    "pattern_advance_block":                 PATTERN_ADVANCE_BLOCK_GRAMMAR,
+    "pattern_unique_three_river_bottom":     PATTERN_UNIQUE_THREE_RIVER_BOTTOM_GRAMMAR,
+}
+
+
 # Bloc de relations OHLCV (traitement conjoint des 5 features).
 # Permet de generer des conditions qui exploitent la semantique partagee
 # des 5 features OHLCV (par opposition a des comparaisons feat-vs-quantile).
@@ -2174,6 +2348,7 @@ FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C5)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C6)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C7)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4D)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4E)
 
 
 # Mapping des grammaires de relations (vs. grammaires par feature).
