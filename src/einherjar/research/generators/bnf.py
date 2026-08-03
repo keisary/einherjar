@@ -32,13 +32,16 @@ Statut :
   - 26/218 features (Lot 3) : 4 atomic restants + 9 composite_derived signaux
     + 13 factors (scores agreges en [0, 1]).
   - 15/218 patterns chandeliers simples (Lot 4a) : 5 dojis, 4 single-candle
-    reversal, 2 marubozu, 4 multi-candle. Binaires {0, 1} (confirme user).
+    reversal, 2 marubozu, 4 multi-candle. Binaires {0, 1}.
   - 19/218 patterns chandeliers composes (Lot 4b) : 2 engulfing, 2 harami,
     2 piercing/dark, 2 abandoned_baby, 3 breakaway, 2 belt_hold, 2 ladder,
-    2 matching, 2 divers (deliberation, concealing_baby_swallow). Binaires.
+    2 matching, 2 divers. Binaires.
+  - 8/218 patterns chartistes (Lot 4c-1) : 3 triangles (asc/desc/sym),
+    3 wedges (rising/falling/broadening), 2 pennants (bull/bear). Binaires.
   - 1 bloc de relations OHLCV : `OHLCV_RELATIONS_GRAMMAR` (traitement
     conjoint open/high/low/close/volume, e.g. "close > open").
-  - Reste : 73 features `pattern` (chartistes 49, regimes 3, autres 21).
+  - Reste : 65 features `pattern` (autres chartistes 41, regimes 3,
+    three_drives 1, autres 20).
 """
 
 from __future__ import annotations
@@ -1484,6 +1487,91 @@ FEATURE_GRAMMARS_LOT4B: dict[str, str] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Lot 4c-1 : patterns chartistes - triangles, wedges, pennants (8)
+#            famille market_structure
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte (Identifier -> Comprendre -> Concevoir -> Verifier ->
+# Valider -> Ecrire) appliquee pour chaque pattern ci-dessous.
+#
+# Tous binaires {0, 1} (confirme par user pour Einherjar). Direction
+# (bullish/bearish) dans le nom du pattern. Reutilise _signal_grammar.
+#
+# Patterns de consolidation / continuation bases sur des lignes de tendance :
+#   - 3 triangles (ascendant, descendant, symetrique)
+#   - 3 wedges/biseaux (ascendant, descendant, elargi)
+#   - 2 pennants/fanions (haussier, baissier)
+
+
+# --- Triangles (3) --- #
+# pattern_ascending_triangle : resistance horizontale + support ascendant
+# (higher lows). Consolidation BULLISH. Cible de breakout = hauteur du
+# triangle projetee depuis le point de breakout.
+PATTERN_ASCENDING_TRIANGLE_GRAMMAR: str = _signal_grammar(
+    "pattern_ascending_triangle", (0, 1),
+)
+
+# pattern_descending_triangle : support horizontal + resistance descendante
+# (lower highs). Consolidation BEARISH. Cible de breakout = hauteur du
+# triangle projetee vers le bas.
+PATTERN_DESCENDING_TRIANGLE_GRAMMAR: str = _signal_grammar(
+    "pattern_descending_triangle", (0, 1),
+)
+
+# pattern_symmetrical_triangle : support ascendant + resistance descendante
+# qui convergent en un apex. NEUTRE - continuation probable de la tendance
+# anterieure (le breakout suit la direction du mouvement pre-triangle).
+PATTERN_SYMMETRICAL_TRIANGLE_GRAMMAR: str = _signal_grammar(
+    "pattern_symmetrical_triangle", (0, 1),
+)
+
+
+# --- Wedges / Biseaux (3) --- #
+# pattern_rising_wedge : 2 lignes descendantes qui convergent (support
+# plus pentu que la resistance). BEARISH meme en tendance haussiere
+# (signal de retournement baissier).
+PATTERN_RISING_WEDGE_GRAMMAR: str = _signal_grammar("pattern_rising_wedge", (0, 1))
+
+# pattern_falling_wedge : 2 lignes ascendantes qui convergent. BULLISH
+# meme en tendance baissiere (signal de retournement haussier).
+PATTERN_FALLING_WEDGE_GRAMMAR: str = _signal_grammar("pattern_falling_wedge", (0, 1))
+
+# pattern_broadening_wedge (megaphone) : 2 lignes qui DIVERGENT (le prix
+# fait des swings de plus en plus larges). NEUTRE - indecision extreme,
+# souvent suivi d'un breakout violent (direction = tendance dominante).
+PATTERN_BROADENING_WEDGE_GRAMMAR: str = _signal_grammar(
+    "pattern_broadening_wedge", (0, 1),
+)
+
+
+# --- Pennants / Fanions (2) --- #
+# pattern_bull_pennant : forte hausse (mât) + petit triangle symetrique
+# (fanion). CONTINUATION haussiere : le prix repart dans le sens du mât
+# apres consolidation. Pattern court (< 1-3 semaines).
+PATTERN_BULL_PENNANT_GRAMMAR: str = _signal_grammar("pattern_bull_pennant", (0, 1))
+
+# pattern_bear_pennant : forte baisse + petit triangle symetrique.
+# CONTINUATION baissiere.
+PATTERN_BEAR_PENNANT_GRAMMAR: str = _signal_grammar("pattern_bear_pennant", (0, 1))
+
+
+# Mapping etendu pour le Lot 4c-1 (8 patterns chartistes : triangles, wedges, pennants).
+FEATURE_GRAMMARS_LOT4C1: dict[str, str] = {
+    # Triangles (3)
+    "pattern_ascending_triangle":  PATTERN_ASCENDING_TRIANGLE_GRAMMAR,
+    "pattern_descending_triangle": PATTERN_DESCENDING_TRIANGLE_GRAMMAR,
+    "pattern_symmetrical_triangle": PATTERN_SYMMETRICAL_TRIANGLE_GRAMMAR,
+    # Wedges (3)
+    "pattern_rising_wedge":        PATTERN_RISING_WEDGE_GRAMMAR,
+    "pattern_falling_wedge":       PATTERN_FALLING_WEDGE_GRAMMAR,
+    "pattern_broadening_wedge":    PATTERN_BROADENING_WEDGE_GRAMMAR,
+    # Pennants (2)
+    "pattern_bull_pennant":        PATTERN_BULL_PENNANT_GRAMMAR,
+    "pattern_bear_pennant":        PATTERN_BEAR_PENNANT_GRAMMAR,
+}
+
+
 # Bloc de relations OHLCV (traitement conjoint des 5 features).
 # Permet de generer des conditions qui exploitent la semantique partagee
 # des 5 features OHLCV (par opposition a des comparaisons feat-vs-quantile).
@@ -1525,6 +1613,7 @@ FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT2)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT3)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4A)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4B)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C1)
 
 
 # Mapping des grammaires de relations (vs. grammaires par feature).
