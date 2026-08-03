@@ -38,9 +38,11 @@ Statut :
     2 matching, 2 divers. Binaires.
   - 8/218 patterns chartistes (Lot 4c-1) : 3 triangles (asc/desc/sym),
     3 wedges (rising/falling/broadening), 2 pennants (bull/bear). Binaires.
+  - 14/218 patterns chartistes (Lot 4c-2) : 2 doubles, 2 triples, 2 H&S,
+    1 cup_handle, 2 rounding, 2 diamond, 2 V, 1 spike_reversal. Binaires.
   - 1 bloc de relations OHLCV : `OHLCV_RELATIONS_GRAMMAR` (traitement
     conjoint open/high/low/close/volume, e.g. "close > open").
-  - Reste : 65 features `pattern` (autres chartistes 41, regimes 3,
+  - Reste : 51 features `pattern` (autres chartistes 27, regimes 3,
     three_drives 1, autres 20).
 """
 
@@ -1572,6 +1574,144 @@ FEATURE_GRAMMARS_LOT4C1: dict[str, str] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Lot 4c-2 : patterns chartistes - tops, bottoms, H&S, rounding, V, diamond,
+#            spike reversal (14) — famille market_structure
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte (Identifier -> Comprendre -> Concevoir -> Verifier ->
+# Valider -> Ecrire) appliquee pour chaque pattern ci-dessous.
+#
+# Tous binaires {0, 1}. Direction dans le nom du pattern (top = baissier,
+# bottom = haussier). Reutilise _signal_grammar du Lot 4a.
+#
+# 8 sous-groupes :
+#   1. Doubles (2)        : retournement 2 sommets / 2 creux
+#   2. Triples (2)        : retournement 3 sommets / 3 creux
+#   3. H&S (2)            : tete et epaules / tete et epaules inverse
+#   4. Cup & Handle (1)   : tasse avec anse (continuation haussiere)
+#   5. Rounding (2)       : dôme / soucoupe (retournement progressif)
+#   6. Diamond (2)        : losange sommet / creux
+#   7. V (2)              : spike top / spike bottom
+#   8. Spike Reversal (1) : retournement apres spike
+
+
+# --- Sous-groupe 1 : Doubles (2) --- #
+# pattern_double_top (M) : 2 sommets au meme niveau, neckline = support
+# entre les 2 sommets. Retournement BEARISH. Cible = distance neckline ->
+# sommets, projetee vers le bas depuis le breakout. Le volume baisse
+# generalement sur le 2eme sommet (vs le 1er), ce qui confirme le pattern.
+PATTERN_DOUBLE_TOP_GRAMMAR: str = _signal_grammar("pattern_double_top", (0, 1))
+
+# pattern_double_bottom (W) : symetrique BULLISH. 2 creux au meme niveau,
+# breakout au-dessus de la resistance entre les creux.
+PATTERN_DOUBLE_BOTTOM_GRAMMAR: str = _signal_grammar("pattern_double_bottom", (0, 1))
+
+
+# --- Sous-groupe 2 : Triples (2) --- #
+# pattern_triple_top : 3 sommets au meme niveau. Retournement BEARISH
+# plus fort que le double top (le prix a teste 3 fois la resistance sans
+# la casser, signal d'echec clair). Plus rare en pratique.
+PATTERN_TRIPLE_TOP_GRAMMAR: str = _signal_grammar("pattern_triple_top", (0, 1))
+
+# pattern_triple_bottom : symetrique BULLISH.
+PATTERN_TRIPLE_BOTTOM_GRAMMAR: str = _signal_grammar("pattern_triple_bottom", (0, 1))
+
+
+# --- Sous-groupe 3 : Head & Shoulders (2) --- #
+# pattern_head_shoulders (H&S) : 3 sommets, le central (tete) plus haut
+# que les 2 autres (epaules gauche/droite). Neckline = support sous les
+# epaules. Retournement BEARISH. Un des patterns les plus fiables de
+# l'analyse technique classique.
+PATTERN_HEAD_SHOULDERS_GRAMMAR: str = _signal_grammar("pattern_head_shoulders", (0, 1))
+
+# pattern_inv_head_shoulders (IH&S) : symetrique BULLISH. 3 creux, celui
+# du milieu (tete) plus bas. Neckline = resistance au-dessus des epaules.
+PATTERN_INV_HEAD_SHOULDERS_GRAMMAR: str = _signal_grammar(
+    "pattern_inv_head_shoulders", (0, 1),
+)
+
+
+# --- Sous-groupe 4 : Cup & Handle (1) --- #
+# pattern_cup_handle : William O'Neil. Forme de tasse (U arrondi) suivie
+# d'une anse (petite consolidation descendante). Pattern de continuation
+# BULLISH : breakout au-dessus de l'anse, cible = profondeur de la tasse.
+PATTERN_CUP_HANDLE_GRAMMAR: str = _signal_grammar("pattern_cup_handle", (0, 1))
+
+
+# --- Sous-groupe 5 : Rounding (2) --- #
+# pattern_rounding_top (Dome / Rounding Top) : dôme, retournement
+# progressif sans pic. BEARISH mais lent (peut prendre plusieurs mois).
+# Le volume tend a decroitre puis augmenter lors de la cassure.
+PATTERN_ROUNDING_TOP_GRAMMAR: str = _signal_grammar("pattern_rounding_top", (0, 1))
+
+# pattern_rounding_bottom (Saucer / Rounding Bottom) : soucoupe,
+# retournement progressif BULLISH.
+PATTERN_ROUNDING_BOTTOM_GRAMMAR: str = _signal_grammar(
+    "pattern_rounding_bottom", (0, 1),
+)
+
+
+# --- Sous-groupe 6 : Diamond (2) --- #
+# pattern_diamond_top (Rhombe Top) : losange au sommet. Forme : les
+# swings s'elargissent puis se contractent. Retournement BEARISH.
+# Rare mais signal fort quand detecte.
+PATTERN_DIAMOND_TOP_GRAMMAR: str = _signal_grammar("pattern_diamond_top", (0, 1))
+
+# pattern_diamond_bottom : symetrique BULLISH.
+PATTERN_DIAMOND_BOTTOM_GRAMMAR: str = _signal_grammar(
+    "pattern_diamond_bottom", (0, 1),
+)
+
+
+# --- Sous-groupe 7 : V (2) --- #
+# pattern_v_top (Spike Top) : sommet pointu apres une hausse verticale,
+# puis chute brutale. Retournement BEARISH tres violent et rapide.
+# Difficile a trader (le pic est deja forme quand on le detecte).
+PATTERN_V_TOP_GRAMMAR: str = _signal_grammar("pattern_v_top", (0, 1))
+
+# pattern_v_bottom (Spike Bottom) : creux pointu apres une baisse
+# verticale, puis rebond brutal. Retournement BULLISH tres violent.
+PATTERN_V_BOTTOM_GRAMMAR: str = _signal_grammar("pattern_v_bottom", (0, 1))
+
+
+# --- Sous-groupe 8 : Spike Reversal (1) --- #
+# pattern_spike_reversal : retournement apres un spike de prix (hausse
+# ou baisse subite). La direction du retournement depend du spike
+# initial : spike up -> reversal baissier, spike down -> reversal
+# haussier. A VERIFIER contre le FeatureEngine pour la convention exacte
+# (probablement 1 si spike detecte + reversal confirme, 0 sinon, avec
+# sens du reversal en suffixe ou en valeur distincte).
+PATTERN_SPIKE_REVERSAL_GRAMMAR: str = _signal_grammar("pattern_spike_reversal", (0, 1))
+
+
+# Mapping etendu pour le Lot 4c-2 (14 patterns chartistes).
+FEATURE_GRAMMARS_LOT4C2: dict[str, str] = {
+    # Doubles (2)
+    "pattern_double_top":     PATTERN_DOUBLE_TOP_GRAMMAR,
+    "pattern_double_bottom":  PATTERN_DOUBLE_BOTTOM_GRAMMAR,
+    # Triples (2)
+    "pattern_triple_top":     PATTERN_TRIPLE_TOP_GRAMMAR,
+    "pattern_triple_bottom":  PATTERN_TRIPLE_BOTTOM_GRAMMAR,
+    # H&S (2)
+    "pattern_head_shoulders":     PATTERN_HEAD_SHOULDERS_GRAMMAR,
+    "pattern_inv_head_shoulders": PATTERN_INV_HEAD_SHOULDERS_GRAMMAR,
+    # Cup & Handle (1)
+    "pattern_cup_handle":     PATTERN_CUP_HANDLE_GRAMMAR,
+    # Rounding (2)
+    "pattern_rounding_top":    PATTERN_ROUNDING_TOP_GRAMMAR,
+    "pattern_rounding_bottom": PATTERN_ROUNDING_BOTTOM_GRAMMAR,
+    # Diamond (2)
+    "pattern_diamond_top":    PATTERN_DIAMOND_TOP_GRAMMAR,
+    "pattern_diamond_bottom": PATTERN_DIAMOND_BOTTOM_GRAMMAR,
+    # V (2)
+    "pattern_v_top":    PATTERN_V_TOP_GRAMMAR,
+    "pattern_v_bottom": PATTERN_V_BOTTOM_GRAMMAR,
+    # Spike (1)
+    "pattern_spike_reversal": PATTERN_SPIKE_REVERSAL_GRAMMAR,
+}
+
+
 # Bloc de relations OHLCV (traitement conjoint des 5 features).
 # Permet de generer des conditions qui exploitent la semantique partagee
 # des 5 features OHLCV (par opposition a des comparaisons feat-vs-quantile).
@@ -1614,6 +1754,7 @@ FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT3)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4A)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4B)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C1)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C2)
 
 
 # Mapping des grammaires de relations (vs. grammaires par feature).
