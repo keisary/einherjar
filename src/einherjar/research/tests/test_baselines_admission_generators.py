@@ -399,11 +399,38 @@ class TestGenerators(unittest.TestCase):
         # Au moins l'un des enfants a une structure différente des parents
         # (sinon le crossover n'a rien fait, mais ça reste correct).
 
-    def test_ge_returns_empty_without_bnf(self):
-        g = GrammaticalEvolutionGenerator(self.protocol, bnf_grammar=None)
+    def test_ge_generates_from_random_feature_without_override(self):
+        """GE VRAIE implementation (BNF Phase 4) : sans bnf_grammar explicite,
+        on tire au hasard parmi les 218 features de la taxonomie + bloc
+        relations OHLCV. Resultat non-vide avec budget > 0.
+        """
+        g = GrammaticalEvolutionGenerator(self.protocol, self.config, bnf_grammar=None)
         result = g.generate()
-        self.assertEqual(result.n_generated, 0)
-        self.assertEqual(result.hypotheses, ())
+        self.assertGreater(result.n_generated, 0)
+        self.assertEqual(len(result.hypotheses), result.n_generated)
+        # meta doit contenir les compteurs atomique/compose/relations
+        self.assertIn("n_atomic", result.meta)
+        self.assertIn("n_compose", result.meta)
+        self.assertIn("n_relations", result.meta)
+        # Au moins une relation OHLCV dans le budget (relations_prob=0.2, budget=50)
+        self.assertGreater(result.meta["n_atomic"] + result.meta["n_relations"], 0)
+
+    def test_ge_respects_bnf_grammar_override(self):
+        """Si une bnf_grammar est passee, on l'utilise pour TOUS les candidats."""
+        override_text = '<cond> ::= "open" ">" "q_open_p50"'
+        g = GrammaticalEvolutionGenerator(
+            self.protocol, self.config, bnf_grammar=override_text,
+        )
+        result = g.generate()
+        self.assertGreater(result.n_generated, 0)
+        # Toutes les hypotheses doivent avoir la meme source (override)
+        sources = {h.meta.get("bnf_source") for h in result.hypotheses}
+        self.assertEqual(sources, {"__override__"})
+        # Et toutes les conditions doivent referencer 'open'
+        for h in result.hypotheses[:5]:
+            from einherjar.research.utils.types import Condition
+            if isinstance(h.condition_tree, Condition):
+                self.assertEqual(h.condition_tree.feature_ref, "open")
 
     def test_memetic_runs_without_engine_fails(self):
         """MemeticGenerator REQUIERT un engine (P10 — pas de placeholder silencieux)."""
