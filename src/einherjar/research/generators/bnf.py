@@ -32,13 +32,13 @@ Statut :
   - 26/218 features (Lot 3) : 4 atomic restants + 9 composite_derived signaux
     + 13 factors (scores agreges en [0, 1]).
   - 15/218 patterns chandeliers simples (Lot 4a) : 5 dojis, 4 single-candle
-    reversal (hammer/hanging/inverted/shooting), 2 marubozu, 4 multi-candle
-    (spinning/high_wave/three_white/three_black). Tous en hypothese binaire
-    {0, 1} a valider contre le FeatureEngine reel.
+    reversal, 2 marubozu, 4 multi-candle. Binaires {0, 1} (confirme user).
+  - 19/218 patterns chandeliers composes (Lot 4b) : 2 engulfing, 2 harami,
+    2 piercing/dark, 2 abandoned_baby, 3 breakaway, 2 belt_hold, 2 ladder,
+    2 matching, 2 divers (deliberation, concealing_baby_swallow). Binaires.
   - 1 bloc de relations OHLCV : `OHLCV_RELATIONS_GRAMMAR` (traitement
     conjoint open/high/low/close/volume, e.g. "close > open").
-  - Reste : 92 features `pattern` (chandeliers composes, chartistes,
-    harmoniques, S/R, breakouts, regimes).
+  - Reste : 73 features `pattern` (chartistes 49, regimes 3, autres 21).
 """
 
 from __future__ import annotations
@@ -1324,6 +1324,166 @@ FEATURE_GRAMMARS_LOT4A: dict[str, str] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Lot 4b : patterns chandeliers composes (19) — famille price_action
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte (Identifier -> Comprendre -> Concevoir -> Verifier ->
+# Valider -> Ecrire) appliquee pour chaque pattern ci-dessous.
+#
+# Patterns composes (multi-bougies). Tous binaires {0, 1} (confirme par
+# user pour Einherjar). Direction haussiere/baissiere dans le nom du pattern.
+# Reutilise `_signal_grammar((0, 1))` du Lot 4a.
+#
+# 9 sous-groupes :
+#   1. Engulfing (2)       : retournement 2 bougies (bougie 2 engloutit 1)
+#   2. Harami (2)          : retournement 2 bougies (petite dans grande)
+#   3. Piercing/Dark (2)   : retournement 2 bougies avec gap
+#   4. Abandoned Baby (2)  : retournement 3 bougies avec doji gap (rare)
+#   5. Breakaway (3)       : continuation 5 bougies
+#   6. Belt Hold (2)       : depart de tendance 1 bougie
+#   7. Ladder (2)          : 5 bougies en continu
+#   8. Matching (2)        : 2 bougies meme close (indecision)
+#   9. Divers (2)          : deliberation, concealing_baby_swallow
+
+
+# --- Sous-groupe 1 : Engulfing (2) --- #
+# pattern_engulfing_bull : bougie 1 baissiere (petite) + bougie 2
+# haussiere (grande, corps qui engloutit completement la bougie 1).
+# Signal de retournement haussier en bas de tendance baissiere.
+PATTERN_ENGULFING_BULL_GRAMMAR: str = _signal_grammar("pattern_engulfing_bull", (0, 1))
+
+# pattern_engulfing_bear : symetrique baissier en haut de tendance haussiere.
+PATTERN_ENGULFING_BEAR_GRAMMAR: str = _signal_grammar("pattern_engulfing_bear", (0, 1))
+
+
+# --- Sous-groupe 2 : Harami (2) --- #
+# pattern_harami_bull : bougie 1 baissiere (grande) + bougie 2 haussiere
+# (petite, dans le corps de la 1). Signal de retournement haussier modere
+# ("femme enceinte" en japonais = petite dans grande).
+PATTERN_HARAMI_BULL_GRAMMAR: str = _signal_grammar("pattern_harami_bull", (0, 1))
+
+# pattern_harami_bear : symetrique baissier.
+PATTERN_HARAMI_BEAR_GRAMMAR: str = _signal_grammar("pattern_harami_bear", (0, 1))
+
+
+# --- Sous-groupe 3 : Piercing / Dark Cloud (2) --- #
+# pattern_piercing_line : bougie 1 baissiere + bougie 2 haussiere qui
+# ouvre sous le low de la bougie 1 ET ferme au-dessus du milieu du corps
+# de la bougie 1 (sans la depasser completement). Signal haussier modere.
+PATTERN_PIERCING_LINE_GRAMMAR: str = _signal_grammar("pattern_piercing_line", (0, 1))
+
+# pattern_dark_cloud_cover : symetrique baissier (bougie 2 baissiere qui
+# ouvre au-dessus du high de la bougie 1 et ferme sous le milieu du corps 1).
+PATTERN_DARK_CLOUD_COVER_GRAMMAR: str = _signal_grammar("pattern_dark_cloud_cover", (0, 1))
+
+
+# --- Sous-groupe 4 : Abandoned Baby (2) --- #
+# pattern_abandoned_baby_bull : 3 bougies. Bougie 1 baissiere, bougie 2
+# doji (avec gap down par rapport a bougie 1), bougie 3 haussiere
+# (avec gap up par rapport au doji). Signal de retournement haussier
+# extremement fiable mais tres rare (les gaps sont rares en crypto 24/7).
+PATTERN_ABANDONED_BABY_BULL_GRAMMAR: str = _signal_grammar(
+    "pattern_abandoned_baby_bull", (0, 1),
+)
+
+# pattern_abandoned_baby_bear : symetrique baissier.
+PATTERN_ABANDONED_BABY_BEAR_GRAMMAR: str = _signal_grammar(
+    "pattern_abandoned_baby_bear", (0, 1),
+)
+
+
+# --- Sous-groupe 5 : Breakaway (3) --- #
+# pattern_breakaway_bull : 5 bougies en continuation haussiere apres une
+# tendance baissiere. Les 2 premieres bougies continuent la baisse avec
+# gap, la 3eme est une grande bougie haussiere, les 2 suivantes continuent.
+PATTERN_BREAKAWAY_BULL_GRAMMAR: str = _signal_grammar("pattern_breakaway_bull", (0, 1))
+
+# pattern_breakaway_bear : symetrique baissier.
+PATTERN_BREAKAWAY_BEAR_GRAMMAR: str = _signal_grammar("pattern_breakaway_bear", (0, 1))
+
+# pattern_breakaway_gap : variante avec gap specifique (a verifier contre
+# FeatureEngine pour le sens exact, probablement continuation avec gap).
+PATTERN_BREAKAWAY_GAP_GRAMMAR: str = _signal_grammar("pattern_breakaway_gap", (0, 1))
+
+
+# --- Sous-groupe 6 : Belt Hold (2) --- #
+# pattern_belt_hold_bull : 1 bougie, open = low, close > open, longue.
+# Signal de depart de tendance haussiere (les acheteurs prennent le controle
+# des l'ouverture et ne lachent plus).
+PATTERN_BELT_HOLD_BULL_GRAMMAR: str = _signal_grammar("pattern_belt_hold_bull", (0, 1))
+
+# pattern_belt_hold_bear : symetrique baissier.
+PATTERN_BELT_HOLD_BEAR_GRAMMAR: str = _signal_grammar("pattern_belt_hold_bear", (0, 1))
+
+
+# --- Sous-groupe 7 : Ladder (2) --- #
+# pattern_ladder_bottom : 5 bougies consecutives avec corps de plus en plus
+# petits, formant un "scalier descendant" qui se retourne. Signal de
+# retournement haussier apres une baisse prolongee.
+PATTERN_LADDER_BOTTOM_GRAMMAR: str = _signal_grammar("pattern_ladder_bottom", (0, 1))
+
+# pattern_ladder_top : symetrique baissier.
+PATTERN_LADDER_TOP_GRAMMAR: str = _signal_grammar("pattern_ladder_top", (0, 1))
+
+
+# --- Sous-groupe 8 : Matching (2) --- #
+# pattern_matching_high : 2 bougies consecutives avec le MEME close (hauteur
+# elevee). Indecision en haut de tendance.
+PATTERN_MATCHING_HIGH_GRAMMAR: str = _signal_grammar("pattern_matching_high", (0, 1))
+
+# pattern_matching_low : 2 bougies consecutives avec le MEME close (bas).
+# Indecision en bas de tendance.
+PATTERN_MATCHING_LOW_GRAMMAR: str = _signal_grammar("pattern_matching_low", (0, 1))
+
+
+# --- Sous-groupe 9 : Divers (2) --- #
+# pattern_deliberation : 3 bougies haussieres consecutives suivies d'une
+# petite bougie indécise (spinning top). Signal de fin de tendance
+# haussiere (les acheteurs hesitent, sommet approche).
+PATTERN_DELIBERATION_GRAMMAR: str = _signal_grammar("pattern_deliberation", (0, 1))
+
+# pattern_concealing_baby_swallow : pattern haussier rare. 4 bougies : 2
+# baissieres (longues, dans la tendance), puis 2 haussieres courtes
+# (la 2eme engloutit completement la 1ere). Retournement haussier.
+PATTERN_CONCEALING_BABY_SWALLOW_GRAMMAR: str = _signal_grammar(
+    "pattern_concealing_baby_swallow", (0, 1),
+)
+
+
+# Mapping etendu pour le Lot 4b (19 patterns chandeliers composes).
+FEATURE_GRAMMARS_LOT4B: dict[str, str] = {
+    # Engulfing (2)
+    "pattern_engulfing_bull":   PATTERN_ENGULFING_BULL_GRAMMAR,
+    "pattern_engulfing_bear":   PATTERN_ENGULFING_BEAR_GRAMMAR,
+    # Harami (2)
+    "pattern_harami_bull":      PATTERN_HARAMI_BULL_GRAMMAR,
+    "pattern_harami_bear":      PATTERN_HARAMI_BEAR_GRAMMAR,
+    # Piercing / Dark Cloud (2)
+    "pattern_piercing_line":    PATTERN_PIERCING_LINE_GRAMMAR,
+    "pattern_dark_cloud_cover": PATTERN_DARK_CLOUD_COVER_GRAMMAR,
+    # Abandoned Baby (2)
+    "pattern_abandoned_baby_bull": PATTERN_ABANDONED_BABY_BULL_GRAMMAR,
+    "pattern_abandoned_baby_bear": PATTERN_ABANDONED_BABY_BEAR_GRAMMAR,
+    # Breakaway (3)
+    "pattern_breakaway_bull":   PATTERN_BREAKAWAY_BULL_GRAMMAR,
+    "pattern_breakaway_bear":   PATTERN_BREAKAWAY_BEAR_GRAMMAR,
+    "pattern_breakaway_gap":    PATTERN_BREAKAWAY_GAP_GRAMMAR,
+    # Belt Hold (2)
+    "pattern_belt_hold_bull":   PATTERN_BELT_HOLD_BULL_GRAMMAR,
+    "pattern_belt_hold_bear":   PATTERN_BELT_HOLD_BEAR_GRAMMAR,
+    # Ladder (2)
+    "pattern_ladder_bottom":    PATTERN_LADDER_BOTTOM_GRAMMAR,
+    "pattern_ladder_top":       PATTERN_LADDER_TOP_GRAMMAR,
+    # Matching (2)
+    "pattern_matching_high":    PATTERN_MATCHING_HIGH_GRAMMAR,
+    "pattern_matching_low":     PATTERN_MATCHING_LOW_GRAMMAR,
+    # Divers (2)
+    "pattern_deliberation":           PATTERN_DELIBERATION_GRAMMAR,
+    "pattern_concealing_baby_swallow": PATTERN_CONCEALING_BABY_SWALLOW_GRAMMAR,
+}
+
+
 # Bloc de relations OHLCV (traitement conjoint des 5 features).
 # Permet de generer des conditions qui exploitent la semantique partagee
 # des 5 features OHLCV (par opposition a des comparaisons feat-vs-quantile).
@@ -1364,6 +1524,7 @@ FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT1)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT2)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT3)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4A)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4B)
 
 
 # Mapping des grammaires de relations (vs. grammaires par feature).
