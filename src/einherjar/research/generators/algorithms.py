@@ -990,6 +990,15 @@ class GrammaticalEvolutionGenerator(BaseGenerator):
                     n_atomic += 1
                 # 5) Sample direction + amplitude.
                 direction = self._rng.choice([Direction.LONG, Direction.SHORT])
+                # 5b) Orientation semantique (BNF Phase 3) : pour les
+                # patterns, ajouter l'orientation naturelle au meta.
+                # Permet au moteur d'admission / comparateur de scorer
+                # la coherence entre l'orientation du pattern et la
+                # direction de l'Hypothesis.
+                from einherjar.research.generators.bnf_semantic import (
+                    get_orientation as _get_orientation,
+                )
+                semantic_orient = _get_orientation(source_key).value
                 # 6) Construire Hypothesis.
                 h = Hypothesis(
                     id=f"{self.name}_{i:06d}",
@@ -1001,6 +1010,7 @@ class GrammaticalEvolutionGenerator(BaseGenerator):
                     meta={
                         "bnf_source": source_key,
                         "chromosome": chromosome,
+                        "semantic_orientation": semantic_orient,
                     },
                 )
                 hyps.append(h)
