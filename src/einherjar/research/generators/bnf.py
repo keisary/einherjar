@@ -42,10 +42,13 @@ Statut :
     1 cup_handle, 2 rounding, 2 diamond, 2 V, 1 spike_reversal. Binaires.
   - 6/218 patterns chartistes (Lot 4c-3) : 2 channels (up/down), 2 flags
     (bull/bear), 1 measured_move (ABCD), 1 rectangle (range). Binaires.
+  - 6/218 patterns chartistes (Lot 4c-4) : 2 S/R (support/resistance),
+    3 islands (reversal/top/bottom), 1 Wolfe Wave (5 vagues predictif).
+    Binaires.
   - 1 bloc de relations OHLCV : `OHLCV_RELATIONS_GRAMMAR` (traitement
     conjoint open/high/low/close/volume, e.g. "close > open").
-  - Reste : 45 features `pattern` (autres chartistes 21, regimes 3,
-    three_drives 1, autres 20).
+  - Reste : 39 features `pattern` (autres chartistes 15, regimes 3,
+    three_drives 1, harmoniques 10, autres 10).
 """
 
 from __future__ import annotations
@@ -1787,6 +1790,81 @@ FEATURE_GRAMMARS_LOT4C3: dict[str, str] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Lot 4c-4 : patterns chartistes - S/R, Island reversals, Wolfe Wave (6)
+#            famille market_structure
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte (Identifier -> Comprendre -> Concevoir -> Verifier ->
+# Valider -> Ecrire) appliquee pour chaque pattern ci-dessous.
+#
+# Tous binaires {0, 1}. Reutilise _signal_grammar du Lot 4a.
+#
+# 3 sous-groupes :
+#   1. Support/Resistance (2) : niveaux de prix psychologiques / techniques
+#   2. Island Reversals (3)   : retournement par gap (ile isolee)
+#   3. Wolfe Wave (1)         : pattern predictif en 5 vagues
+
+
+# --- Sous-groupe 1 : Support / Resistance (2) --- #
+# pattern_support : niveau de prix ou la pression acheteuse est
+# suffisamment forte pour empecher une baisse supplementaire. Detection
+# = le prix a touche au moins 2 fois un meme niveau horizontal SANS le
+# casser (plus de touches = support plus fort). BULLISH quand le prix
+# rebondit dessus. La rupture du support = signal BEARISH (devient
+# resistance).
+PATTERN_SUPPORT_GRAMMAR: str = _signal_grammar("pattern_support", (0, 1))
+
+# pattern_resistance : symetrique. Niveau de prix ou la pression
+# vendeuse empeche la hausse. BEARISH quand le prix rebondit dessous.
+PATTERN_RESISTANCE_GRAMMAR: str = _signal_grammar("pattern_resistance", (0, 1))
+
+
+# --- Sous-groupe 2 : Island Reversals (3) --- #
+# pattern_island_reversal : retournement par "ile isolee" = un groupe
+# de bougies forme une ile separee du reste par 2 gaps (un en bas, un
+# en haut). Les gaps rendent l'ile visuellement isolee sur le chart.
+# Signal de retournement. La direction depend du contexte (top ou bottom).
+PATTERN_ISLAND_REVERSAL_GRAMMAR: str = _signal_grammar(
+    "pattern_island_reversal", (0, 1),
+)
+
+# pattern_island_top : ile isolee au SOMMET. Le prix gap up, fait
+# quelques bougies, puis gap down = cassure. BEARISH. Pattern rare
+# (gaps rares en crypto 24/7) mais signal tres fiable.
+PATTERN_ISLAND_TOP_GRAMMAR: str = _signal_grammar("pattern_island_top", (0, 1))
+
+# pattern_island_bottom : symetrique. Ile isolee au FOND. Le prix gap
+# down, fait quelques bougies, puis gap up. BULLISH.
+PATTERN_ISLAND_BOTTOM_GRAMMAR: str = _signal_grammar(
+    "pattern_island_bottom", (0, 1),
+)
+
+
+# --- Sous-groupe 3 : Wolfe Wave (1) --- #
+# pattern_wolfe_wave (Bill Wolfe, 1990s) : pattern en 5 vagues (1-2-3-4-5)
+# encadre par 2 lignes de tendance convergentes (EPA - Estimated Price at
+# Arrival). Vagues 1-2-3-4 suivent la tendance, la vague 5 sort du canal
+# et converge vers la ligne EPA. PREDICTIF : le prix atteint un point
+# precis (cible = ligne EPA). Signal NEUTRE (la direction depend du
+# contexte haussier/baissier) mais extremement precis.
+PATTERN_WOLFE_WAVE_GRAMMAR: str = _signal_grammar("pattern_wolfe_wave", (0, 1))
+
+
+# Mapping etendu pour le Lot 4c-4 (6 patterns chartistes : S/R, islands, Wolfe).
+FEATURE_GRAMMARS_LOT4C4: dict[str, str] = {
+    # Support / Resistance (2)
+    "pattern_support":    PATTERN_SUPPORT_GRAMMAR,
+    "pattern_resistance": PATTERN_RESISTANCE_GRAMMAR,
+    # Island Reversals (3)
+    "pattern_island_reversal": PATTERN_ISLAND_REVERSAL_GRAMMAR,
+    "pattern_island_top":      PATTERN_ISLAND_TOP_GRAMMAR,
+    "pattern_island_bottom":   PATTERN_ISLAND_BOTTOM_GRAMMAR,
+    # Wolfe Wave (1)
+    "pattern_wolfe_wave": PATTERN_WOLFE_WAVE_GRAMMAR,
+}
+
+
 # Bloc de relations OHLCV (traitement conjoint des 5 features).
 # Permet de generer des conditions qui exploitent la semantique partagee
 # des 5 features OHLCV (par opposition a des comparaisons feat-vs-quantile).
@@ -1831,6 +1909,7 @@ FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4B)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C1)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C2)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C3)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C4)
 
 
 # Mapping des grammaires de relations (vs. grammaires par feature).
