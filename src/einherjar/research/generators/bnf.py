@@ -25,10 +25,17 @@ Statut :
     ADX, DI+/DI-, Aroon, Parabolic SAR, Supertrend, TRIX, Vortex,
     Bollinger Bands (5), OBV (2), volume_sma_20, volume_ratio,
     Chaikin Oscillator, Money Flow Index.
+  - 31/218 features QUANTITATIVES (Lot 2) : entropies (4), autocorrelations
+    (6), volatilite (5), risque (5), regime de marche (4), momentum quant (2),
+    microstructure (2), spectral (2), variance ratio (1).
+    NOTE : 4 features quantitative `_signal` (quant_hurst_exponent_signal,
+    quant_realized_vol_10_signal, quant_shannon_entropy_signal,
+    quant_vol_persistence_signal) sont dans la taxonomie mais marquees
+    excluded=True (fantomes), donc 31/35 traitees.
   - 1 bloc de relations OHLCV : `OHLCV_RELATIONS_GRAMMAR` (traitement
     conjoint open/high/low/close/volume, e.g. "close > open").
-  - Les features specialisees (pattern, factor, signal, quantitative
-    statistiques) necessiteront des regles specifiques par la suite.
+  - Les features specialisees (pattern, factor, composite_derived, signal)
+    necessiteront des regles specifiques par la suite.
 """
 
 from __future__ import annotations
@@ -222,6 +229,46 @@ def _oscillator_grammar(feature_name: str, period: int) -> str:
     return (
         f'# {feature_name} : oscillateur sur {period} periodes '
         f'(borne par construction, quantiles dans [0, 100] en pratique)\n'
+        f'<{feature_name}_cond> ::= "{feature_name}" <{feature_name}_op> <{feature_name}_threshold>\n'
+        f'<{feature_name}_op> ::= {ops}\n'
+        f'<{feature_name}_threshold> ::= {thresholds}'
+    )
+
+
+def _unit_bounded_grammar(feature_name: str, lower: float, upper: float) -> str:
+    """Helper pour features dans [lower, upper] (Hurst, Kaufman, regime, etc.).
+
+    Args:
+        feature_name: nom exact dans la taxonomie (ex: "quant_hurst_exponent").
+        lower: borne inferieure theorique.
+        upper: borne superieure theorique.
+    """
+    ops = " | ".join(f'"{op.value}"' for op in DEFAULT_ATOMIC_OPERATORS)
+    thresholds = " | ".join(
+        f"q_{feature_name}_p{int(q * 100)}" for q in DEFAULT_QUANTILES
+    )
+    return (
+        f'# {feature_name} : feature bornee dans [{lower}, {upper}]\n'
+        f'<{feature_name}_cond> ::= "{feature_name}" <{feature_name}_op> <{feature_name}_threshold>\n'
+        f'<{feature_name}_op> ::= {ops}\n'
+        f'<{feature_name}_threshold> ::= {thresholds}'
+    )
+
+
+def _correlation_grammar(feature_name: str, lag: int | None = None) -> str:
+    """Helper pour autocorrelations / correlations (bornee [-1, +1]).
+
+    Args:
+        feature_name: nom exact dans la taxonomie.
+        lag: lag de l'autocorrelation (info documentaire, ex: 10/20/50).
+    """
+    lag_info = f"lag {lag}" if lag is not None else "correlation"
+    ops = " | ".join(f'"{op.value}"' for op in DEFAULT_ATOMIC_OPERATORS)
+    thresholds = " | ".join(
+        f"q_{feature_name}_p{int(q * 100)}" for q in DEFAULT_QUANTILES
+    )
+    return (
+        f'# {feature_name} : {lag_info}, borne dans [-1, +1]\n'
         f'<{feature_name}_cond> ::= "{feature_name}" <{feature_name}_op> <{feature_name}_threshold>\n'
         f'<{feature_name}_op> ::= {ops}\n'
         f'<{feature_name}_threshold> ::= {thresholds}'
@@ -664,6 +711,269 @@ FEATURE_GRAMMARS_LOT1: dict[str, str] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Lot 2 : features QUANTITATIVES (31) — statistical, volatility, risk,
+#         market_regime, momentum, microstructure, spectral
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte (Identifier -> Comprendre -> Concevoir -> Verifier ->
+# Valider -> Ecrire) appliquee pour chaque feature ci-dessous.
+#
+# NOTE inventaire : la taxonomie reference 35 features quantitative, mais
+# 4 d'entre elles (`quant_hurst_exponent_signal`, `quant_realized_vol_10_signal`,
+# `quant_shannon_entropy_signal`, `quant_vol_persistence_signal`) sont
+# marquees `excluded=True` (fantomes) et donc absentes des 218 utilisables.
+# Ce lot traite donc 31 features sur 35.
+#
+# 3 helpers specialises pour eviter la duplication :
+#   - _default_atomic_grammar : series continues, pas de borne stricte
+#   - _unit_bounded_grammar   : series dans [lower, upper] (Hurst, Shannon, etc.)
+#   - _correlation_grammar    : series dans [-1, +1] (autocorrelations)
+
+
+# --- Sous-famille 1 : Entropies (4) --- #
+# Mesure l'incertitude / regularite / structure d'une serie.
+# Feature 55/218 : "quant_approximate_entropy" (ApEn, Pincus 1991).
+#   - Identifier  : quantitative, float, family=statistical
+#   - Comprendre  : regularite via patterns de longueur m, tolerance r.
+#     PAS de borne stricte, en pratique ~[0, 2.5]. Plus ApEn est grand,
+#     plus la serie est irreguliere/alatoire.
+#   - Concevoir   : _default_atomic_grammar (non bornee strictement).
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+# Feature 56/218 : "quant_sample_entropy" (SampEn, Richman & Moorman 2000).
+#   - Amelioration de ApEn (pas d'auto-match, biais reduit). Meme semantique.
+# Feature 57/218 : "quant_permutation_entropy" (Bandt & Pompe 2002).
+#   - Patterns ordinaux (rangs). Borne theorique [0, log(m!)] (m=ordre).
+#     Plus grand = plus irregulier. Robuste au bruit.
+#   - Concevoir   : _unit_bounded_grammar(lower=0, upper=log(m!)) - on approx
+#     upper=2.0 (m=3 donne log(6)~1.79, m=5 donne log(120)~4.79).
+# Feature 58/218 : "quant_shannon_entropy" (Shannon 1948).
+#   - H = -sum(p_i * log(p_i)) apres binning. Borne [0, log(K)] (K=bins).
+#     Grand = aleatoire (range/choppy), petit = structure (tendance).
+#   - Concevoir   : _unit_bounded_grammar(lower=0, upper=log(K)) - approx upper=5.0.
+# Note : quant_shannon_entropy_signal est EXCLUE de la taxonomie (fantome).
+QUANT_APPROXIMATE_ENTROPY_GRAMMAR: str = _default_atomic_grammar("quant_approximate_entropy")
+QUANT_SAMPLE_ENTROPY_GRAMMAR: str = _default_atomic_grammar("quant_sample_entropy")
+QUANT_PERMUTATION_ENTROPY_GRAMMAR: str = _unit_bounded_grammar(
+    "quant_permutation_entropy", lower=0.0, upper=2.0,
+)
+QUANT_SHANNON_ENTROPY_GRAMMAR: str = _unit_bounded_grammar(
+    "quant_shannon_entropy", lower=0.0, upper=5.0,
+)
+
+
+# --- Sous-famille 2 : Autocorrelations (6) --- #
+# Feature 59/218 : "quant_autocorr_10" (Pearson, lag 10).
+#   - Identifier  : quantitative, float, family=statistical
+#   - Comprendre  : correlation entre r[t] et r[t-10]. Borne stricte [-1, +1].
+#     > 0 = serie persistante (momentum), < 0 = mean-reverting, ~0 = aleatoire.
+#   - Concevoir   : _correlation_grammar(lag=10).
+#   - Verifier    : pas de tautologie (quantiles rarement +-1).
+#   - Valider     : OK.
+# Feature 60/218 : "quant_autocorr_10_weighted" (variante ponderee exponentiellement).
+# Feature 61/218 : "quant_autocorr_20" et 62/218 "quant_autocorr_20_weighted".
+# Feature 63/218 : "quant_autocorr_50" et 64/218 "quant_autocorr_50_weighted".
+QUANT_AUTOCORR_10_GRAMMAR: str = _correlation_grammar("quant_autocorr_10", lag=10)
+QUANT_AUTOCORR_10_WEIGHTED_GRAMMAR: str = _correlation_grammar(
+    "quant_autocorr_10_weighted", lag=10,
+)
+QUANT_AUTOCORR_20_GRAMMAR: str = _correlation_grammar("quant_autocorr_20", lag=20)
+QUANT_AUTOCORR_20_WEIGHTED_GRAMMAR: str = _correlation_grammar(
+    "quant_autocorr_20_weighted", lag=20,
+)
+QUANT_AUTOCORR_50_GRAMMAR: str = _correlation_grammar("quant_autocorr_50", lag=50)
+QUANT_AUTOCORR_50_WEIGHTED_GRAMMAR: str = _correlation_grammar(
+    "quant_autocorr_50_weighted", lag=50,
+)
+
+
+# --- Sous-famille 3 : Volatilite (5) --- #
+# Toutes >= 0, pas de borne superieure stricte (peut exploser en cas de crash).
+# Feature 65/218 : "quant_garch_volatility" (GARCH(p,q) conditionnelle).
+#   - Identifier  : quantitative, float, family=volatility
+#   - Comprendre  : variance conditionnelle estimee par modele GARCH. Toujours
+#     > 0. Plus grande = marche plus volatile.
+#   - Concevoir   : _default_atomic_grammar (>= 0, pas de borne sup stricte).
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+# Feature 66/218 : "quant_realized_vol_10" (somme carree des rendements sur 10).
+#   - Realized vol = sqrt(sum(r_i^2)) sur N periodes. > 0, ~[0, 0.5] typique 1h.
+# Feature 67/218 : "quant_realized_vol_20" (fenetre 20).
+# Feature 68/218 : "quant_realized_vol_50" (fenetre 50).
+# Feature 69/218 : "quant_vol_clustering" (autocorrelation des |r|^2).
+#   - Mesure si la volatilite est "clusterisee" (periodes calmes/perturbees).
+#     Borne [-1, +1] en theorie (correlation), typique [0, 0.5] sur marche.
+# Note : quant_realized_vol_10_signal est EXCLUE de la taxonomie (fantome).
+QUANT_GARCH_VOLATILITY_GRAMMAR: str = _default_atomic_grammar("quant_garch_volatility")
+QUANT_REALIZED_VOL_10_GRAMMAR: str = _default_atomic_grammar("quant_realized_vol_10")
+QUANT_REALIZED_VOL_20_GRAMMAR: str = _default_atomic_grammar("quant_realized_vol_20")
+QUANT_REALIZED_VOL_50_GRAMMAR: str = _default_atomic_grammar("quant_realized_vol_50")
+QUANT_VOL_CLUSTERING_GRAMMAR: str = _correlation_grammar("quant_vol_clustering")
+
+
+# --- Sous-famille 4 : Risque (5) --- #
+# Feature 70/218 : "quant_dynamic_var" (Value-at-Risk dynamique).
+#   - Identifier  : quantitative, float, family=risk
+#   - Comprendre  : quantile de perte sur fenetre glissante. Borne typique
+#     [-1, 0] (perte exprimee en log-return negatif ou positif selon signe).
+#   - Concevoir   : _unit_bounded_grammar(lower=-1.0, upper=1.0) (en log-return).
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+# Feature 71/218 : "quant_dynamic_cvar" (Conditional VaR / Expected Shortfall).
+#   - CVaR >= VaR (perte conditionnelle au-dela du seuil VaR). Meme plage.
+# Feature 72/218 : "quant_max_drawdown" (drawdown maximum sur fenetre).
+#   - Borne [0, 1] (drawdown = (peak - trough) / peak). Toujours >= 0.
+#   - Concevoir   : _unit_bounded_grammar(lower=0.0, upper=1.0).
+# Feature 73/218 : "quant_rolling_kurtosis" (exces de kurtosis glissant).
+#   - PAS de borne stricte (typiquement [0, 30] pour series financieres,
+#     0 = gaussien, > 0 = fat tails). Pas borne.
+# Feature 74/218 : "quant_rolling_skewness" (asymetrie glissante).
+#   - PAS de borne stricte (typiquement [-3, +3]). Pas borne.
+QUANT_DYNAMIC_VAR_GRAMMAR: str = _unit_bounded_grammar("quant_dynamic_var", -1.0, 1.0)
+QUANT_DYNAMIC_CVAR_GRAMMAR: str = _unit_bounded_grammar("quant_dynamic_cvar", -1.0, 1.0)
+QUANT_MAX_DRAWDOWN_GRAMMAR: str = _unit_bounded_grammar("quant_max_drawdown", 0.0, 1.0)
+QUANT_ROLLING_KURTOSIS_GRAMMAR: str = _default_atomic_grammar("quant_rolling_kurtosis")
+QUANT_ROLLING_SKEWNESS_GRAMMAR: str = _default_atomic_grammar("quant_rolling_skewness")
+
+
+# --- Sous-famille 5 : Regime de marche (4) --- #
+# Feature 75/218 : "quant_hurst_exponent" (Hurst 1951).
+#   - Identifier  : quantitative, float, family=market_regime
+#   - Comprendre  : H<0.5 mean-reverting, H=0.5 random walk, H>0.5 trending.
+#     Borne stricte [0, 1] pour signaux 1D.
+#   - Concevoir   : _unit_bounded_grammar(lower=0.0, upper=1.0).
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+# Note : quant_hurst_exponent_signal est EXCLUE de la taxonomie (fantome).
+# Feature 76/218 : "quant_dfa_exponent" (Detrended Fluctuation Analysis).
+#   - Similaire a Hurst, plus robuste aux tendances locales. Borne [0, 1].
+# Feature 77/218 : "quant_fractal_dimension" (Higuchi 1988 ou box-counting).
+#   - D = 2 - H pour signaux 1D. Borne [1, 2].
+#   - Concevoir   : _unit_bounded_grammar(lower=1.0, upper=2.0).
+# Feature 78/218 : "quant_regime_detection" (indicateur de regime).
+#   - Probablement un entier code (0/1/2) ou continu selon impl. Traite
+#     comme continu par defaut.
+#   - Concevoir   : _default_atomic_grammar (on verra au moment du parser si
+#     un override categoriel est necessaire).
+QUANT_HURST_EXPONENT_GRAMMAR: str = _unit_bounded_grammar(
+    "quant_hurst_exponent", 0.0, 1.0,
+)
+QUANT_DFA_EXPONENT_GRAMMAR: str = _unit_bounded_grammar("quant_dfa_exponent", 0.0, 1.0)
+QUANT_FRACTAL_DIMENSION_GRAMMAR: str = _unit_bounded_grammar(
+    "quant_fractal_dimension", 1.0, 2.0,
+)
+QUANT_REGIME_DETECTION_GRAMMAR: str = _default_atomic_grammar("quant_regime_detection")
+
+
+# --- Sous-famille 6 : Momentum quantitatif (2) --- #
+# Feature 79/218 : "quant_kaufman_efficiency" (Kaufman 1995).
+#   - Identifier  : quantitative, float, family=momentum
+#   - Comprendre  : |close - close_prev_N| / sum(|r_i|). Borne [0, 1].
+#     Proche de 1 = directionnel, proche de 0 = choppy.
+#   - Concevoir   : _unit_bounded_grammar(lower=0.0, upper=1.0).
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+# Feature 80/218 : "quant_vol_persistence" (autocorrelation des |r|^2 a lag).
+#   - Correlation de la vol avec elle-meme. Borne [-1, +1].
+#   - Concevoir   : _correlation_grammar.
+# Note : quant_vol_persistence_signal est EXCLUE de la taxonomie (fantome).
+QUANT_KAUFMAN_EFFICIENCY_GRAMMAR: str = _unit_bounded_grammar(
+    "quant_kaufman_efficiency", 0.0, 1.0,
+)
+QUANT_VOL_PERSISTENCE_GRAMMAR: str = _correlation_grammar("quant_vol_persistence")
+
+
+# --- Sous-famille 7 : Microstructure (2) --- #
+# Feature 81/218 : "quant_amihud_illiquidity" (Amihud 2002).
+#   - Identifier  : quantitative, float, family=microstructure
+#   - Comprendre  : |return| / volume. Prix de l'illiquidite. Toujours >= 0.
+#   - Concevoir   : _default_atomic_grammar (>= 0, pas de borne sup stricte).
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+# Feature 82/218 : "quant_kyles_lambda" (Kyle 1985).
+#   - Coefficient de regression price_change sur signed_volume. >= 0.
+#   - Plus eleve = plus le prix reagit aux ordres informes.
+QUANT_AMIHUD_ILLIQUIDITY_GRAMMAR: str = _default_atomic_grammar("quant_amihud_illiquidity")
+QUANT_KYLES_LAMBDA_GRAMMAR: str = _default_atomic_grammar("quant_kyles_lambda")
+
+
+# --- Sous-famille 8 : Spectral (2) --- #
+# Feature 83/218 : "quant_dominant_frequency".
+#   - Identifier  : quantitative, float, family=statistical
+#   - Comprendre  : frequence dominante du spectre (inverse de la periode
+#     du cycle dominant). Borne [0, Nyquist_frequency].
+#   - Concevoir   : _unit_bounded_grammar (Nyquist depend du timeframe, on
+#     approx upper=1.0 et le parser l'adaptera).
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+# Feature 84/218 : "quant_spectral_centroid".
+#   - Centroide du spectre = moyenne ponderee des frequences par leur
+#     energie. Borne [0, Nyquist]. Plus eleve = plus d'energie HF.
+QUANT_DOMINANT_FREQUENCY_GRAMMAR: str = _unit_bounded_grammar(
+    "quant_dominant_frequency", 0.0, 1.0,
+)
+QUANT_SPECTRAL_CENTROID_GRAMMAR: str = _unit_bounded_grammar(
+    "quant_spectral_centroid", 0.0, 1.0,
+)
+
+
+# --- Sous-famille 9 : Variance ratio (1) --- #
+# Feature 85/218 : "quant_variance_ratio" (Lo & MacKinlay 1988).
+#   - Identifier  : quantitative, float, family=statistical
+#   - Comprendre  : Var(r_q) / (q * Var(r_1)). < 1 = mean-reverting,
+#     > 1 = trending, = 1 = random walk. PAS de borne stricte, typique [0, 3].
+#   - Concevoir   : _default_atomic_grammar.
+#   - Verifier    : pas de tautologie.
+#   - Valider     : OK.
+QUANT_VARIANCE_RATIO_GRAMMAR: str = _default_atomic_grammar("quant_variance_ratio")
+
+
+# Mapping etendu pour le Lot 2 (features quantitative, 31 features utilisables).
+FEATURE_GRAMMARS_LOT2: dict[str, str] = {
+    # Entropies (4)
+    "quant_approximate_entropy":      QUANT_APPROXIMATE_ENTROPY_GRAMMAR,
+    "quant_sample_entropy":           QUANT_SAMPLE_ENTROPY_GRAMMAR,
+    "quant_permutation_entropy":      QUANT_PERMUTATION_ENTROPY_GRAMMAR,
+    "quant_shannon_entropy":          QUANT_SHANNON_ENTROPY_GRAMMAR,
+    # Autocorrelations (6)
+    "quant_autocorr_10":              QUANT_AUTOCORR_10_GRAMMAR,
+    "quant_autocorr_10_weighted":     QUANT_AUTOCORR_10_WEIGHTED_GRAMMAR,
+    "quant_autocorr_20":              QUANT_AUTOCORR_20_GRAMMAR,
+    "quant_autocorr_20_weighted":     QUANT_AUTOCORR_20_WEIGHTED_GRAMMAR,
+    "quant_autocorr_50":              QUANT_AUTOCORR_50_GRAMMAR,
+    "quant_autocorr_50_weighted":     QUANT_AUTOCORR_50_WEIGHTED_GRAMMAR,
+    # Volatilite (5)
+    "quant_garch_volatility":         QUANT_GARCH_VOLATILITY_GRAMMAR,
+    "quant_realized_vol_10":          QUANT_REALIZED_VOL_10_GRAMMAR,
+    "quant_realized_vol_20":          QUANT_REALIZED_VOL_20_GRAMMAR,
+    "quant_realized_vol_50":          QUANT_REALIZED_VOL_50_GRAMMAR,
+    "quant_vol_clustering":           QUANT_VOL_CLUSTERING_GRAMMAR,
+    # Risque (5)
+    "quant_dynamic_var":              QUANT_DYNAMIC_VAR_GRAMMAR,
+    "quant_dynamic_cvar":             QUANT_DYNAMIC_CVAR_GRAMMAR,
+    "quant_max_drawdown":             QUANT_MAX_DRAWDOWN_GRAMMAR,
+    "quant_rolling_kurtosis":         QUANT_ROLLING_KURTOSIS_GRAMMAR,
+    "quant_rolling_skewness":         QUANT_ROLLING_SKEWNESS_GRAMMAR,
+    # Regime (4)
+    "quant_hurst_exponent":           QUANT_HURST_EXPONENT_GRAMMAR,
+    "quant_dfa_exponent":             QUANT_DFA_EXPONENT_GRAMMAR,
+    "quant_fractal_dimension":        QUANT_FRACTAL_DIMENSION_GRAMMAR,
+    "quant_regime_detection":         QUANT_REGIME_DETECTION_GRAMMAR,
+    # Momentum quant (2)
+    "quant_kaufman_efficiency":       QUANT_KAUFMAN_EFFICIENCY_GRAMMAR,
+    "quant_vol_persistence":          QUANT_VOL_PERSISTENCE_GRAMMAR,
+    # Microstructure (2)
+    "quant_amihud_illiquidity":       QUANT_AMIHUD_ILLIQUIDITY_GRAMMAR,
+    "quant_kyles_lambda":             QUANT_KYLES_LAMBDA_GRAMMAR,
+    # Spectral (2)
+    "quant_dominant_frequency":       QUANT_DOMINANT_FREQUENCY_GRAMMAR,
+    "quant_spectral_centroid":        QUANT_SPECTRAL_CENTROID_GRAMMAR,
+    # Variance ratio (1)
+    "quant_variance_ratio":           QUANT_VARIANCE_RATIO_GRAMMAR,
+}
+
+
 # Bloc de relations OHLCV (traitement conjoint des 5 features).
 # Permet de generer des conditions qui exploitent la semantique partagee
 # des 5 features OHLCV (par opposition a des comparaisons feat-vs-quantile).
@@ -701,6 +1011,7 @@ FEATURE_GRAMMARS: dict[str, str] = {
     "volume": VOLUME_GRAMMAR,
 }
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT1)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT2)
 
 
 # Mapping des grammaires de relations (vs. grammaires par feature).
