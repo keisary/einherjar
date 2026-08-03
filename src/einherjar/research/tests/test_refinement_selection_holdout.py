@@ -147,12 +147,14 @@ def _make_fake_report(winner_name: str = "RandomSearchGenerator") -> ComparisonR
             generator_name="RandomSearchGenerator", rank=1, score=1.5,
             n_generated=200, n_evaluated=180, n_passed_admission=10,
             admission_rate=0.055, median_sharpe=1.2, median_sharpe_all=0.5,
+            n_distinct_features=15, semantic_coherence=0.0,
             elapsed_s=1.0,
         ),
         GeneratorRanking(
             generator_name="BeamSearchGenerator", rank=2, score=1.2,
             n_generated=200, n_evaluated=190, n_passed_admission=8,
             admission_rate=0.042, median_sharpe=1.0, median_sharpe_all=0.4,
+            n_distinct_features=12, semantic_coherence=0.0,
             elapsed_s=2.0,
         ),
     ]
@@ -163,6 +165,8 @@ def _make_fake_report(winner_name: str = "RandomSearchGenerator") -> ComparisonR
             n_generated=r.n_generated, n_evaluated=r.n_evaluated,
             n_passed_admission=r.n_passed_admission, admission_rate=r.admission_rate,
             median_sharpe=r.median_sharpe, median_sharpe_all=r.median_sharpe_all,
+            n_distinct_features=r.n_distinct_features,
+            semantic_coherence=r.semantic_coherence,
             elapsed_s=r.elapsed_s,
         )
     return ComparisonReport(
