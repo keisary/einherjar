@@ -40,9 +40,11 @@ Statut :
     3 wedges (rising/falling/broadening), 2 pennants (bull/bear). Binaires.
   - 14/218 patterns chartistes (Lot 4c-2) : 2 doubles, 2 triples, 2 H&S,
     1 cup_handle, 2 rounding, 2 diamond, 2 V, 1 spike_reversal. Binaires.
+  - 6/218 patterns chartistes (Lot 4c-3) : 2 channels (up/down), 2 flags
+    (bull/bear), 1 measured_move (ABCD), 1 rectangle (range). Binaires.
   - 1 bloc de relations OHLCV : `OHLCV_RELATIONS_GRAMMAR` (traitement
     conjoint open/high/low/close/volume, e.g. "close > open").
-  - Reste : 51 features `pattern` (autres chartistes 27, regimes 3,
+  - Reste : 45 features `pattern` (autres chartistes 21, regimes 3,
     three_drives 1, autres 20).
 """
 
@@ -1712,6 +1714,79 @@ FEATURE_GRAMMARS_LOT4C2: dict[str, str] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Lot 4c-3 : patterns chartistes - channels, flags, measured_move, rectangle
+#            (6) — famille market_structure
+# --------------------------------------------------------------------------- #
+#
+# Procedure stricte (Identifier -> Comprendre -> Concevoir -> Verifier ->
+# Valider -> Ecrire) appliquee pour chaque pattern ci-dessous.
+#
+# Tous binaires {0, 1}. Direction (bullish/bearish) dans le nom du pattern
+# pour les flags ; pour channels/rectangle/measured_move, le sens est
+# implicite (continuation selon le contexte). Reutilise _signal_grammar.
+#
+# 4 sous-groupes :
+#   1. Channels (2)        : canaux haussier / baissier (continuation)
+#   2. Flags (2)           : fanions haussier / baissier (continuation)
+#   3. Measured Move (1)   : ABCD = continuation apres retracement
+#   4. Rectangle (1)       : range horizontal (consolidation neutre)
+
+
+# --- Sous-groupe 1 : Channels (2) --- #
+# pattern_channel_up (Ascending Channel) : 2 lignes paralleles ascendants
+# (support + resistance qui montent ensemble, pente similaire). Continuation
+# BULLISH tant que le prix reste dans le canal. Cassure = signal de fin
+# de tendance ou acceleration.
+PATTERN_CHANNEL_UP_GRAMMAR: str = _signal_grammar("pattern_channel_up", (0, 1))
+
+# pattern_channel_down (Descending Channel) : 2 lignes paralleles
+# descendants. Continuation BEARISH.
+PATTERN_CHANNEL_DOWN_GRAMMAR: str = _signal_grammar("pattern_channel_down", (0, 1))
+
+
+# --- Sous-groupe 2 : Flags (2) --- #
+# pattern_bull_flag : forte hausse (mât, typiquement 2-5x plus grand que
+# le fanion) + petite consolidation laterale descendante (le fanion).
+# CONTINUATION haussiere : le prix repart dans le sens du mât apres le
+# fanion. Pattern court (< 1-3 semaines generalement).
+PATTERN_BULL_FLAG_GRAMMAR: str = _signal_grammar("pattern_bull_flag", (0, 1))
+
+# pattern_bear_flag : symetrique baissier.
+PATTERN_BEAR_FLAG_GRAMMAR: str = _signal_grammar("pattern_bear_flag", (0, 1))
+
+
+# --- Sous-groupe 3 : Measured Move (1) --- #
+# pattern_measured_move (ABCD / Equal Measured Move) : pattern en 3
+# segments. A->B = mouvement initial, B->C = retracement (typiquement
+# 50% ou 61.8% de A->B), C->D = mouvement de MEME ampleur que A->B dans
+# la MEME direction. CONTINUATION. La cible D = C + (B - A).
+PATTERN_MEASURED_MOVE_GRAMMAR: str = _signal_grammar("pattern_measured_move", (0, 1))
+
+
+# --- Sous-groupe 4 : Rectangle (1) --- #
+# pattern_rectangle (Trading Range) : 2 lignes HORIZONTALES (support
+# horizontal + resistance horizontale). NEUTRE - consolidation. Le prix
+# oscille entre les 2 bornes. Cassure (au-dessus ou en-dessous) = signal
+# de debut de tendance.
+PATTERN_RECTANGLE_GRAMMAR: str = _signal_grammar("pattern_rectangle", (0, 1))
+
+
+# Mapping etendu pour le Lot 4c-3 (6 patterns chartistes : channels, flags, etc).
+FEATURE_GRAMMARS_LOT4C3: dict[str, str] = {
+    # Channels (2)
+    "pattern_channel_up":   PATTERN_CHANNEL_UP_GRAMMAR,
+    "pattern_channel_down": PATTERN_CHANNEL_DOWN_GRAMMAR,
+    # Flags (2)
+    "pattern_bull_flag":    PATTERN_BULL_FLAG_GRAMMAR,
+    "pattern_bear_flag":    PATTERN_BEAR_FLAG_GRAMMAR,
+    # Measured Move (1)
+    "pattern_measured_move": PATTERN_MEASURED_MOVE_GRAMMAR,
+    # Rectangle (1)
+    "pattern_rectangle":     PATTERN_RECTANGLE_GRAMMAR,
+}
+
+
 # Bloc de relations OHLCV (traitement conjoint des 5 features).
 # Permet de generer des conditions qui exploitent la semantique partagee
 # des 5 features OHLCV (par opposition a des comparaisons feat-vs-quantile).
@@ -1755,6 +1830,7 @@ FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4A)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4B)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C1)
 FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C2)
+FEATURE_GRAMMARS.update(FEATURE_GRAMMARS_LOT4C3)
 
 
 # Mapping des grammaires de relations (vs. grammaires par feature).
