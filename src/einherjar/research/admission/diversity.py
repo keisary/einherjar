@@ -73,6 +73,62 @@ class BehavioralDescriptors:
         return fingerprint_comportemental(self.to_dict(), rounding_decimals=rounding_decimals)
 
 
+# --------------------------------------------------------------------------- #
+# Diversite par feature set (Jaccard) — P1-10
+# --------------------------------------------------------------------------- #
+
+
+def jaccard_diversity(
+    features_a: frozenset[str] | set[str] | tuple[str, ...],
+    features_b: frozenset[str] | set[str] | tuple[str, ...],
+) -> float:
+    """Distance de Jaccard entre 2 ensembles de features.
+
+    Retourne 1.0 si les 2 ensembles sont identiques, 0.0 s'ils sont
+    disjoints. Plus la valeur est grande, plus les 2 regles utilisent
+    les memes features (et donc plus elles sont redondantes).
+
+    Args:
+        features_a: ensemble (frozenset, set, ou tuple) de noms de features.
+        features_b: idem.
+
+    Returns:
+        |A inter B| / |A union B| dans [0, 1].
+    """
+    a = set(features_a)
+    b = set(features_b)
+    union = a | b
+    if not union:
+        return 0.0
+    return len(a & b) / len(union)
+
+
+def corpus_jaccard_diversity(
+    features: frozenset[str] | set[str] | tuple[str, ...],
+    corpus: list[frozenset[str] | set[str] | tuple[str, ...]],
+) -> float:
+    """Diversite Jaccard moyenne d'un ensemble de features vs un corpus.
+
+    Pour chaque entree du corpus, calcule la similarite Jaccard avec
+    l'ensemble de features fourni. Retourne 1.0 - moyenne(similarites)
+    : une regle est d'autant plus diversifiante qu'elle differe des
+    regles existantes du corpus.
+
+    Args:
+        features: ensemble de features de la regle a scorer.
+        corpus: liste d'ensembles de features des regles deja admises.
+
+    Returns:
+        Score de diversite dans [0, 1]. 1.0 = totalement different du
+        corpus, 0.0 = totalement similaire. Retourne 1.0 si corpus vide.
+    """
+    if not corpus:
+        return 1.0
+    similarities = [jaccard_diversity(features, c) for c in corpus]
+    mean_sim = sum(similarities) / len(similarities)
+    return 1.0 - mean_sim
+
+
 def _build_descriptors(
     mesures: MesuresBrutes,
     signal_indices: tuple[int, ...],

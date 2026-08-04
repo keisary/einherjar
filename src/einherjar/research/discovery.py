@@ -257,6 +257,59 @@ def _load_real_data(
     )
 
 
+def _load_real_data_multi(
+    config: EinherjarConfig,
+    data_root: str,
+    assets: tuple[str, ...],
+    asset_class: str,
+    timeframe: str,
+) -> dict[str, tuple]:
+    """Charge OHLCV + features pour PLUSIEURS actifs (P0-05).
+
+    Pour chaque actif de la liste, appelle `_load_real_data` et stocke
+    le resultat (train_ohlcv, train_features, val_ohlcv, val_features,
+    holdout_ohlcv, holdout_features) dans un dict par nom d'actif.
+
+    Si un actif echoue au chargement, on leve NpyRealLoaderError apres
+    avoir tente tous les actifs (fail-fast explicite, pas de fallback
+    silencieux — P0 #7).
+
+    Args:
+        config: Configuration chargee.
+        data_root: racine des .npy MIDAS V3.
+        assets: tuple de noms d'actifs (ex: ("BTCUSD", "ETHUSD")).
+        asset_class: classe d'actifs (ex: "crypto").
+        timeframe: granularite (ex: "1h").
+
+    Returns:
+        Dict {asset_name: (train_ohlcv, train_features, val_ohlcv,
+        val_features, holdout_ohlcv, holdout_features)}.
+    """
+    if not assets:
+        raise ValueError(
+            "P0-05 : _load_real_data_multi requiert au moins 1 actif "
+            "(utiliser _load_real_data pour le single-asset)"
+        )
+    results: dict[str, tuple] = {}
+    errors: list[tuple[str, str]] = []
+    for asset in assets:
+        try:
+            results[asset] = _load_real_data(
+                config=config, data_root=data_root,
+                asset=asset, asset_class=asset_class, timeframe=timeframe,
+            )
+        except Exception as exc:
+            errors.append((asset, str(exc)))
+    if errors:
+        # Fail-fast : on leve une erreur explicite listant tous les echecs.
+        details = "; ".join(f"{a}: {e}" for a, e in errors)
+        raise RuntimeError(
+            f"P0-05 : echec du chargement multi-actifs. {len(errors)}/{len(assets)} "
+            f"actifs en erreur. Details: {details}"
+        )
+    return results
+
+
 # --------------------------------------------------------------------------- #
 # Handlers
 # --------------------------------------------------------------------------- #

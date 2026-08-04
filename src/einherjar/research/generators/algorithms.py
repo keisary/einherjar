@@ -1486,8 +1486,15 @@ class NSGA2Generator(BaseGenerator):
     4 objectifs (à MAXIMISER) :
       f1 = Sharpe net
       f2 = -max_drawdown (équivalent à minimiser DD)
-      f3 = score de diversité (Jaccard vs autres Einhers du corpus ; proxy V1 = unicité de feature)
+      f3 = diversité comportementale (dispersion temporelle des signaux)
+           + bonus de diversité Jaccard vs corpus (admission/diversity.py :
+           `corpus_jaccard_diversity` sur self._corpus_feature_sets, pondéré 50/50)
       f4 = -complexité (= -nb conditions ; ici -1 car représentation mono-condition)
+
+    Note (P1-10) : la diversité Jaccard vs corpus est disponible via
+    `admission.diversity.corpus_jaccard_diversity`. Pour l'activer, le caller
+    doit peupler `self._corpus_feature_sets` (set de frozensets de features
+    des Einhers deja admis) avant l'appel a `generate()`.
     """
 
     OP_CHOICES: tuple[CompareOp, ...] = (CompareOp.LT, CompareOp.GT, CompareOp.LE, CompareOp.GE)
