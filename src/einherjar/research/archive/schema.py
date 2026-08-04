@@ -60,6 +60,7 @@ class ArchiveEntry:
 
     # Référence à l'élément rejeté (juste l'id, pas l'objet complet — déjà dans l'Archive)
     element_ref_id: str = ""
+    element: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = {
@@ -82,6 +83,7 @@ class ArchiveEntry:
             "fingerprint": self.fingerprint,
             "ret_series": list(self.ret_series),
             "element_ref_id": self.element_ref_id,
+            "element": self.element,
         }
         if self.mesures_brutes_train is not None:
             d["mesures_brutes_train"] = self.mesures_brutes_train.to_dict()

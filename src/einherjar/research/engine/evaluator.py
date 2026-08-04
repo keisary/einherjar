@@ -265,7 +265,11 @@ class _ConditionEvaluator:
         # être signalée explicitement (évite qu'une Condition "zscore(...)"
         # soit évaluée comme si la transformation n'existait pas, ce qui
         # ferait passer des règles sémantiquement invalides).
-        if c.transformation not in (None, ""):
+        if (
+            c.transformation not in (None, "")
+            and not c.transformation.startswith("quantile(")
+            and not c.transformation.startswith("featureref:")
+        ):
             raise EvaluationError(
                 f"Transformation non supportée : {c.transformation!r} (feature={c.feature_ref}). "
                 "Le moteur V1 n'implémente aucune transformation explicite — "
@@ -275,7 +279,21 @@ class _ConditionEvaluator:
             # Feature inconnue → False partout (NaN-propagation, règle dure S-1).
             return pl.Series("cond", [False] * features.n_bougies)
         col = features.column(c.feature_ref)
-        return self._apply_op(col, c.operator, c.value)
+        if c.transformation in (None, ""):
+            return self._apply_op(col, c.operator, c.value)
+        if c.transformation.startswith("quantile(") and c.transformation.endswith(")"):
+            try:
+                pct = float(c.transformation[9:-1])
+            except ValueError as exc:
+                raise EvaluationError(f"Invalid quantile transformation: {c.transformation!r}") from exc
+            if not 0.0 <= pct <= 100.0:
+                raise EvaluationError(f"Quantile outside [0, 100]: {pct}")
+            threshold = col.quantile(pct / 100.0, interpolation="nearest")
+            return self._apply_op(col, c.operator, float(threshold))
+        other_name = c.transformation.split(":", 1)[1]
+        if not features.has(other_name):
+            return pl.Series("cond", [False] * features.n_bougies)
+        return self._apply_series_op(col, c.operator, features.column(other_name))
 
     @staticmethod
     def _apply_op(col: pl.Series, op: CompareOp, value: Any) -> pl.Series:
@@ -296,6 +314,22 @@ class _ConditionEvaluator:
             # value attendu itérable
             return col.is_in(value)
         raise EvaluationError(f"Opérateur non supporté : {op}")
+
+    @staticmethod
+    def _apply_series_op(left: pl.Series, op: CompareOp, right: pl.Series) -> pl.Series:
+        if op == CompareOp.LT:
+            return (left < right).fill_null(False)
+        if op == CompareOp.LE:
+            return (left <= right).fill_null(False)
+        if op == CompareOp.GT:
+            return (left > right).fill_null(False)
+        if op == CompareOp.GE:
+            return (left >= right).fill_null(False)
+        if op == CompareOp.EQ:
+            return ((left - right).abs() < 1e-9).fill_null(False)
+        if op == CompareOp.NE:
+            return ((left - right).abs() >= 1e-9).fill_null(False)
+        raise EvaluationError(f"Operator unsupported for two features: {op}")
 
     def _eval_compound(self, node: ConditionNode, features: FeaturesFrame) -> pl.Series:
         left = self.evaluate(node.left, features) if isinstance(
@@ -440,6 +474,7 @@ class _TradeRunner:
             highs=highs.tolist(),
             lows=lows.tolist(),
             closes=closes.tolist(),
+            opens=opens.tolist(),
         )
 
         # Rendement brut (en %).
@@ -474,10 +509,12 @@ class _MesuresAggregator:
         calibrated: CalibratedParams,
         costs: TradingCosts,
         timeframe: str = "1d",
+        seed: int = 42,
     ) -> None:
         self._config = config
         self._calibrated = calibrated
         self._costs = costs
+        self._seed = seed
         # P2 #1 : periods_per_year dynamique selon le timeframe (plus de sqrt(365) hardcoded).
         self._periods_per_year = periods_per_year_for_timeframe(timeframe)
 
@@ -500,14 +537,18 @@ class _MesuresAggregator:
         held = [t.n_bougies_held for t in trades]
 
         # Block bootstrap CI.
-        bs_sharpe = bootstrap_sharpe(returns_net, self._config)
-        bs_ret = bootstrap_ret_total(returns_net, self._config)
+        # Trade returns have variable holding periods. Annualising them as if
+        # each trade were a bar is invalid, so this is a per-trade Sharpe.
+        bs_sharpe = bootstrap_sharpe(
+            returns_net, self._config, periods_per_year=1.0, rng_seed=self._seed,
+        )
+        bs_ret = bootstrap_ret_total(returns_net, self._config, rng_seed=self._seed + 1)
 
         # Sharpe annualisé (rendements par bougie → on suppose 1 bougie = 1 unité).
         ret_mean = float(np.mean(returns_net)) if n else float("nan")
         ret_std = float(np.std(returns_net, ddof=1)) if n > 1 else float("nan")
         if ret_std and not math.isnan(ret_std) and ret_std > 0:
-            sharpe = (ret_mean / ret_std) * math.sqrt(self._periods_per_year)
+            sharpe = ret_mean / ret_std
         else:
             sharpe = float("nan")
 
@@ -569,7 +610,7 @@ class _MesuresAggregator:
             float(np.std(returns, ddof=1)) if n > 1 else float("nan")
         )
         ret_mean = float(np.mean(returns)) if n else float("nan")
-        sharpe = (ret_mean / ret_std) * math.sqrt(self._periods_per_year) if ret_std and ret_std > 0 else float("nan")
+        sharpe = (ret_mean / ret_std) if ret_std and ret_std > 0 else float("nan")
         return MesuresBrutes(
             n_signals=n, n_tp_hit=n_tp, n_sl_hit=n_sl, n_timeout=n_to,
             mfe_mean_pct=float(np.mean(mfe)), mae_mean_pct=float(np.mean(mae)),
@@ -708,7 +749,9 @@ class EvaluationEngine:
         # 3. Passe provisoire avec distances 1.5×ATR (symétriques pour avoir
         # un premier signal mesurable). C'est une vraie simulation sur
         # de vrais trades avec prix et ATR observés.
-        provisional_n_atr = 1.5
+        # Calibration needs the full N-bar excursions. A provisional stop/TP
+        # would censor MFE/MAE before their observation window is complete.
+        provisional_n_atr = 1_000_000.0
         provisional_calibrated = CalibratedParams(
             n_window=n_window,
             sl_n_atr=provisional_n_atr,
@@ -842,7 +885,9 @@ class EvaluationEngine:
                 trades.append(trade)
 
         # Agrège.
-        aggregator = _MesuresAggregator(self.config, calibrated, costs, timeframe=ohlcv.timeframe)
+        aggregator = _MesuresAggregator(
+            self.config, calibrated, costs, timeframe=ohlcv.timeframe, seed=self.seed,
+        )
         # Per-asset : ici un seul asset, mais on garde la structure.
         per_asset = {ohlcv.asset: trades} if trades else {}
         mesures = aggregator.aggregate(trades=trades, per_asset_trades=per_asset)

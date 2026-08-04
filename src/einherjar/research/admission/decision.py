@@ -141,6 +141,8 @@ class AdmissionDecider:
         corpus_signal_dates: list[tuple[int, ...]] | None = None,
         corpus_ret_series: list[tuple[float, ...]] | None = None,
         signal_indices: tuple[int, ...] = (),
+        pbo_candidate_paths: list[tuple[tuple[int, int, float], ...]] | None = None,
+        cooldown_k: int = 5,
         n_indep_trials: int = 1,
     ) -> AdmissionDecision:
         """Prend la décision d'admission complète.
@@ -169,12 +171,13 @@ class AdmissionDecider:
             returns=returns_val,
             config=self.config,
             n_indep_trials=n_indep_trials,
+            pbo_candidate_paths=pbo_candidate_paths,
         )
 
         # 2. Fingerprints (structurel + comportemental).
         fp_struct = fingerprint_structurel(
             hypothesis=_build_hypothesis_for_fp(
-                hypothesis_id, condition_tree, direction, universe, amplitude,
+                hypothesis_id, condition_tree, direction, universe, amplitude, cooldown_k,
             ),
             sl_n_atr=calibrated.sl_n_atr,
             tp_n_atr=calibrated.tp_n_atr,
@@ -184,6 +187,7 @@ class AdmissionDecider:
             signal_indices=signal_indices,
             corpus_signal_dates=corpus_signal_dates or [],
             corpus_ret_series=corpus_ret_series or [],
+            this_ret_series=tuple(returns_val),
         )
         fp_comport = descriptors.fingerprint(
             rounding_decimals=int(self.config.evaluation["fingerprint"]["behavioral"]["rounding_decimals"]),
@@ -250,6 +254,9 @@ class AdmissionDecider:
                 fp_comport=fp_comport,
                 data_version=self.data_version,
                 seed=self.seed,
+                hypothesis=_build_hypothesis_for_fp(
+                    hypothesis_id, condition_tree, direction, universe, amplitude, cooldown_k,
+                ).to_dict(),
             )
             try:
                 append_entry(archive_entry)
@@ -287,6 +294,7 @@ def _build_hypothesis_for_fp(
     direction: Direction,
     universe: Any,
     amplitude: Any,
+    cooldown_k: int = 5,
 ) -> Any:
     """Construit un Hypothesis minimal pour le calcul de fingerprint (pas un vrai Hypothesis, juste ce qu'il faut)."""
     from einherjar.research.utils.types import Hypothesis
@@ -296,7 +304,7 @@ def _build_hypothesis_for_fp(
         amplitude=amplitude,
         direction=direction,
         universe=universe,
-        cooldown_k=5,
+        cooldown_k=cooldown_k,
     )
 
 
@@ -305,6 +313,7 @@ def _build_descriptors(
     signal_indices: tuple[int, ...],
     corpus_signal_dates: list[tuple[int, ...]],
     corpus_ret_series: list[tuple[float, ...]],
+    this_ret_series: tuple[float, ...],
 ) -> BehavioralDescriptors:
     """Construit un BehavioralDescriptors (delegation à diversity.py)."""
     from einherjar.research.admission.diversity import _build_descriptors as _bd
@@ -313,6 +322,7 @@ def _build_descriptors(
         signal_indices=signal_indices,
         corpus_signal_dates=corpus_signal_dates,
         corpus_ret_series=corpus_ret_series,
+        this_ret_series=this_ret_series,
     )
 
 
@@ -347,6 +357,7 @@ def _make_archive_entry(
     fp_comport: str,
     data_version: str,
     seed: int,
+    hypothesis: dict[str, Any],
 ) -> ArchiveEntry:
     """Construit une ArchiveEntry (pas encore append — c'est l'appelant qui le fait)."""
     return ArchiveEntry(
@@ -364,4 +375,5 @@ def _make_archive_entry(
         fingerprint_comportemental=fp_comport,
         fingerprint=f"{fp_struct}:{fp_comport}",
         element_ref_id=hypothesis_id,
+        element=hypothesis,
     )

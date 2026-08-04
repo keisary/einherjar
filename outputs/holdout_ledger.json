@@ -1,0 +1,1 @@
+{"strategy_id": "hyp_holdout", "data_version": "v1", "timestamp": "2026-08-02T02:54:04.295558+00:00", "n_trades": 19, "sharpe": 8.876179340394954, "degradation_flag": "CRITICAL", "metrics_snapshot": {}, "seed": 42, "meta": {"degradation_warning_ratio": 0.3, "degradation_critical_ratio": 0.6}}

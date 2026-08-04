@@ -209,7 +209,15 @@ class BeamRefiner(BaseRefiner):
             best_neighbor_sharpe = best_sharpe
             for n_h in neighbors[: self.beam_width]:
                 try:
-                    m = self.engine.test_on(n_h, val_ohlcv, val_features, calibrated, "val")
+                    # Any condition or amplitude mutation changes the train
+                    # calibration contract; reusing the parent's parameters
+                    # would compare different strategies with stale SL/TP/N.
+                    neighbor_calibrated = self.engine.train_calibrate(
+                        n_h, train_ohlcv, train_features,
+                    )
+                    m = self.engine.test_on(
+                        n_h, val_ohlcv, val_features, neighbor_calibrated, "val",
+                    )
                     n_evaluated += 1
                     if m.sharpe_net != m.sharpe_net:
                         continue
@@ -390,13 +398,15 @@ class BeamRefiner(BaseRefiner):
         }
         return swap.get(op)
 
-    @staticmethod
-    def _tweak_threshold(value: Any, multipliers: Sequence[float] | None = None) -> Any:
-        """Tweak ±10%, ±25% ou ±50% (équivalent à ±0.1, ±0.25, ±0.5 en fraction)."""
+    def _tweak_threshold(self, value: Any, multipliers: Sequence[float] | None = None) -> Any:
+        """Tweak ±10%, ±25% ou ±50% (équivalent à ±0.1, ±0.25, ±0.5 en fraction).
+
+        Methode d'instance (utilise self._rng pour reproductibilite via seed).
+        """
         if not isinstance(value, (int, float)):
             return value
         mults = list(multipliers) if multipliers is not None else [0.5, 0.75, 0.9, 1.1, 1.25, 1.5]
-        m = random.SystemRandom().choice(mults)
+        m = self._rng.choice(mults)
         return round(float(value) * m, 4)
 
 

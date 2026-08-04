@@ -107,6 +107,11 @@ def load_ohlcv_from_npy(
         NpyRealLoaderError: si les fichiers n'existent pas, sont vides,
             ou ont une structure incompatible (pas de fallback silencieux).
     """
+    raise NpyRealLoaderError(
+        "Execution OHLCV from MIDAS X.npy is forbidden: its OHLC columns are "
+        "normalized log-returns, not tradable prices. Use OhlcvProvider/DataStore "
+        "for raw OHLCV and load_features_from_npy for features."
+    )
     root = data_root or Path(r"D:/midas_v2/midasV3/src/data/compiled")
     dir_path = root / asset_class / timeframe
     ts_path = dir_path / f"{asset}_ts.npy"

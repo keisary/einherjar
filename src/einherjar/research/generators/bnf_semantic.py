@@ -265,7 +265,10 @@ def _build_orientation_table() -> dict[str, SemanticOrientation]:
     from einherjar.research.config.loader import load_config
     from einherjar.research.generators.bnf import FEATURE_GRAMMARS
 
-    cfg = load_config("src/einherjar/research/config")
+    # Le module peut etre appele depuis la racine du depot ou depuis le
+    # paquet installe : ne pas dependre du repertoire de travail courant.
+    from pathlib import Path
+    cfg = load_config(Path(__file__).resolve().parents[1] / "config")
     table: dict[str, SemanticOrientation] = {}
     for feat_name in cfg.usable_feature_names:
         if feat_name.startswith("pattern_"):

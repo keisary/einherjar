@@ -60,12 +60,16 @@ def make_baseline_admission_fn(
     ) -> bool:
         counter["n"] += 1
         # Séquence de rendements nets sur val (un point par trade).
+        # Le CPCV/PBO exige une matrice de candidats, indisponible dans ce
+        # callback unitaire. Ce gate est donc un screening de comparaison,
+        # jamais une admission finale au corpus.
         returns_val = [t.ret_pct_net for t in mesures_val.trades]
         verdict = evaluate_all_criteria(
             mesures=mesures_val,
             returns=returns_val,
             config=config,
             n_indep_trials=counter["n"],
+            include_pbo=False,
         )
         if verdict.passed:
             counter["n_admitted"] += 1

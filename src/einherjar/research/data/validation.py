@@ -261,9 +261,22 @@ def validate_or_raise(
     report = validate_ohlcv(ohlcv)
     if features is not None:
         feat_report = validate_features(features)
+        alignment_errors: list[str] = []
+        if ohlcv.n_bougies != features.n_bougies:
+            alignment_errors.append(
+                f"OHLCV/features length mismatch: {ohlcv.n_bougies} != {features.n_bougies}"
+            )
+        elif "timestamp" not in ohlcv.df.columns or "timestamp" not in features.df.columns:
+            alignment_errors.append("timestamp missing from OHLCV or features")
+        elif ohlcv.df["timestamp"].to_list() != features.df["timestamp"].to_list():
+            alignment_errors.append("OHLCV/features timestamps are not exactly aligned")
+        if ohlcv.data_version != features.data_version:
+            alignment_errors.append(
+                f"OHLCV/features data_version mismatch: {ohlcv.data_version} != {features.data_version}"
+            )
         report = ValidationReport(
-            is_valid=report.is_valid and feat_report.is_valid,
-            errors=report.errors + feat_report.errors,
+            is_valid=report.is_valid and feat_report.is_valid and not alignment_errors,
+            errors=report.errors + feat_report.errors + tuple(alignment_errors),
             warnings=report.warnings + feat_report.warnings,
             n_bougies=report.n_bougies,
             index_monotonic=report.index_monotonic,
