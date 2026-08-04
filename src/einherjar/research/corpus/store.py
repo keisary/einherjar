@@ -83,6 +83,10 @@ class CorpusEntry:
     statut: str = "validé"
     meta: dict[str, Any] = field(default_factory=dict)
 
+    @staticmethod
+    def now_utc() -> str:
+        return datetime.now(dt_timezone.utc).isoformat()
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,

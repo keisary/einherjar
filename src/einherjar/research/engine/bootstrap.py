@@ -51,6 +51,7 @@ def bootstrap_sharpe(
     config: EinherjarConfig,
     *,
     periods_per_year: float = 365.0,
+    rng_seed: int | None = None,
 ) -> BootstrapResult:
     """Block bootstrap CI sur le Sharpe annualisé."""
     bs = config.evaluation["bootstrap"]
@@ -61,7 +62,7 @@ def bootstrap_sharpe(
         n_resamples=int(bs.get("n_resamples", 2000)),
         block_length=block_length,
         ci_level=float(bs.get("ci_level", 0.95)),
-        rng_seed=int(bs.get("seed", 42)),
+        rng_seed=int(bs.get("seed", 42)) if rng_seed is None else rng_seed,
     )
     return BootstrapResult(
         ci_low=ci_low, ci_high=ci_high, observed=observed,
@@ -74,6 +75,8 @@ def bootstrap_sharpe(
 def bootstrap_ret_total(
     returns: Sequence[float],
     config: EinherjarConfig,
+    *,
+    rng_seed: int | None = None,
 ) -> BootstrapResult:
     """Block bootstrap CI sur le retour total cumulé (somme des rendements)."""
     bs = config.evaluation["bootstrap"]
@@ -84,7 +87,7 @@ def bootstrap_ret_total(
         n_resamples=int(bs.get("n_resamples", 2000)),
         block_length=block_length,
         ci_level=float(bs.get("ci_level", 0.95)),
-        rng_seed=int(bs.get("seed", 42)) + 1,
+        rng_seed=(int(bs.get("seed", 42)) + 1) if rng_seed is None else rng_seed,
     )
     return BootstrapResult(
         ci_low=ci_low, ci_high=ci_high, observed=observed,

@@ -160,6 +160,59 @@ def make_splits_hash(
     return _hash_dict(payload)
 
 
+def make_frame_data_version(
+    ohlcv: Any,
+    features: Any,
+    config: EinherjarConfig,
+    *,
+    tag: Optional[str] = None,
+) -> DataVersion:
+    """Construit une version reproductible Ã  partir des frames effectivement utilisÃ©es.
+
+    Les features MIDAS et les prix bruts ne proviennent pas nÃ©cessairement du
+    mÃªme stockage. Hacher les fichiers ``X.npy`` seulement serait donc
+    insuffisant : ce manifest inclut les deux flux, colonne par colonne, aprÃ¨s
+    alignement et nettoyage. Il est volontairement calculÃ© avant tout split.
+    """
+    def _frame_digest(frame: Any) -> dict[str, Any]:
+        df = frame.df
+        digest = hashlib.sha256()
+        for name in df.columns:
+            digest.update(name.encode("utf-8"))
+            for value in df[name].to_list():
+                digest.update(str(value).encode("utf-8"))
+                digest.update(b"\0")
+        return {
+            "asset": frame.asset,
+            "timeframe": frame.timeframe,
+            "n_rows": df.height,
+            "columns": list(df.columns),
+            "content_sha256": digest.hexdigest(),
+        }
+
+    manifest = {
+        "schema": {
+            "ohlcv": _frame_digest(ohlcv),
+            "features": _frame_digest(features),
+        },
+        "timezone": DEFAULT_TIMEZONE,
+        "cleaning_rules": {
+            "ohlcv": "raw price OHLCV aligned by timestamp with MIDAS features",
+            "features": "MIDAS normalized features only; never used as execution prices",
+        },
+        "costs": config.costs,
+        "thresholds_hash": _hash_dict(config.thresholds),
+        "evaluation_hash": _hash_dict(config.evaluation),
+    }
+    digest = _hash_dict(manifest)
+    return DataVersion(
+        tag=tag or f"hash:{digest[:12]}",
+        hash=digest,
+        manifest=manifest,
+        created_at=datetime.now(dt_timezone.utc).isoformat(),
+    )
+
+
 def _hash_dict(d: dict) -> str:
     """Hash stable d'un dict (clés triées)."""
     payload = json.dumps(d, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")

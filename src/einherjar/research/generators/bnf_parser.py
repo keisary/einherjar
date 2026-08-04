@@ -371,12 +371,41 @@ def _parse_sequence(
     """Parse une sequence de tokens en arbre (recursif, priorite NOT)."""
     if not tokens:
         raise BNFDecodeError("Sequence vide")
+    # Les parenthèses de groupement ne font pas partie d'une condition atomique.
+    # Retirer seulement une paire qui enveloppe toute la sous-expression.
+    while len(tokens) >= 2 and tokens[0] == "(" and tokens[-1] == ")":
+        depth = 0
+        wraps_all = True
+        for idx, token in enumerate(tokens):
+            if token == "(":
+                depth += 1
+            elif token == ")":
+                depth -= 1
+                if depth == 0 and idx != len(tokens) - 1:
+                    wraps_all = False
+                    break
+            if depth < 0:
+                raise BNFDecodeError("Parentheses desequilibrees")
+        if depth != 0:
+            raise BNFDecodeError("Parentheses desequilibrees")
+        if not wraps_all:
+            break
+        tokens = tokens[1:-1]
+        if not tokens:
+            raise BNFDecodeError("Parentheses vides")
     # Trouver l'operateur logique de plus faible priorite (OR > XOR > AND > NOT)
     # En fait, on simplifie : on cherche le AND/OR le plus a DROITE
     # (associativite a gauche) pour construire l'arbre.
     # NOT est unaire prefixe.
-    # Strategie : on gere les NOT en les "absorbant" d'abord.
-    tokens = _absorb_nots(tokens)
+    # NOT is a real unary node. Dropping it changes the strategy semantics.
+    if tokens[0] == "NOT":
+        if len(tokens) == 1:
+            raise BNFDecodeError("NOT sans operande")
+        return ConditionNode(
+            op=LogicalOp.NOT,
+            left=_parse_sequence(tokens[1:], default_feature=default_feature),
+            right=None,
+        )
     # Trouver l'operateur binaire de plus faible priorite
     # (on prend le DERNIER AND/OR/XOR en pratique, simplifie)
     for op_str in ("OR", "XOR", "AND"):
@@ -399,13 +428,9 @@ def _absorb_nots(tokens: list[str]) -> list[str]:
     et en laissant l'evaluateur inverse la condition. Une implementation
     complete utiliserait un NOT explicite dans ConditionNode).
     """
-    if "NOT" not in tokens:
-        return tokens
-    # Simplification : on supprime juste les NOT (l'evaluateur les ignore
-    # ou on les reintroduit dans une version ulterieure).
-    # NOTE implementation : pour V1 on SUPPRIME les NOT et on documente
-    # que la negation n'est pas supportee. Sera ajoute en V2 si besoin.
-    return [t for t in tokens if t != "NOT"]
+    # Kept only for compatibility with external callers. Parsing now builds an
+    # explicit unary ConditionNode and never erases a negation.
+    return list(tokens)
 
 
 def _find_top_level_op(tokens: list[str], op: str) -> int | None:
@@ -414,7 +439,19 @@ def _find_top_level_op(tokens: list[str], op: str) -> int | None:
     Heuristique V1 : on prend le DERNIER operateur (associativite droite).
     V2 pourrait implementer une vraie gestion de priorite.
     """
-    indices = [i for i, t in enumerate(tokens) if t == op]
+    depth = 0
+    indices: list[int] = []
+    for i, token in enumerate(tokens):
+        if token == "(":
+            depth += 1
+        elif token == ")":
+            depth -= 1
+            if depth < 0:
+                raise BNFDecodeError("Parentheses desequilibrees")
+        elif token == op and depth == 0:
+            indices.append(i)
+    if depth != 0:
+        raise BNFDecodeError("Parentheses desequilibrees")
     if not indices:
         return None
     return indices[-1]

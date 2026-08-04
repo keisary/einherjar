@@ -147,25 +147,15 @@ def evaluate_pbo(
     config: EinherjarConfig,
     n_groups: int | None = None,
     n_paths: int | None = None,
+    candidate_paths: Sequence[Sequence[tuple[int, int, float]]] | None = None,
 ) -> CriterionVerdict:
     """PBO via CPCV (Combinatorial Purged Cross-Validation) — López de Prado §12.
 
-    Algorithme (Advances in Financial ML, ch. 12) :
-      1. Découpe la série en K groupes contigus (= blocs temporels).
-      2. Pour chaque combinaison de k_test = K//2 groupes (test set) :
-         - train_returns = tous les autres groupes
-         - test_returns = les k_test groupes choisis
-         - **Embargo** : on retire les `embargo_pct` premières observations
-           du test set (= anti-leak temporel entre train et test).
-         - **Purging** : les observations du train set qui chevauchent
-           temporellement le test set sont exclues (ici, par construction
-           en K groupes contigus, il n'y a pas de chevauchement — c'est
-           une simplification V1 sur séries de rendements par trade).
-      3. Pour chaque split, on calcule ret_total_train et ret_total_test.
-      4. PBO = proportion de configurations où ret_total_test < 0.
-
-    C'est la définition classique : "quelle est la probabilité que la
-    config soit overfittée, càd perde de l'argent OOS".
+    `candidate_paths` contient une ligne par candidat et, pour chaque trade,
+    `(entry_idx, exit_idx, ret_pct_net)`. Le CPCV sélectionne le meilleur
+    candidat in-sample pour chaque combinaison de groupes, puis mesure son
+    rang out-of-sample. Sans cette matrice candidats x temps, aucun PBO
+    statistiquement défendable ne peut être produit : le verdict échoue.
 
     Returns:
         Verdict. Pass si PBO <= seuil.
@@ -174,52 +164,61 @@ def evaluate_pbo(
     n_groups = n_groups or int(config.thresholds["pbo"]["cpcv"]["n_groups"])
     n_paths = n_paths or int(config.thresholds["pbo"]["cpcv"]["n_paths"])
     embargo_pct = float(config.thresholds["pbo"]["cpcv"].get("embargo_pct", 0.01))
-    n = len(returns)
-    if n < n_groups * 2:
+    if not candidate_paths or len(candidate_paths) < 2:
         return CriterionVerdict(
             name="PBO",
             passed=False,
             observed=float("nan"),
             threshold=max_pbo,
             reason=RejectionReason.PBO_FAIL,
-            meta={"reason": "insufficient_data", "n_returns": n, "min_required": n_groups * 2},
+            meta={"reason": "candidate_matrix_required", "n_candidates": len(candidate_paths or ())},
+        )
+    max_exit = max((exit_idx for path in candidate_paths for _, exit_idx, _ in path), default=-1)
+    if max_exit < n_groups * 2:
+        return CriterionVerdict(
+            name="PBO", passed=False, observed=float("nan"), threshold=max_pbo,
+            reason=RejectionReason.PBO_FAIL,
+            meta={"reason": "insufficient_temporal_span", "max_exit": max_exit, "n_groups": n_groups},
         )
     from itertools import combinations
-    block_size = n // n_groups
-    # Découpage en K blocs contigus (purge par construction : pas de chevauchement
-    # temporel entre groupes).
-    blocks: list[list[float]] = []
-    for i in range(n_groups):
-        start = i * block_size
-        end = (i + 1) * block_size if i < n_groups - 1 else n  # dernier bloc = reste
-        blocks.append(list(returns[start:end]))
-    # Combinaisons de k_test = K//2 groupes pour le test set.
+    block_size = math.ceil((max_exit + 1) / n_groups)
     k_test = max(1, n_groups // 2)
-    embargo_n = max(1, int(block_size * embargo_pct))
-    n_losing = 0
+    embargo_n = max(1, math.ceil(block_size * embargo_pct))
+    n_overfit = 0
     tested = 0
-    sum_log_loss = 0.0
     for combo in combinations(range(n_groups), k_test):
         if tested >= n_paths:
             break
-        # Train = les K - k_test autres groupes.
-        train_blocks = [blocks[i] for i in range(n_groups) if i not in combo]
-        train_returns = [r for b in train_blocks for r in b]
-        # Test = les k_test groupes choisis.
-        test_blocks = [blocks[i] for i in combo]
-        test_returns_raw = [r for b in test_blocks for r in b]
-        # Embargo : retire les `embargo_n` premières observations du test set.
-        test_returns = test_returns_raw[embargo_n:] if len(test_returns_raw) > embargo_n else []
-        if not train_returns or not test_returns:
+        test_groups = set(combo)
+        train_groups = set(range(n_groups)) - test_groups
+        train_scores: list[float] = []
+        test_scores: list[float] = []
+        for path in candidate_paths:
+            train_returns: list[float] = []
+            test_returns: list[float] = []
+            for entry_idx, exit_idx, ret in path:
+                entry_group = min(n_groups - 1, entry_idx // block_size)
+                exit_group = min(n_groups - 1, exit_idx // block_size)
+                # Purge : un trade traversant une frontiere de groupes est exclu.
+                if entry_group != exit_group:
+                    continue
+                if entry_group in test_groups:
+                    test_returns.append(ret)
+                elif entry_group in train_groups:
+                    # Embargo : pas de trade train juste apres une zone test.
+                    if any(0 <= entry_idx - ((group + 1) * block_size) < embargo_n for group in test_groups):
+                        continue
+                    train_returns.append(ret)
+            train_scores.append(_sharpe_or_neg_inf(train_returns))
+            test_scores.append(_sharpe_or_neg_inf(test_returns))
+        eligible = [i for i in range(len(candidate_paths)) if math.isfinite(train_scores[i]) and math.isfinite(test_scores[i])]
+        if len(eligible) < 2:
             continue
-        ret_train = sum(train_returns)
-        ret_test = sum(test_returns)
-        # Log-loss = dégradation OOS par rapport à IS.
-        log_loss = ret_test - ret_train
-        sum_log_loss += log_loss
-        # Perdant OOS = ret_test < 0 (overfit probable).
-        if ret_test < 0:
-            n_losing += 1
+        selected = max(eligible, key=lambda index: train_scores[index])
+        oos_rank = 1 + sum(test_scores[index] < test_scores[selected] for index in eligible)
+        percentile = oos_rank / (len(eligible) + 1)
+        if percentile < 0.5:
+            n_overfit += 1
         tested += 1
     if tested == 0:
         return CriterionVerdict(
@@ -230,8 +229,7 @@ def evaluate_pbo(
             reason=RejectionReason.PBO_FAIL,
             meta={"reason": "no_valid_cpcv_splits", "n_groups": n_groups},
         )
-    pbo = n_losing / tested
-    mean_log_loss = sum_log_loss / tested
+    pbo = n_overfit / tested
     return CriterionVerdict(
         name="PBO",
         passed=(pbo <= max_pbo),
@@ -241,13 +239,25 @@ def evaluate_pbo(
         meta={
             "n_groups": n_groups,
             "n_paths": tested,
-            "n_losing": n_losing,
+            "n_overfit": n_overfit,
             "k_test": k_test,
             "embargo_pct": embargo_pct,
             "embargo_n": embargo_n,
-            "mean_log_loss": mean_log_loss,
+            "block_size": block_size,
+            "n_candidates": len(candidate_paths),
+            "method": "cpcv_rank_oos",
         },
     )
+
+
+def _sharpe_or_neg_inf(returns: Sequence[float]) -> float:
+    if len(returns) < 2:
+        return float("-inf")
+    mean = sum(returns) / len(returns)
+    variance = sum((value - mean) ** 2 for value in returns) / (len(returns) - 1)
+    if variance <= 0:
+        return float("-inf")
+    return mean / math.sqrt(variance)
 
 
 # --------------------------------------------------------------------------- #
@@ -409,6 +419,8 @@ def evaluate_all_criteria(
     returns: Sequence[float],
     config: EinherjarConfig,
     n_indep_trials: int = 1,
+    pbo_candidate_paths: Sequence[Sequence[tuple[int, int, float]]] | None = None,
+    include_pbo: bool = True,
 ) -> AdmissionVerdict:
     """Évalue TOUS les critères d'admission sur une hypothèse.
 
@@ -417,7 +429,8 @@ def evaluate_all_criteria(
     """
     verdicts: list[CriterionVerdict] = []
     verdicts.append(evaluate_dsr(mesures, config, n_indep_trials=n_indep_trials))
-    verdicts.append(evaluate_pbo(returns, config))
+    if include_pbo:
+        verdicts.append(evaluate_pbo(returns, config, candidate_paths=pbo_candidate_paths))
     verdicts.append(evaluate_bootstrap_ci_sharpe(mesures))
     verdicts.append(evaluate_bootstrap_ci_ret(mesures))
     verdicts.append(evaluate_n_trades(mesures, config))

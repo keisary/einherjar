@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import json
 import logging
+import hashlib
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone as dt_timezone
 from pathlib import Path
@@ -111,8 +113,37 @@ class HoldoutLedger:
             self.path.touch()
         logger.info("HoldoutLedger initialisé : %s", self.path)
 
+    def _reservation_path(self, strategy_id: str, data_version: str) -> Path:
+        key = hashlib.sha256(f"{strategy_id}\0{data_version}".encode("utf-8")).hexdigest()
+        return self.path.with_name(f"{self.path.name}.{key}.pending")
+
+    def reserve(self, strategy_id: str, data_version: str) -> None:
+        """Atomically consume access before holdout evaluation."""
+        reservation = self._reservation_path(strategy_id, data_version)
+        if self.has_access(strategy_id, data_version):
+            raise HoldoutAlreadyUsedError(
+                f"Holdout already reserved or consumed for {strategy_id}/{data_version}"
+            )
+        try:
+            fd = os.open(str(reservation), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError as exc:
+            raise HoldoutAlreadyUsedError(
+                f"Holdout already reserved or consumed for {strategy_id}/{data_version}"
+            ) from exc
+        with os.fdopen(fd, "w", encoding="utf-8") as fp:
+            fp.write(json.dumps({"strategy_id": strategy_id, "data_version": data_version}))
+            fp.flush()
+            os.fsync(fp.fileno())
+
+    def finalize_reservation(self, strategy_id: str, data_version: str) -> None:
+        reservation = self._reservation_path(strategy_id, data_version)
+        if reservation.exists():
+            reservation.unlink()
+
     def has_access(self, strategy_id: str, data_version: str) -> bool:
         """True si une entrée existe pour (strategy_id, data_version)."""
+        if self._reservation_path(strategy_id, data_version).exists():
+            return True
         for entry in self.iter_entries():
             if entry.strategy_id == strategy_id and entry.data_version == data_version:
                 return True
@@ -134,7 +165,7 @@ class HoldoutLedger:
         Si crash après fsync, l'entrée est persistée.
         Si crash avant fsync, l'entrée n'est pas persistée (et on peut re-tenter).
         """
-        if self.has_access(entry.strategy_id, entry.data_version):
+        if self.get_entry(entry.strategy_id, entry.data_version) is not None:
             raise HoldoutAlreadyUsedError(
                 f"Holdout déjà consommé pour (strategy_id={entry.strategy_id}, "
                 f"data_version={entry.data_version}). Voir {self.path}."

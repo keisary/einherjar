@@ -21,6 +21,7 @@ def simulate_long(
     highs: Sequence[float],
     lows: Sequence[float],
     closes: Sequence[float],
+    opens: Sequence[float] | None = None,
 ) -> tuple[float, ExitReason, float, float, int]:
     """Simule un trade LONG.
 
@@ -37,7 +38,8 @@ def simulate_long(
     """
     mfe = 0.0
     mae = 0.0
-    for i, (h, l, c) in enumerate(zip(highs, lows, closes)):
+    opens = opens if opens is not None else closes
+    for i, (o, h, l, c) in enumerate(zip(opens, highs, lows, closes)):
         cur_mfe = h - entry
         cur_mae = entry - l
         if cur_mfe > mfe:
@@ -45,6 +47,10 @@ def simulate_long(
         if cur_mae > mae:
             mae = cur_mae
         # Convention : SL avant TP sur la même bougie
+        if o <= sl:
+            return o, ExitReason.SL, mfe, entry - min(l, entry), i + 1
+        if o >= tp:
+            return o, ExitReason.TP, max(h, entry) - entry, entry - min(l, entry), i + 1
         if l <= sl:
             return sl, ExitReason.SL, mfe, entry - l, i + 1
         if h >= tp:
@@ -59,6 +65,7 @@ def simulate_short(
     highs: Sequence[float],
     lows: Sequence[float],
     closes: Sequence[float],
+    opens: Sequence[float] | None = None,
 ) -> tuple[float, ExitReason, float, float, int]:
     """Simule un trade SHORT.
 
@@ -66,7 +73,8 @@ def simulate_short(
     """
     mfe = 0.0
     mae = 0.0
-    for i, (h, l, c) in enumerate(zip(highs, lows, closes)):
+    opens = opens if opens is not None else closes
+    for i, (o, h, l, c) in enumerate(zip(opens, highs, lows, closes)):
         cur_mfe = entry - l
         cur_mae = h - entry
         if cur_mfe > mfe:
@@ -74,6 +82,10 @@ def simulate_short(
         if cur_mae > mae:
             mae = cur_mae
         # Convention : SL avant TP sur la même bougie
+        if o >= sl:
+            return o, ExitReason.SL, mfe, max(h - entry, 0.0), i + 1
+        if o <= tp:
+            return o, ExitReason.TP, max(entry - l, 0.0), max(h - entry, 0.0), i + 1
         if h >= sl:
             return sl, ExitReason.SL, mfe, h - entry, i + 1
         if l <= tp:
@@ -89,8 +101,9 @@ def simulate(
     highs: Sequence[float],
     lows: Sequence[float],
     closes: Sequence[float],
+    opens: Sequence[float] | None = None,
 ) -> tuple[float, ExitReason, float, float, int]:
     """Dispatch selon la direction."""
     if direction == Direction.LONG:
-        return simulate_long(entry, sl_price, tp_price, highs, lows, closes)
-    return simulate_short(entry, sl_price, tp_price, highs, lows, closes)
+        return simulate_long(entry, sl_price, tp_price, highs, lows, closes, opens)
+    return simulate_short(entry, sl_price, tp_price, highs, lows, closes, opens)

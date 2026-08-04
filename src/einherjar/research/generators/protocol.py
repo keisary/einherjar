@@ -57,7 +57,7 @@ class GenerationProtocol:
     p_compound: float = 0.3
     assets: tuple[str, ...] = ("BTCUSD",)
     timeframes: tuple[str, ...] = ("1h",)
-    amplitude_value: float = 50.0
+    amplitude_value: float = 5.0
     cooldown_k: int = 5
 
     def to_dict(self) -> dict[str, Any]:
@@ -105,7 +105,13 @@ def make_protocol(
             "train_ratio": splits_cfg["ratios"]["train"],
             "val_ratio": splits_cfg["ratios"]["val"],
             "holdout_ratio": splits_cfg["ratios"]["holdout"],
-            "purge_window": splits_cfg.get("purging", {}).get("enabled", True),
+            # The exact per-hypothesis horizon is applied by the data splitter;
+            # record the conservative maximum here, never a boolean flag.
+            "purge_window": (
+                int(config.evaluation["n_window"]["max_n"])
+                if splits_cfg.get("purging", {}).get("enabled", True)
+                else 0
+            ),
             "embargo_bougies": splits_cfg.get("embargo", {}).get("bougies", 1),
         },
         n_eval_budget=n_eval_budget,

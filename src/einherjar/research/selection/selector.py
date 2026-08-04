@@ -191,7 +191,9 @@ class GeneratorSelector:
         return mapping.get(generator_name, generator_name)
 
     @staticmethod
-    def instantiate(selected: SelectedGenerator, config: Any) -> BaseGenerator:
+    def instantiate(
+        selected: SelectedGenerator, config: Any, engine: Any | None = None,
+    ) -> BaseGenerator:
         """Ré-instancie le générateur sélectionné depuis la classe stockée.
 
         Args:
@@ -206,15 +208,15 @@ class GeneratorSelector:
         if cls_name == "RandomSearchGenerator":
             return RandomSearchGenerator(protocol=protocol, config=config)
         if cls_name == "BeamSearchGenerator":
-            return BeamSearchGenerator(protocol=protocol, config=config)
+            return BeamSearchGenerator(protocol=protocol, config=config, engine=engine)
         if cls_name == "TypedGPGenerator":
             return TypedGPGenerator(protocol=protocol, config=config)
         if cls_name == "GrammaticalEvolutionGenerator":
-            return GrammaticalEvolutionGenerator(protocol=protocol)
+            return GrammaticalEvolutionGenerator(protocol=protocol, config=config, engine=engine)
         if cls_name == "MemeticGenerator":
-            return MemeticGenerator(protocol=protocol, config=config)
+            return MemeticGenerator(protocol=protocol, config=config, engine=engine)
         if cls_name == "NSGA2Generator":
-            return NSGA2Generator(protocol=protocol, config=config)
+            return NSGA2Generator(protocol=protocol, config=config, engine=engine)
         raise ValueError(f"Classe de générateur inconnue : {cls_name}")
 
 

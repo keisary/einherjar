@@ -153,6 +153,9 @@ class HoldoutEvaluator:
                 f"Holdout déjà consommé pour (strategy_id={hypothesis.id}, "
                 f"data_version={self.data_version}). Voir {self._ledger.path}."
             )
+        # Reserve before reading the holdout. A crash afterwards intentionally
+        # leaves the strategy blocked rather than allowing a silent retry.
+        self._ledger.reserve(hypothesis.id, self.data_version)
         self._holdout_used = True
         timestamp = datetime.now(timezone.utc).isoformat()
         logger.warning(
@@ -202,11 +205,15 @@ class HoldoutEvaluator:
             n_trades=metrics_holdout.n_signals,
             sharpe=holdout_sharpe,
             degradation_flag=flag,
-            metrics_snapshot=val_metrics_snapshot or {},
+            metrics_snapshot={
+                "validation": val_metrics_snapshot or {},
+                "holdout": metrics_holdout.to_dict(),
+            },
             seed=self.seed,
             meta={"degradation_warning_ratio": self.degradation_warning_ratio,
                   "degradation_critical_ratio": self.degradation_critical_ratio},
         ))
+        self._ledger.finalize_reservation(hypothesis.id, self.data_version)
         return result
 
 

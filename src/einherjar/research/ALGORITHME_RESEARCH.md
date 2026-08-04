@@ -834,7 +834,7 @@ L'architecture recommandée **n'est PAS un seul algorithme** mais un **pipeline 
 | 5 | **Quotas + descripteurs comportementaux + fingerprint canonique** | Admission au corpus |
 | 6 | **Holdout sacré** (une seule passe) | Évaluation finale |
 
-**Note 2026-08-03** : La **Grammatical Evolution** (GE) est désormais **opérationnelle** (chantier BNF Phase 1/3/4 livré). 6 générateurs sont implémentés et comparables via `make_all_generators` :
+**Note 2026-08-03** : GE dispose du décodage BNF et produit des candidats. Sa boucle de sélection, croisement et mutation doit être finalisée avant d'être qualifiée de moteur évolutionnaire. Les six générateurs sont exposés via `make_all_generators`.
   1. `RandomSearchGenerator` (random search, pas d'engine)
   2. `BeamSearchGenerator` (vraie expansion par niveaux, requiert engine)
   3. `TypedGPGenerator` (STGP Koza+Montana, requiert engine)

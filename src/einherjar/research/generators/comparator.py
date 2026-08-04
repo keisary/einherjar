@@ -171,7 +171,19 @@ class GeneratorComparator:
             logger.info("Générateur : %s", gen.name)
             logger.info("=" * 60)
             t_gen = time.time()
-            result = gen.generate()
+            try:
+                gen.bind_data(train_ohlcv, train_features, val_ohlcv, val_features)
+                result = gen.generate()
+            except Exception as exc:  # noqa: BLE001
+                # A failing engine is reported but cannot abort the comparison.
+                logger.exception("Generation failed for %s: %s", gen.name, exc)
+                result = GeneratorResult(
+                    generator_name=gen.name,
+                    hypotheses=(), n_generated=0, n_evaluated=0,
+                    n_passed_admission=0,
+                    generation_time_s=time.time() - t_gen,
+                    meta={"generation_error": str(exc)},
+                )
             n_gen = result.n_generated
             n_eval = 0
             n_adm = 0
@@ -180,7 +192,8 @@ class GeneratorComparator:
             features_used: set[str] = set()
             coherence_match: int = 0
             coherence_total: int = 0
-            for hyp in result.hypotheses:
+            # External evaluation budget is a hard wall as well.
+            for hyp in result.hypotheses[: self.protocol.n_eval_budget]:
                 # Track feature usage (pour diversity)
                 _collect_features(hyp.condition_tree, features_used)
                 # Track semantic coherence (orientation vs direction)
@@ -195,7 +208,7 @@ class GeneratorComparator:
                     n_eval += 1
                     if mesures.sharpe_net == mesures.sharpe_net:  # not NaN
                         sharpes_all.append(mesures.sharpe_net)
-                    if admission_fn is None or admission_fn(hyp, calibrated, mesures):
+                    if admission_fn is not None and admission_fn(hyp, calibrated, mesures):
                         n_adm += 1
                         if mesures.sharpe_net == mesures.sharpe_net:
                             sharpes.append(mesures.sharpe_net)
@@ -214,7 +227,8 @@ class GeneratorComparator:
             )
             report.raw_results[gen.name] = raw
             report.sharpe_distributions[gen.name] = sharpes_all
-            adm_rate = n_adm / max(n_eval, 1)
+            # No admission function means no admission statistic, not 100%.
+            adm_rate = n_adm / max(n_eval, 1) if admission_fn is not None else 0.0
             med_sharpe = _median(sharpes)
             med_sharpe_all = _median(sharpes_all)
             coherence = (coherence_match / coherence_total) if coherence_total > 0 else 0.0

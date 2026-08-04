@@ -101,12 +101,40 @@ class BaseGenerator(ABC):
     def _make_amplitude(self, direction: Direction) -> Amplitude:
         return Amplitude(
             valeur=self.protocol.amplitude_value,
-            unité=AmplitudeUnit.PRICE_ABSOLU,
+            unité=AmplitudeUnit.MULTIPLE_ATR,
             direction_implicite=direction,
         )
 
     def _make_universe(self) -> Universe:
         return Universe(assets=self.protocol.assets, timeframes=self.protocol.timeframes)
+
+    def bind_data(
+        self,
+        train_ohlcv: Any,
+        train_features: Any,
+        val_ohlcv: Any,
+        val_features: Any,
+    ) -> None:
+        """Bind the common protocol data before generation."""
+        self._train_ohlcv = train_ohlcv
+        self._train_features = train_features
+        self._val_ohlcv = val_ohlcv
+        self._val_features = val_features
+        self._threshold_quantiles = None
+        # The outer validation set belongs to the comparator. Evolutionary
+        # search may only optimise on this deterministic inner split of train.
+        cut = max(1, int(train_ohlcv.n_bougies * 0.8))
+        def _slice(frame: Any, start: int, end: int) -> Any:
+            return type(frame)(
+                asset=frame.asset, timeframe=frame.timeframe,
+                df=frame.df.slice(start, end - start),
+                **({"feature_names": frame.feature_names} if hasattr(frame, "feature_names") else {}),
+                data_version=frame.data_version,
+            )
+        self._search_train_ohlcv = _slice(train_ohlcv, 0, cut)
+        self._search_train_features = _slice(train_features, 0, cut)
+        self._search_val_ohlcv = _slice(train_ohlcv, cut, train_ohlcv.n_bougies)
+        self._search_val_features = _slice(train_features, cut, train_features.n_bougies)
 
     # ------------------------------------------------------------------ #
     # Seuils calibrés (P1 #1) — quantiles par feature sur le train
@@ -122,7 +150,11 @@ class BaseGenerator(ABC):
             compute_feature_quantiles,
             merge_quantile_pools,
         )
-        train_features = getattr(self, "_train_features", None)
+        # Pendant une recherche évolutionnaire, les seuils appartiennent au
+        # sous-train interne, jamais au sous-jeu utilisé pour le fitness.
+        train_features = getattr(self, "_search_train_features", None)
+        if train_features is None:
+            train_features = getattr(self, "_train_features", None)
         if train_features is None:
             # Pas de train : on construit un pool par défaut par feature (uniforme).
             self._threshold_quantiles = {
@@ -291,11 +323,6 @@ class BeamSearchGenerator(BaseGenerator):
         ]
         if not self._continuous_features:
             raise ValueError("Aucune feature continue exploitable pour BeamSearch")
-        # Seuils : percentiles calculés une fois (évolution future : calcul sur train).
-        self._thresholds: list[float] = [-1.0, 0.0, 1.0]
-        if n_thresholds > 3:
-            extra = [round(-2.0 + 4.0 * i / (n_thresholds - 1), 4) for i in range(n_thresholds)]
-            self._thresholds = extra
         logger.info(
             "BeamSearchGenerator : K=%d, %d seuils, depth=%d, %d features continues",
             beam_width, n_thresholds, self.max_depth, len(self._continuous_features),
@@ -305,19 +332,23 @@ class BeamSearchGenerator(BaseGenerator):
         """Lance Beam Search niveau par niveau avec scoring intermédiaire."""
         import time
         t0 = time.time()
-        train_ohlcv = getattr(self, "_train_ohlcv", None)
-        train_features = getattr(self, "_train_features", None)
-        val_ohlcv = getattr(self, "_val_ohlcv", None)
-        val_features = getattr(self, "_val_features", None)
+        self._n_internal_evaluated = 0
+        train_ohlcv = getattr(self, "_search_train_ohlcv", None)
+        train_features = getattr(self, "_search_train_features", None)
+        val_ohlcv = getattr(self, "_search_val_ohlcv", None)
+        val_features = getattr(self, "_search_val_features", None)
         if train_ohlcv is None or val_ohlcv is None:
             raise ValueError(
                 "BeamSearchGenerator a besoin des données (train_ohlcv, val_ohlcv). "
                 "Assure-toi que handle_compare les a injectées."
             )
-        # Niveau 0 : beam initial de conditions atomiques.
+        # Les seuils sont des quantiles du train, jamais des constantes de z-score.
+        self._ensure_threshold_quantiles()
+        # Niveau 0 : réserver du budget aux expansions suivantes.
         beam: list[Hypothesis] = self._initial_beam()
         # Évaluation initiale.
         scores: list[float] = self._score_beam(beam, train_ohlcv, train_features, val_ohlcv, val_features)
+        beam = beam[:len(scores)]
         beam, scores = self._prune(beam, scores, k=self.beam_width)
         # Expansion niveau par niveau.
         for depth in range(1, self.max_depth):
@@ -330,6 +361,7 @@ class BeamSearchGenerator(BaseGenerator):
                 expanded, train_ohlcv, train_features, val_ohlcv, val_features,
             )
             # Combine parent + expanded, on garde le top K.
+            expanded = expanded[:len(exp_scores)]
             combined_beam = beam + expanded
             combined_scores = scores + exp_scores
             beam, scores = self._prune(combined_beam, combined_scores, k=self.beam_width)
@@ -341,7 +373,7 @@ class BeamSearchGenerator(BaseGenerator):
             generator_name=self.name,
             hypotheses=tuple(beam),
             n_generated=len(beam),
-            n_evaluated=len(beam),
+            n_evaluated=self._n_internal_evaluated,
             n_passed_admission=0,
             generation_time_s=time.time() - t0,
             meta={
@@ -356,11 +388,15 @@ class BeamSearchGenerator(BaseGenerator):
         """Beam initial : K features × 2 directions × 2 ops × n_thresholds."""
         beam: list[Hypothesis] = []
         i = 0
-        for feat in self._continuous_features[: self.beam_width]:
+        features = list(self._continuous_features)
+        self._rng.shuffle(features)
+        initial_cap = max(self.beam_width, self.protocol.n_eval_budget // max(1, self.max_depth))
+        for feat in features:
             for direction in (Direction.LONG, Direction.SHORT):
                 for op in (CompareOp.LT, CompareOp.GT):
-                    for v in self._thresholds:
-                        if i >= self.beam_width * 4:
+                    values = self._threshold_values(feat)
+                    for v in values:
+                        if i >= initial_cap:
                             return beam
                         h = Hypothesis(
                             id=f"{self.name}_{i:06d}",
@@ -377,9 +413,11 @@ class BeamSearchGenerator(BaseGenerator):
     def _expand_at_depth(self, parent: Hypothesis, depth: int) -> list[Hypothesis]:
         """Génère des expansions du parent au niveau `depth` (compound avec une nouvelle condition)."""
         expansions: list[Hypothesis] = []
-        for feat in self._continuous_features[: 8]:  # limite pour éviter l'explosion
+        features = list(self._continuous_features)
+        self._rng.shuffle(features)
+        for feat in features:
             for op in (CompareOp.LT, CompareOp.GT):
-                for v in self._thresholds[:2]:  # 2 seuils max pour l'expansion
+                for v in self._threshold_values(feat):
                     new_cond = ConditionNode(
                         op=LogicalOp.AND,
                         left=parent.condition_tree,
@@ -394,7 +432,19 @@ class BeamSearchGenerator(BaseGenerator):
                         cooldown_k=parent.cooldown_k,
                     )
                     expansions.append(new_h)
+                    if len(expansions) >= self.protocol.n_eval_budget:
+                        return expansions
         return expansions
+
+    def _threshold_values(self, feature_name: str) -> list[float]:
+        """Sous-échantillonne un pool de quantiles sans inventer une échelle."""
+        pool = self._ensure_threshold_quantiles().get(feature_name, [])
+        if self.n_thresholds <= 1:
+            return [pool[len(pool) // 2]] if pool else []
+        if len(pool) <= self.n_thresholds:
+            return list(pool)
+        positions = [round(i * (len(pool) - 1) / (self.n_thresholds - 1)) for i in range(self.n_thresholds)]
+        return [pool[index] for index in positions]
 
     def _score_beam(
         self,
@@ -403,13 +453,15 @@ class BeamSearchGenerator(BaseGenerator):
     ) -> list[float]:
         """Évalue chaque candidat du beam (scoring intermédiaire)."""
         scores: list[float] = []
-        for h in beam:
+        remaining = max(0, self.protocol.n_eval_budget - getattr(self, "_n_internal_evaluated", 0))
+        for h in beam[:remaining]:
             try:
                 calibrated = self.engine.train_calibrate(h, train_ohlcv, train_features)
                 m = self.engine.test_on(h, val_ohlcv, val_features, calibrated, "val")
                 scores.append(m.sharpe_net if m.sharpe_net == m.sharpe_net else float("-inf"))
             except Exception:  # noqa: BLE001
                 scores.append(float("-inf"))
+            self._n_internal_evaluated += 1
         return scores
 
     @staticmethod
@@ -510,8 +562,12 @@ class TypedGPGenerator(BaseGenerator):
                 "pour évaluer la fitness (Sharpe net) pendant l'évolution."
             )
         self.config = config
-        self.population_size = population_size
-        self.n_generations = n_generations
+        max_population = max(2, protocol.n_eval_budget // max(1, n_generations + 1))
+        self.population_size = min(population_size, max_population)
+        self.n_generations = min(
+            n_generations,
+            max(0, (protocol.n_eval_budget // self.population_size) - 1),
+        )
         self.crossover_prob = crossover_prob
         self.mutation_prob = mutation_prob
         self.tournament_size = tournament_size
@@ -557,10 +613,10 @@ class TypedGPGenerator(BaseGenerator):
         # 2. Évaluation initiale.
         fitness = self._evaluate_population(population)
         # 3. Boucle évolutionnaire.
-        train_ohlcv = getattr(self, "_train_ohlcv", None)
-        train_features = getattr(self, "_train_features", None)
-        val_ohlcv = getattr(self, "_val_ohlcv", None)
-        val_features = getattr(self, "_val_features", None)
+        train_ohlcv = getattr(self, "_search_train_ohlcv", None)
+        train_features = getattr(self, "_search_train_features", None)
+        val_ohlcv = getattr(self, "_search_val_ohlcv", None)
+        val_features = getattr(self, "_search_val_features", None)
         for gen in range(self.n_generations):
             # 3a. Sélection des parents.
             parents = self._tournament_selection(population, fitness, n=self.population_size)
@@ -689,10 +745,10 @@ class TypedGPGenerator(BaseGenerator):
 
         Retourne une liste de floats (NaN si l'évaluation échoue).
         """
-        train_ohlcv = train_ohlcv or getattr(self, "_train_ohlcv", None)
-        train_features = train_features or getattr(self, "_train_features", None)
-        val_ohlcv = val_ohlcv or getattr(self, "_val_ohlcv", None)
-        val_features = val_features or getattr(self, "_val_features", None)
+        train_ohlcv = train_ohlcv or getattr(self, "_search_train_ohlcv", None)
+        train_features = train_features or getattr(self, "_search_train_features", None)
+        val_ohlcv = val_ohlcv or getattr(self, "_search_val_ohlcv", None)
+        val_features = val_features or getattr(self, "_search_val_features", None)
         if train_ohlcv is None or val_ohlcv is None:
             return [float("nan")] * len(population)
         fitness: list[float] = []
@@ -934,6 +990,136 @@ class GrammaticalEvolutionGenerator(BaseGenerator):
         self._get_relations_grammar = get_relations_grammar
 
     def generate(self) -> GeneratorResult:
+        """GE avec fitness interne, tournoi, crossover, mutation et elitisme.
+
+        La validation externe reste exclusivement la responsabilite du
+        comparator. Le mode sans moteur est reserve au decodage BNF et aux
+        tests unitaires ; il ne se presente pas comme une GE evolutionnaire.
+        """
+        if self.engine is None or getattr(self, "_search_train_ohlcv", None) is None:
+            result = self._generate_random_population()
+            return GeneratorResult(
+                generator_name=result.generator_name, hypotheses=result.hypotheses,
+                n_generated=result.n_generated, n_evaluated=0,
+                n_passed_admission=0, generation_time_s=result.generation_time_s,
+                meta={**result.meta, "mode": "decode_only"},
+            )
+        import time
+        started = time.time()
+        budget = self.protocol.n_eval_budget
+        population_size = min(16, max(2, budget // 4))
+        initial = self._generate_random_population(budget=population_size)
+        scored = [(self._fitness(hypothesis), hypothesis) for hypothesis in initial.hypotheses]
+        n_evaluated = len(scored)
+        generation = 0
+        codec_cache: dict[str, Any] = {}
+        while n_evaluated < budget and scored:
+            generation += 1
+            ranked = sorted(scored, key=lambda item: item[0], reverse=True)
+            elites = ranked[:max(1, population_size // 4)]
+            offspring: list[Hypothesis] = []
+            attempts = 0
+            while (
+                len(offspring) < population_size
+                and n_evaluated + len(offspring) < budget
+                and attempts < population_size * 10
+            ):
+                attempts += 1
+                child = self._make_offspring(ranked, generation, len(offspring), codec_cache)
+                if child is not None:
+                    offspring.append(child)
+            if not offspring:
+                break
+            children = [(self._fitness(hypothesis), hypothesis) for hypothesis in offspring]
+            n_evaluated += len(children)
+            scored = sorted(elites + children, key=lambda item: item[0], reverse=True)[:population_size]
+        best = [hypothesis for _, hypothesis in sorted(scored, key=lambda item: item[0], reverse=True)]
+        return GeneratorResult(
+            generator_name=self.name, hypotheses=tuple(best),
+            n_generated=len(best), n_evaluated=n_evaluated, n_passed_admission=0,
+            generation_time_s=time.time() - started,
+            meta={
+                "method": "GrammaticalEvolution-Ryan1998",
+                "mode": "evolutionary", "population_size": population_size,
+                "generations": generation, "budget_used": n_evaluated,
+                "crossover": "one_point", "mutation_rate": 0.10,
+            },
+        )
+
+    def _fitness(self, hypothesis: Hypothesis) -> float:
+        try:
+            calibrated = self.engine.train_calibrate(
+                hypothesis, self._search_train_ohlcv, self._search_train_features,
+            )
+            measures = self.engine.test_on(
+                hypothesis, self._search_val_ohlcv, self._search_val_features,
+                calibrated, "ge_search_val",
+            )
+            return measures.sharpe_net if measures.sharpe_net == measures.sharpe_net else float("-inf")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("GE fitness failed for %s: %s", hypothesis.id, exc)
+            return float("-inf")
+
+    def _make_offspring(
+        self, ranked: list[tuple[float, Hypothesis]], generation: int,
+        child_index: int, codec_cache: dict[str, Any],
+    ) -> Hypothesis | None:
+        contenders_a = [self._rng.choice(ranked) for _ in range(min(3, len(ranked)))]
+        contenders_b = [self._rng.choice(ranked) for _ in range(min(3, len(ranked)))]
+        parent_a = max(contenders_a, key=lambda item: item[0])[1]
+        parent_b = max(contenders_b, key=lambda item: item[0])[1]
+        chrom_a = list(parent_a.meta.get("chromosome", ()))
+        chrom_b = list(parent_b.meta.get("chromosome", ()))
+        if len(chrom_a) < 2 or len(chrom_b) < 2:
+            return None
+        cut = self._rng.randint(1, min(len(chrom_a), len(chrom_b)) - 1)
+        chromosome = chrom_a[:cut] + chrom_b[cut:]
+        for index in range(len(chromosome)):
+            if self._rng.random() < 0.10:
+                chromosome[index] = self._rng.randint(0, 255)
+        source = str(parent_a.meta.get("bnf_source", "__override__"))
+        try:
+            codec = codec_cache.get(source)
+            if codec is None:
+                codec = self._BNFCodec.from_text(self._grammar_for_source(source))
+                codec_cache[source] = codec
+            condition = codec.decode(chromosome=chromosome)
+            direction = self._rng.choice((parent_a.direction, parent_b.direction))
+            return Hypothesis(
+                id=f"{self.name}_g{generation:03d}_{child_index:03d}",
+                condition_tree=condition, amplitude=self._make_amplitude(direction),
+                direction=direction, universe=self._make_universe(), cooldown_k=self.protocol.cooldown_k,
+                meta={"bnf_source": source, "chromosome": chromosome,
+                      "semantic_orientation": self._semantic_orientation(source)},
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("GE offspring decode failed: %s", exc)
+            return None
+
+    def _grammar_for_source(self, source: str) -> str:
+        if source == "__override__":
+            if self.bnf_grammar is None:
+                raise ValueError("GE override source without grammar")
+            return self.bnf_grammar
+        if source == "__ohlcv_relations__":
+            return self._get_relations_grammar("ohlcv")
+        grammar = self._FEATURE_GRAMMARS.get(source)
+        if grammar is not None:
+            return grammar
+        from einherjar.research.generators.bnf import get_feature_grammar
+        return get_feature_grammar(source, self.config)
+
+    @staticmethod
+    def _semantic_orientation(source: str) -> str:
+        """L'orientation est informative : elle ne doit pas invalider GE."""
+        try:
+            from einherjar.research.generators.bnf_semantic import get_orientation
+            return get_orientation(source).value
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("GE semantic orientation unavailable for %s: %s", source, exc)
+            return "neutral"
+
+    def _generate_random_population(self, budget: int | None = None) -> GeneratorResult:
         import time
         t0 = time.time()
         hyps: list[Hypothesis] = []
@@ -944,7 +1130,7 @@ class GrammaticalEvolutionGenerator(BaseGenerator):
         # Cache des codecs (une grammaire = un codec, on l'instancie 1 fois).
         codec_cache: dict[str, Any] = {}
         i = 0
-        while i < self.protocol.n_eval_budget:
+        while i < (self.protocol.n_eval_budget if budget is None else budget):
             try:
                 # 1) Choisir la source : override, relations OHLCV, ou feature random.
                 if self.bnf_grammar is not None:
@@ -995,10 +1181,7 @@ class GrammaticalEvolutionGenerator(BaseGenerator):
                 # Permet au moteur d'admission / comparateur de scorer
                 # la coherence entre l'orientation du pattern et la
                 # direction de l'Hypothesis.
-                from einherjar.research.generators.bnf_semantic import (
-                    get_orientation as _get_orientation,
-                )
-                semantic_orient = _get_orientation(source_key).value
+                semantic_orient = self._semantic_orientation(source_key)
                 # 6) Construire Hypothesis.
                 h = Hypothesis(
                     id=f"{self.name}_{i:06d}",
@@ -1085,6 +1268,16 @@ class MemeticGenerator(BaseGenerator):
         self._ea = TypedGPGenerator(
             protocol, config, engine=engine, population_size=population_size,
         )
+
+    def bind_data(
+        self,
+        train_ohlcv: Any,
+        train_features: Any,
+        val_ohlcv: Any,
+        val_features: Any,
+    ) -> None:
+        super().bind_data(train_ohlcv, train_features, val_ohlcv, val_features)
+        self._ea.bind_data(train_ohlcv, train_features, val_ohlcv, val_features)
 
     def generate(self) -> GeneratorResult:
         # 1. Phase EA : génération initiale via TypedGP.
@@ -1195,7 +1388,7 @@ class MemeticGenerator(BaseGenerator):
             neighbors.append(new_h)
         return neighbors
 
-    def generate(self) -> GeneratorResult:
+    def _generate_deferred_legacy(self) -> GeneratorResult:
         # V1 : on délègue à l'EA. Le local search sera branché dans le comparator.
         result = self._ea.generate()
         return GeneratorResult(
@@ -1338,8 +1531,12 @@ class NSGA2Generator(BaseGenerator):
                 "C'est nécessaire pour évaluer les 4 objectifs et les 8 contraintes dures."
             )
         self.config = config
-        self.population_size = population_size
-        self.n_generations = n_generations
+        max_population = max(2, protocol.n_eval_budget // max(1, n_generations + 1))
+        self.population_size = min(population_size, max_population)
+        self.n_generations = min(
+            n_generations,
+            max(0, (protocol.n_eval_budget // self.population_size) - 1),
+        )
         self.crossover_prob = crossover_prob
         self.mutation_prob = mutation_prob
         self.sbx_eta = sbx_eta
@@ -1359,8 +1556,6 @@ class NSGA2Generator(BaseGenerator):
         # Seuils depuis la config.
         self._min_trades = int(config.thresholds["n_trades"]["min_total"])
         self._max_dd = float(config.thresholds["max_drawdown"]["max_value"])
-        # Pour l'objectif de diversité : on track les features déjà vues.
-        self._seen_features: set[str] = set()
         logger.info(
             "NSGA2Generator : N=%d, gen=%d, %d features continues, min_trades=%d, max_dd=%.2f",
             population_size, n_generations, len(self._continuous_features),
@@ -1485,9 +1680,11 @@ class NSGA2Generator(BaseGenerator):
         n_signals = 0
         sharpe_per_asset_fold: tuple[float, ...] = ()
         try:
-            calibrated = self.engine.train_calibrate(hyp, self._train_ohlcv, self._train_features)
+            calibrated = self.engine.train_calibrate(
+                hyp, self._search_train_ohlcv, self._search_train_features,
+            )
             mesures = self.engine.test_on(
-                hyp, self._val_ohlcv, self._val_features, calibrated, "val",
+                hyp, self._search_val_ohlcv, self._search_val_features, calibrated, "search_val",
             )
             n_signals = mesures.n_signals
             # --- 8 contraintes dures ---
@@ -1510,9 +1707,8 @@ class NSGA2Generator(BaseGenerator):
                 median_sharpe = sharpes[len(sharpes) // 2]
                 c4 = median_sharpe > 0.0
             else:
-                # Mono-actif : on accepte le Sharpe global (pas de cross-asset possible).
-                # Note : P0 #6 cross-asset exige 2 actifs en V1+. Pour V1 NSGA-II on est permissif.
-                c4 = (mesures.sharpe_net == mesures.sharpe_net) and (mesures.sharpe_net > 0.0)
+                # Aucune preuve cross-asset ne doit être remplacée par le Sharpe global.
+                c4 = False
             # 5. Coûts appliqués.
             c5 = bool(mesures.costs_applied)
             # 6. Absence de fuite temporelle : garanti par construction (test_on(val) post-calibration train).
@@ -1528,18 +1724,17 @@ class NSGA2Generator(BaseGenerator):
                 std_sharpe = statistics.stdev(sharpe_per_fold)
                 c8 = std_sharpe <= self.stability_max_std
             else:
-                # Pas assez de folds pour évaluer la stabilité.
-                c8 = True  # permissif (un seul fold = pas de violation)
+                # Une stabilité non mesurable n'est pas une stabilité validée.
+                c8 = False
             constraints = (c1, c2, c3, c4, c5, c6, c7, c8)
             n_violations = sum(1 for c in constraints if not c)
             # --- 4 objectifs (à MAXIMISER) ---
             sharpe = mesures.sharpe_net if mesures.sharpe_net == mesures.sharpe_net else 0.0
             dd = worst_dd
             neg_dd = -dd
-            # Diversité : feature unique pas encore vue → 1.0, sinon 0.0.
-            feat = hyp.condition_tree.feature_ref
-            diversity = 1.0 if feat not in self._seen_features else 0.0
-            self._seen_features.add(feat)
+            # Diversité comportementale : dispersion temporelle des signaux.
+            # Elle est déterministe et ne dépend pas de l'ordre d'évaluation.
+            diversity = self._behavioral_dispersion(mesures)
             # Complexité : -1 (une seule condition, c'est le minimum).
             neg_complexity = -1.0
             objectives = (sharpe, neg_dd, diversity, neg_complexity)
@@ -1568,9 +1763,9 @@ class NSGA2Generator(BaseGenerator):
         par fold selon entry_idx, calcule le Sharpe par fold, retourne la liste.
         Si < 2 folds ont au moins 2 trades, retourne [] (contrainte #8 permissive).
         """
-        if not mesures.trades or self._val_ohlcv is None:
+        if not mesures.trades or getattr(self, "_search_val_ohlcv", None) is None:
             return []
-        n_bougies = self._val_ohlcv.n_bougies
+        n_bougies = self._search_val_ohlcv.n_bougies
         if n_bougies == 0:
             return []
         trade_indices = [t.entry_idx for t in mesures.trades]
@@ -1592,6 +1787,21 @@ class NSGA2Generator(BaseGenerator):
             sharpe = (mean / std) * (365.0 ** 0.5)
             sharpe_per_fold.append(sharpe)
         return sharpe_per_fold
+
+    @staticmethod
+    def _behavioral_dispersion(mesures: Any, n_buckets: int = 10) -> float:
+        """Entropy normalisee des dates de signal, proxy reproductible de comportement."""
+        if not mesures.trades:
+            return 0.0
+        last_index = max(1, max(trade.entry_idx for trade in mesures.trades))
+        counts = [0] * n_buckets
+        for trade in mesures.trades:
+            bucket = min(n_buckets - 1, (trade.entry_idx * n_buckets) // (last_index + 1))
+            counts[bucket] += 1
+        total = sum(counts)
+        import math
+        entropy = -sum((n / total) * math.log(n / total) for n in counts if n)
+        return entropy / math.log(n_buckets)
 
     # ------------------------------------------------------------------ #
     # NSGA-II : opérateurs (Deb 2002)

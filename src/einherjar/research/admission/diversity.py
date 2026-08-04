@@ -115,7 +115,9 @@ def _build_descriptors(
     # Overlap signaux vs corpus (Jaccard max).
     overlap_max = _max_jaccard(set(signal_indices), corpus_signal_dates or [])
     # Corrélation des ret_series vs corpus.
-    corr_max = _max_pearson(this_ret_series, corpus_ret_series or [])
+    corr_max = _max_pearson(
+        this_ret_series, signal_indices, corpus_ret_series or [], corpus_signal_dates or [],
+    )
     # Holding period histogram (binned).
     hist = _holding_period_hist(mesures, n_bins=20)
     return BehavioralDescriptors(
@@ -151,26 +153,34 @@ def _max_jaccard(
 
 def _max_pearson(
     this_series: tuple[float, ...],
-    corpus_series: list[tuple[float, ...]],
+    this_dates: tuple[int, ...] | list[tuple[float, ...]],
+    corpus_series: list[tuple[float, ...]] | None = None,
+    corpus_dates: list[tuple[int, ...]] | None = None,
 ) -> float:
     """Pearson max (en valeur absolue) entre une série et une liste (P1 #5).
 
-    Accepte des séries de longueurs DIFFERENTES (les ret_series par trade
-    n'ont pas la même longueur pour des Einhers différents). On aligne
-    par le début commun (les n premiers trades de chaque série où n est
-    le min des deux longueurs).
+    Les retours sont alignés par date de signal. Comparer leur rang dans
+    deux listes de trades crée une corrélation fictive quand les entrées
+    ne sont pas synchrones.
     """
+    # Compatibilité de l'ancien helper de tests : _max_pearson(series, corpus).
+    # Le chemin applicatif fournit toujours dates + corpus_series + corpus_dates.
+    if corpus_series is None:
+        corpus_series = this_dates  # type: ignore[assignment]
+        this_dates = tuple(range(len(this_series)))
+        corpus_dates = [tuple(range(len(series))) for series in corpus_series]
     if not corpus_series or not this_series or len(this_series) < 2:
         return 0.0
+    this_by_date = dict(zip(this_dates, this_series))
     cmax = 0.0
-    for s in corpus_series:
-        if len(s) < 2:
+    for dates, series in zip(corpus_dates or [], corpus_series):
+        other_by_date = dict(zip(dates, series))
+        common_dates = sorted(set(this_by_date) & set(other_by_date))
+        if len(common_dates) < 2:
             continue
-        n = min(len(this_series), len(s))
-        if n < 2:
-            continue
-        a = this_series[:n]
-        b = s[:n]
+        a = [this_by_date[date] for date in common_dates]
+        b = [other_by_date[date] for date in common_dates]
+        n = len(common_dates)
         try:
             mean_a = sum(a) / n
             mean_b = sum(b) / n
