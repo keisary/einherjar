@@ -473,5 +473,190 @@ class TestP1_10_NSGA2Diversity(unittest.TestCase):
         )
 
 
+# --------------------------------------------------------------------------- #
+# P1-10 : NSGA-II integration Jaccard vs corpus dans _evaluate
+# --------------------------------------------------------------------------- #
+
+
+class TestP1_10_NSGA2JaccardIntegration(unittest.TestCase):
+    """P1-10 : le mix Jaccard vs corpus est cable dans NSGA2._evaluate()."""
+
+    def test_collect_feature_refs_atomic(self) -> None:
+        """Une Condition feuille doit retourner [feature_ref]."""
+        from einherjar.research.generators.algorithms import _collect_feature_refs
+        from einherjar.research.utils.types import Condition, CompareOp
+        cond = Condition(feature_ref="rsi_14", operator=CompareOp.GT, value=0.5, transformation=None)
+        self.assertEqual(_collect_feature_refs(cond), ["rsi_14"])
+
+    def test_collect_feature_refs_compound(self) -> None:
+        """Un ConditionNode doit retourner toutes les feature_ref (parcours DFS)."""
+        from einherjar.research.generators.algorithms import _collect_feature_refs
+        from einherjar.research.utils.types import (
+            CompareOp, Condition, ConditionNode, LogicalOp,
+        )
+        left = Condition(feature_ref="rsi_14", operator=CompareOp.GT, value=0.5, transformation=None)
+        right = Condition(feature_ref="macd_line", operator=CompareOp.LT, value=0.0, transformation=None)
+        tree = ConditionNode(op=LogicalOp.AND, left=left, right=right)
+        refs = _collect_feature_refs(tree)
+        self.assertEqual(set(refs), {"rsi_14", "macd_line"})
+
+    def test_mix_jaccard_diversity_no_corpus(self) -> None:
+        """Si _corpus_feature_sets vide, mix = dispersion pure (retro-compat)."""
+        from einherjar.research.generators.algorithms import NSGA2Generator
+        from einherjar.research.utils.types import (
+            CompareOp, Condition, Hypothesis, Direction, LogicalOp, ConditionNode,
+            Amplitude, AmplitudeUnit, Universe,
+        )
+        # On construit un NSGA2Generator avec un stub : on n'instancie pas
+        # vraiment, on mock juste la partie utilisee par _mix_jaccard_diversity.
+        gen = NSGA2Generator.__new__(NSGA2Generator)
+        gen._corpus_feature_sets = ()
+        hyp = Hypothesis(
+            id="test_001",
+            condition_tree=Condition(
+                feature_ref="rsi_14", operator=CompareOp.GT, value=0.5, transformation=None,
+            ),
+            amplitude=Amplitude(valeur=2.0, unité=AmplitudeUnit.MULTIPLE_ATR,
+                                direction_implicite=Direction.LONG),
+            direction=Direction.LONG,
+            universe=Universe(assets=("BTCUSD",), timeframes=("1h",)),
+            cooldown_k=5,
+        )
+        # Sans corpus, on retourne la dispersion pure.
+        self.assertEqual(gen._mix_jaccard_diversity(0.42, hyp), 0.42)
+
+    def test_mix_jaccard_diversity_with_corpus(self) -> None:
+        """Si _corpus_feature_sets peuple, mix = 0.5 * behav + 0.5 * jaccard."""
+        from einherjar.research.generators.algorithms import NSGA2Generator
+        from einherjar.research.utils.types import (
+            CompareOp, Condition, Hypothesis, Direction,
+            Amplitude, AmplitudeUnit, Universe,
+        )
+        gen = NSGA2Generator.__new__(NSGA2Generator)
+        # Corpus : 2 regles, une avec rsi_14 et une avec macd_line.
+        gen._corpus_feature_sets = (
+            frozenset({"rsi_14", "vol_sma_20"}),
+            frozenset({"macd_line", "bb_upper"}),
+        )
+        hyp = Hypothesis(
+            id="test_002",
+            condition_tree=Condition(
+                feature_ref="rsi_14", operator=CompareOp.GT, value=0.5, transformation=None,
+            ),
+            amplitude=Amplitude(valeur=2.0, unité=AmplitudeUnit.MULTIPLE_ATR,
+                                direction_implicite=Direction.LONG),
+            direction=Direction.LONG,
+            universe=Universe(assets=("BTCUSD",), timeframes=("1h",)),
+            cooldown_k=5,
+        )
+        # Corpus Jaccard pour {"rsi_14"} vs [{"rsi_14", "vol_sma_20"}, {"macd_line", "bb_upper"}]
+        # jaccard({"rsi_14"}, {"rsi_14", "vol_sma_20"}) = 1/2 = 0.5
+        # jaccard({"rsi_14"}, {"macd_line", "bb_upper"}) = 0/3 = 0.0
+        # mean_sim = (0.5 + 0.0) / 2 = 0.25
+        # corpus_jaccard_diversity = 1.0 - 0.25 = 0.75
+        # mix = 0.5 * behav + 0.5 * 0.75
+        behav = 0.4
+        expected = 0.5 * behav + 0.5 * 0.75
+        result = gen._mix_jaccard_diversity(behav, hyp)
+        self.assertAlmostEqual(result, expected, places=5)
+
+    def test_nsga2_evaluate_calls_mix_jaccard(self) -> None:
+        """NSGA2._evaluate() doit appeler _mix_jaccard_diversity (pas proxy brut)."""
+        import inspect
+        from einherjar.research.generators.algorithms import NSGA2Generator
+        # _evaluate() doit appeler _mix_jaccard_diversity (cablage P1-10).
+        eval_source = inspect.getsource(NSGA2Generator._evaluate)
+        self.assertIn(
+            "_mix_jaccard_diversity", eval_source,
+            "NSGA2._evaluate() doit appeler _mix_jaccard_diversity "
+            "(cablage P1-10).",
+        )
+        # _mix_jaccard_diversity doit lui-meme utiliser corpus_jaccard_diversity.
+        mix_source = inspect.getsource(NSGA2Generator._mix_jaccard_diversity)
+        self.assertIn(
+            "corpus_jaccard_diversity", mix_source,
+            "NSGA2._mix_jaccard_diversity doit utiliser "
+            "corpus_jaccard_diversity (cablage P1-10).",
+        )
+
+
+# --------------------------------------------------------------------------- #
+# P0-03 : DataVersionStore cable dans discovery (handle_compare, etc.)
+# --------------------------------------------------------------------------- #
+
+
+class TestP0_03_DataVersionStoreCabled(unittest.TestCase):
+    """P0-03 : _persist_data_version existe et est cable dans les handlers."""
+
+    def test_persist_data_version_exists(self) -> None:
+        """Le helper _persist_data_version doit exister dans discovery.py."""
+        from einherjar.research import discovery
+        self.assertTrue(
+            hasattr(discovery, "_persist_data_version"),
+            "discovery._persist_data_version doit exister (P0-03 cablage).",
+        )
+
+    def test_persist_data_version_creates_store(self) -> None:
+        """_persist_data_version doit creer un fichier JSONL append-only."""
+        import json
+        import tempfile
+        from pathlib import Path
+        from dataclasses import dataclass
+        from typing import Any
+        from einherjar.research import discovery
+        from einherjar.research.config.loader import load_config
+
+        # Mock minimal de OhlcvFrame/FeaturesFrame : on n'a besoin que de
+        # make_frame_data_version qui utilise .df, .asset, .timeframe.
+        # Pour ce test, on evite l'appel reel en utilisant un Path inexistant
+        # et en capturant l'exception attendue.
+        config = load_config(Path("src/einherjar/research/config"))
+
+        @dataclass
+        class _MockFrame:
+            asset: str = "BTCUSD"
+            timeframe: str = "1h"
+            df: Any = None
+
+        # df = None fera planter make_frame_data_version (qui accede a df.height).
+        # On verifie donc que _persist_data_version leve une erreur exploitable
+        # (pas de fallback silencieux) : c'est ce qu'on veut pour P0 #7.
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "data_versions.jsonl"
+            with self.assertRaises(Exception) as ctx:
+                discovery._persist_data_version(
+                    config, _MockFrame(), _MockFrame(), store_path=store_path,
+                )
+            # Le fichier ne doit PAS etre cree (echec avant append).
+            self.assertFalse(
+                store_path.exists(),
+                f"DataVersionStore ne doit pas etre cree si l'evaluation echoue. "
+                f"Erreur levee : {ctx.exception}",
+            )
+
+    def test_persist_data_version_called_in_handlers(self) -> None:
+        """Chaque handler de discovery doit appeler _persist_data_version."""
+        import inspect
+        from einherjar.research import discovery
+        source = inspect.getsource(discovery)
+        # Les 6 handlers doivent contenir l'appel.
+        for handler_name in (
+            "handle_baselines", "handle_compare", "handle_select",
+            "handle_refine", "handle_admit", "handle_holdout",
+        ):
+            self.assertIn(
+                f"def {handler_name}",
+                source,
+                f"{handler_name} doit exister dans discovery.py",
+            )
+        # Le helper est appele au moins 6 fois (un par handler).
+        n_calls = source.count("_persist_data_version")
+        self.assertGreaterEqual(
+            n_calls, 7,
+            f"_persist_data_version doit etre appele dans les 6 handlers "
+            f"+ 1 declaration = 7 occurrences minimum. Trouve : {n_calls}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

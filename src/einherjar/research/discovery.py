@@ -310,6 +310,44 @@ def _load_real_data_multi(
     return results
 
 
+def _persist_data_version(
+    config: EinherjarConfig,
+    train_ohlcv: Any,
+    train_features: Any,
+    *,
+    store_path: Path = Path("outputs/data_versions.jsonl"),
+) -> Any:
+    """Persiste le DataVersion courant via DataVersionStore (P0-03).
+
+    Procedure :
+      1. Reconstruit le DataVersion depuis les frames train (make_frame_data_version).
+      2. Le persiste via verify_data_version_locked (append-only JSONL, fsync).
+      3. Si le tag/hash existe deja : OK (lock).
+      4. Sinon : append, retourne le DataVersion verrouille.
+
+    Args:
+        config: Config Einherjar.
+        train_ohlcv/train_features: Frames train dont on veut figer la version.
+        store_path: Chemin du store append-only (defaut: outputs/data_versions.jsonl).
+
+    Returns:
+        Le DataVersion verrouille (DataVersion).
+    """
+    from einherjar.research.data.versioning import (
+        DataVersionStore,
+        make_frame_data_version,
+        verify_data_version_locked,
+    )
+    dv = make_frame_data_version(train_ohlcv, train_features, config)
+    store = DataVersionStore(store_path)
+    locked = verify_data_version_locked(dv, store)
+    logger.info(
+        "P0-03 : data_version verrouille = %s (hash=%s, store=%s)",
+        locked.tag, locked.hash[:12], store_path,
+    )
+    return locked
+
+
 # --------------------------------------------------------------------------- #
 # Handlers
 # --------------------------------------------------------------------------- #
@@ -343,6 +381,8 @@ def handle_baselines(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
+    # P0-03 : persistance verrouillable du data_version (avant l'engine).
+    _persist_data_version(config, train_ohlcv, train_features)
     engine = EvaluationEngine(
         config=config, data_version=args.data_version or train_ohlcv.data_version, seed=args.seed,
     )
@@ -385,6 +425,9 @@ def handle_compare(args: argparse.Namespace) -> int:
         return 2
     data_version = args.data_version or train_ohlcv.data_version
     engine = EvaluationEngine(config=config, data_version=data_version, seed=args.seed)
+    # P0-03 : persistance verrouillable du data_version (anti-faux sentiment
+    # de reproductibilite). Append-only JSONL avec fsync.
+    _persist_data_version(config, train_ohlcv, train_features)
     protocol = make_protocol(
         config, data_version=data_version,
         seed=args.seed, n_eval_budget=args.n_eval or 200,
@@ -450,6 +493,8 @@ def handle_select(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
+    # P0-03 : persistance verrouillable du data_version.
+    _persist_data_version(config, train_ohlcv, train_features)
     data_version = args.data_version or train_ohlcv.data_version
     engine = EvaluationEngine(config=config, data_version=data_version, seed=args.seed)
     protocol = make_protocol(
@@ -502,6 +547,8 @@ def handle_refine(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
+    # P0-03 : persistance verrouillable du data_version.
+    _persist_data_version(config, train_ohlcv, train_features)
     # Instancie le générateur avec un budget limité.
     import dataclasses
     n_eval = args.n_eval or 20
@@ -606,6 +653,8 @@ def handle_admit(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
+    # P0-03 : persistance verrouillable du data_version.
+    _persist_data_version(config, train_ohlcv, train_features)
     import dataclasses
     n_eval = args.n_eval or 20
     protocol = dataclasses.replace(selected.protocol, n_eval_budget=n_eval)
@@ -764,6 +813,8 @@ def handle_holdout(args: argparse.Namespace) -> int:
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
     # Pipeline complet : train_calibrate + test_on(val) + HoldoutEvaluator.
+    # P0-03 : persistance verrouillable du data_version.
+    _persist_data_version(config, train_ohlcv, train_features)
     data_version = args.data_version or train_ohlcv.data_version
     engine = EvaluationEngine(config=config, data_version=data_version, seed=args.seed)
     try:
