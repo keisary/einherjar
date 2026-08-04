@@ -73,6 +73,62 @@ class BehavioralDescriptors:
         return fingerprint_comportemental(self.to_dict(), rounding_decimals=rounding_decimals)
 
 
+# --------------------------------------------------------------------------- #
+# Diversite par feature set (Jaccard) — P1-10
+# --------------------------------------------------------------------------- #
+
+
+def jaccard_diversity(
+    features_a: frozenset[str] | set[str] | tuple[str, ...],
+    features_b: frozenset[str] | set[str] | tuple[str, ...],
+) -> float:
+    """Distance de Jaccard entre 2 ensembles de features.
+
+    Retourne 1.0 si les 2 ensembles sont identiques, 0.0 s'ils sont
+    disjoints. Plus la valeur est grande, plus les 2 regles utilisent
+    les memes features (et donc plus elles sont redondantes).
+
+    Args:
+        features_a: ensemble (frozenset, set, ou tuple) de noms de features.
+        features_b: idem.
+
+    Returns:
+        |A inter B| / |A union B| dans [0, 1].
+    """
+    a = set(features_a)
+    b = set(features_b)
+    union = a | b
+    if not union:
+        return 0.0
+    return len(a & b) / len(union)
+
+
+def corpus_jaccard_diversity(
+    features: frozenset[str] | set[str] | tuple[str, ...],
+    corpus: list[frozenset[str] | set[str] | tuple[str, ...]],
+) -> float:
+    """Diversite Jaccard moyenne d'un ensemble de features vs un corpus.
+
+    Pour chaque entree du corpus, calcule la similarite Jaccard avec
+    l'ensemble de features fourni. Retourne 1.0 - moyenne(similarites)
+    : une regle est d'autant plus diversifiante qu'elle differe des
+    regles existantes du corpus.
+
+    Args:
+        features: ensemble de features de la regle a scorer.
+        corpus: liste d'ensembles de features des regles deja admises.
+
+    Returns:
+        Score de diversite dans [0, 1]. 1.0 = totalement different du
+        corpus, 0.0 = totalement similaire. Retourne 1.0 si corpus vide.
+    """
+    if not corpus:
+        return 1.0
+    similarities = [jaccard_diversity(features, c) for c in corpus]
+    mean_sim = sum(similarities) / len(similarities)
+    return 1.0 - mean_sim
+
+
 def _build_descriptors(
     mesures: MesuresBrutes,
     signal_indices: tuple[int, ...],
@@ -196,12 +252,28 @@ def _max_pearson(
 
 
 def _holding_period_hist(mesures: MesuresBrutes, n_bins: int = 20) -> tuple[int, ...]:
-    """Histogramme grossier de la durée des trades (binned).
+    """Histogramme de la duree des trades (P1-12 : calcule, plus de zeros).
 
-    V1 : on retourne un tuple de zéros de longueur n_bins, le calcul exact
-    se fera quand on aura accès à la liste de trades dans MesuresBrutes.
+    Args:
+        mesures: MesuresBrutes (doit contenir `trades`).
+        n_bins: Nombre de buckets pour l'histogramme (defaut 20).
+
+    Returns:
+        Tuple de n_bins entiers (compte par bucket), ou zeros si pas de trades.
     """
-    return (0,) * n_bins
+    if not mesures.trades:
+        return (0,) * n_bins
+    durations: list[int] = [
+        max(0, t.exit_idx - t.entry_idx) for t in mesures.trades
+    ]
+    if not durations:
+        return (0,) * n_bins
+    max_dur = max(durations) or 1  # evite /0
+    counts = [0] * n_bins
+    for d in durations:
+        bucket = min(n_bins - 1, (d * n_bins) // (max_dur + 1))
+        counts[bucket] += 1
+    return tuple(counts)
 
 
 # --------------------------------------------------------------------------- #

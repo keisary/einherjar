@@ -142,6 +142,129 @@ def make_data_version(
     )
 
 
+# --------------------------------------------------------------------------- #
+# Persistance des DataVersion (P0-03 — verrou reproductible)
+# --------------------------------------------------------------------------- #
+
+
+class DataVersionStore:
+    """Persistance append-only des DataVersion dans un fichier JSONL.
+
+    Permet de :
+      - Persister chaque data_version generee pendant un run
+      - Verifier qu'un data_version donne a deja ete produit (sinon erreur)
+      - Auditer l'historique des data_version
+
+    Format du fichier : 1 ligne JSON par DataVersion. Append-only.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+
+    def append(self, dv: DataVersion) -> None:
+        """Append une DataVersion au store (avec fsync)."""
+        with self.path.open("a", encoding="utf-8") as fp:
+            fp.write(json.dumps(dv.to_dict()) + "\n")
+            fp.flush()
+            import os
+            os.fsync(fp.fileno())
+
+    def find_by_tag(self, tag: str) -> Optional[DataVersion]:
+        """Cherche une DataVersion par tag. Retourne None si absent."""
+        if not self.path.exists():
+            return None
+        with self.path.open("r", encoding="utf-8") as fp:
+            for line in fp:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    d = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if d.get("tag") == tag:
+                    return DataVersion(
+                        tag=d["tag"],
+                        hash=d["hash"],
+                        manifest=d["manifest"],
+                        created_at=d["created_at"],
+                    )
+        return None
+
+    def find_by_hash(self, content_hash: str) -> Optional[DataVersion]:
+        """Cherche une DataVersion par hash du manifest. Retourne None si absent."""
+        if not self.path.exists():
+            return None
+        with self.path.open("r", encoding="utf-8") as fp:
+            for line in fp:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    d = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if d.get("hash") == content_hash:
+                    return DataVersion(
+                        tag=d["tag"],
+                        hash=d["hash"],
+                        manifest=d["manifest"],
+                        created_at=d["created_at"],
+                    )
+        return None
+
+    def all_tags(self) -> list[str]:
+        """Liste tous les tags persistes."""
+        if not self.path.exists():
+            return []
+        tags: list[str] = []
+        with self.path.open("r", encoding="utf-8") as fp:
+            for line in fp:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    d = json.loads(line)
+                    if "tag" in d:
+                        tags.append(d["tag"])
+                except json.JSONDecodeError:
+                    continue
+        return tags
+
+
+def verify_data_version_locked(
+    dv: DataVersion,
+    store: DataVersionStore,
+) -> DataVersion:
+    """Verifie que le data_version est verrouille (deja produit) ou le cree.
+
+    Procedure P0-03 :
+      1. Si un data_version avec le meme tag existe deja dans le store : OK
+      2. Si un data_version avec le meme hash existe : OK (meme contenu,
+         tag peut differer)
+      3. Sinon : on append le nouveau data_version au store
+
+    Returns:
+        Le DataVersion verrouille (soit l'existant, soit le nouveau).
+    """
+    existing = store.find_by_tag(dv.tag)
+    if existing is not None:
+        if existing.hash != dv.hash:
+            raise ValueError(
+                f"DataVersion tag={dv.tag!r} existe mais avec un hash "
+                f"different (existant={existing.hash[:12]}, nouveau="
+                f"{dv.hash[:12]}). Verifier que les donnees et la config "
+                f"n'ont pas change depuis le premier run."
+            )
+        return existing
+    existing = store.find_by_hash(dv.hash)
+    if existing is not None:
+        return existing
+    store.append(dv)
+    return dv
+
+
 def make_splits_hash(
     train_start: int, train_end: int,
     val_start: int, val_end: int,

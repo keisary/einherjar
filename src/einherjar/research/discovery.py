@@ -257,6 +257,151 @@ def _load_real_data(
     )
 
 
+def _load_real_data_multi(
+    config: EinherjarConfig,
+    data_root: str,
+    assets: tuple[str, ...],
+    asset_class: str,
+    timeframe: str,
+) -> dict[str, tuple]:
+    """Charge OHLCV + features pour PLUSIEURS actifs (P0-05).
+
+    Pour chaque actif de la liste, appelle `_load_real_data` et stocke
+    le resultat (train_ohlcv, train_features, val_ohlcv, val_features,
+    holdout_ohlcv, holdout_features) dans un dict par nom d'actif.
+
+    Si un actif echoue au chargement, on leve NpyRealLoaderError apres
+    avoir tente tous les actifs (fail-fast explicite, pas de fallback
+    silencieux — P0 #7).
+
+    Args:
+        config: Configuration chargee.
+        data_root: racine des .npy MIDAS V3.
+        assets: tuple de noms d'actifs (ex: ("BTCUSD", "ETHUSD")).
+        asset_class: classe d'actifs (ex: "crypto").
+        timeframe: granularite (ex: "1h").
+
+    Returns:
+        Dict {asset_name: (train_ohlcv, train_features, val_ohlcv,
+        val_features, holdout_ohlcv, holdout_features)}.
+    """
+    if not assets:
+        raise ValueError(
+            "P0-05 : _load_real_data_multi requiert au moins 1 actif "
+            "(utiliser _load_real_data pour le single-asset)"
+        )
+    results: dict[str, tuple] = {}
+    errors: list[tuple[str, str]] = []
+    for asset in assets:
+        try:
+            results[asset] = _load_real_data(
+                config=config, data_root=data_root,
+                asset=asset, asset_class=asset_class, timeframe=timeframe,
+            )
+        except Exception as exc:
+            errors.append((asset, str(exc)))
+    if errors:
+        # Fail-fast : on leve une erreur explicite listant tous les echecs.
+        details = "; ".join(f"{a}: {e}" for a, e in errors)
+        raise RuntimeError(
+            f"P0-05 : echec du chargement multi-actifs. {len(errors)}/{len(assets)} "
+            f"actifs en erreur. Details: {details}"
+        )
+    return results
+
+
+def _resolve_assets(args: argparse.Namespace) -> tuple[str, ...]:
+    """Resoud la liste d'actifs a charger depuis les args CLI (P0-05).
+
+    Priorite :
+      1. --data-assets (liste separee par virgules) si fourni.
+      2. --data-asset (single) sinon (en tuple d'1 element).
+
+    Returns:
+        Tuple de symboles d'actifs, jamais vide.
+    """
+    if args.data_assets:
+        return tuple(a.strip() for a in args.data_assets.split(",") if a.strip())
+    return (args.data_asset,)
+
+
+def _load_for_handler(
+    config: EinherjarConfig,
+    args: argparse.Namespace,
+) -> dict[str, tuple]:
+    """Charge les donnees reelles selon --data-asset ou --data-assets (P0-05).
+
+    Wrapper au-dessus de _load_real_data / _load_real_data_multi qui dispatch
+    automatiquement sur le mode single ou multi.
+
+    Returns:
+        Dict {asset_name: (train_ohlcv, train_features, val_ohlcv, val_features,
+        holdout_ohlcv, holdout_features)}.
+    """
+    assets = _resolve_assets(args)
+    if len(assets) == 1:
+        result = _load_real_data(
+            config=config, data_root=args.data_root, asset=assets[0],
+            asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+        return {assets[0]: result}
+    return _load_real_data_multi(
+        config=config, data_root=args.data_root, assets=assets,
+        asset_class=args.data_class, timeframe=args.data_timeframe,
+    )
+
+
+def _primary_asset(loaded: dict[str, tuple]) -> str:
+    """Retourne le nom de l'actif principal a utiliser pour l'engine.
+
+    En mode multi-actifs, l'actif principal est le 1er charge (ordre stable).
+    L'engine reste single-asset pour V1 ; les autres actifs sont utilises
+    pour la diversite Jaccard vs corpus (P1-10) et la mediane cross-actifs
+    (contrainte NSGA-II #4).
+    """
+    if not loaded:
+        raise ValueError("Aucun actif charge dans le dict multi-actifs")
+    return next(iter(loaded))
+
+
+def _persist_data_version(
+    config: EinherjarConfig,
+    train_ohlcv: Any,
+    train_features: Any,
+    *,
+    store_path: Path = Path("outputs/data_versions.jsonl"),
+) -> Any:
+    """Persiste le DataVersion courant via DataVersionStore (P0-03).
+
+    Procedure :
+      1. Reconstruit le DataVersion depuis les frames train (make_frame_data_version).
+      2. Le persiste via verify_data_version_locked (append-only JSONL, fsync).
+      3. Si le tag/hash existe deja : OK (lock).
+      4. Sinon : append, retourne le DataVersion verrouille.
+
+    Args:
+        config: Config Einherjar.
+        train_ohlcv/train_features: Frames train dont on veut figer la version.
+        store_path: Chemin du store append-only (defaut: outputs/data_versions.jsonl).
+
+    Returns:
+        Le DataVersion verrouille (DataVersion).
+    """
+    from einherjar.research.data.versioning import (
+        DataVersionStore,
+        make_frame_data_version,
+        verify_data_version_locked,
+    )
+    dv = make_frame_data_version(train_ohlcv, train_features, config)
+    store = DataVersionStore(store_path)
+    locked = verify_data_version_locked(dv, store)
+    logger.info(
+        "P0-03 : data_version verrouille = %s (hash=%s, store=%s)",
+        locked.tag, locked.hash[:12], store_path,
+    )
+    return locked
+
+
 # --------------------------------------------------------------------------- #
 # Handlers
 # --------------------------------------------------------------------------- #
@@ -282,14 +427,16 @@ def handle_baselines(args: argparse.Namespace) -> int:
     from einherjar.research.baselines.runner import BaselineRunner
     from einherjar.research.engine.evaluator import EvaluationEngine
     try:
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
-            config=config,
-            data_root=args.data_root,
-            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
-        )
+        loaded = _load_for_handler(config, args)
+        primary = _primary_asset(loaded)
+        if len(loaded) > 1:
+            logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
+    # P0-03 : persistance verrouillable du data_version (avant l'engine).
+    _persist_data_version(config, train_ohlcv, train_features)
     engine = EvaluationEngine(
         config=config, data_version=args.data_version or train_ohlcv.data_version, seed=args.seed,
     )
@@ -322,16 +469,24 @@ def handle_compare(args: argparse.Namespace) -> int:
     # Charge les données AVANT les générateurs : les générateurs évolutionnaires
     # (NSGA-II, Memetic) ont besoin d'accéder aux données pour évaluer leur fitness.
     try:
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
-            config=config,
-            data_root=args.data_root,
-            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
-        )
+        loaded = _load_for_handler(config, args)
+        primary = _primary_asset(loaded)
+        if len(loaded) > 1:
+            logger.info(
+                "P0-05 : mode multi-actifs (%d actifs charges), actif principal = %s. "
+                "Les autres actifs serviront a la mediane cross-actifs (NSGA-II #4) "
+                "et a la diversite Jaccard vs corpus (P1-10).",
+                len(loaded), primary,
+            )
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
     data_version = args.data_version or train_ohlcv.data_version
     engine = EvaluationEngine(config=config, data_version=data_version, seed=args.seed)
+    # P0-03 : persistance verrouillable du data_version (anti-faux sentiment
+    # de reproductibilite). Append-only JSONL avec fsync.
+    _persist_data_version(config, train_ohlcv, train_features)
     protocol = make_protocol(
         config, data_version=data_version,
         seed=args.seed, n_eval_budget=args.n_eval or 200,
@@ -389,14 +544,16 @@ def handle_select(args: argparse.Namespace) -> int:
     from einherjar.research.selection.selector import GeneratorSelector
     from einherjar.research.admission.baseline_gate import make_baseline_admission_fn
     try:
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
-            config=config,
-            data_root=args.data_root,
-            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
-        )
+        loaded = _load_for_handler(config, args)
+        primary = _primary_asset(loaded)
+        if len(loaded) > 1:
+            logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
+    # P0-03 : persistance verrouillable du data_version.
+    _persist_data_version(config, train_ohlcv, train_features)
     data_version = args.data_version or train_ohlcv.data_version
     engine = EvaluationEngine(config=config, data_version=data_version, seed=args.seed)
     protocol = make_protocol(
@@ -442,13 +599,16 @@ def handle_refine(args: argparse.Namespace) -> int:
                 selected.generator_name, selected.rank, selected.score)
     # Charge les données réelles.
     try:
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
-            config=config, data_root=args.data_root,
-            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
-        )
+        loaded = _load_for_handler(config, args)
+        primary = _primary_asset(loaded)
+        if len(loaded) > 1:
+            logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
+    # P0-03 : persistance verrouillable du data_version.
+    _persist_data_version(config, train_ohlcv, train_features)
     # Instancie le générateur avec un budget limité.
     import dataclasses
     n_eval = args.n_eval or 20
@@ -546,13 +706,16 @@ def handle_admit(args: argparse.Namespace) -> int:
     logger.info("Generateur selectionne : %s (rank=%d, score=%.4f)",
                 selected.generator_name, selected.rank, selected.score)
     try:
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
-            config=config, data_root=args.data_root,
-            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
-        )
+        loaded = _load_for_handler(config, args)
+        primary = _primary_asset(loaded)
+        if len(loaded) > 1:
+            logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
+    # P0-03 : persistance verrouillable du data_version.
+    _persist_data_version(config, train_ohlcv, train_features)
     import dataclasses
     n_eval = args.n_eval or 20
     protocol = dataclasses.replace(selected.protocol, n_eval_budget=n_eval)
@@ -703,14 +866,17 @@ def handle_holdout(args: argparse.Namespace) -> int:
     # Charge les données + split holdout.
     config = load_config(args.config)
     try:
-        train_ohlcv, train_features, val_ohlcv, val_features, holdout_ohlcv, holdout_features = _load_real_data(
-            config=config, data_root=args.data_root,
-            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
-        )
+        loaded = _load_for_handler(config, args)
+        primary = _primary_asset(loaded)
+        if len(loaded) > 1:
+            logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
+        train_ohlcv, train_features, val_ohlcv, val_features, holdout_ohlcv, holdout_features = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
     # Pipeline complet : train_calibrate + test_on(val) + HoldoutEvaluator.
+    # P0-03 : persistance verrouillable du data_version.
+    _persist_data_version(config, train_ohlcv, train_features)
     data_version = args.data_version or train_ohlcv.data_version
     engine = EvaluationEngine(config=config, data_version=data_version, seed=args.seed)
     try:

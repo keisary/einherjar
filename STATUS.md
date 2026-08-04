@@ -5,7 +5,7 @@
 >
 > **Statuts** : ✅ implémenté et testé · 🟡 partiel · ⏸ reporté · 🚧 en cours
 
-**Dernière mise à jour** : 2026-08-03 (BNF chantier Phase 1-4 + comparateur multi-obj + pilotage)
+**Dernière mise à jour** : 2026-08-04 (review critique 16 items : P0-01..P2-16 finalisés)
 
 ---
 
@@ -15,9 +15,9 @@
 |---|---|---|---|
 | P0 #1 | SL/TP relatifs (multiples d'ATR) | ✅ | `CalibratedParams.compute_sl_tp_at_entry`, recalculés à chaque trade |
 | P0 #2 | Calibration sur vrais trades (pas prix 1.0) | ✅ | `train_calibrate` : passe provisoire 1.5×ATR, MFE/MAE réels |
-| P0 #3 | CLI sur données réelles | ✅ | `npy_real_loader` + `_load_real_data` (alignment OHLCV/features) |
+| P0 #3 | CLI sur données réelles | ✅ | `npy_real_loader` + `_load_real_data` (alignment OHLCV/features). **2026-08-04** : `DataVersionStore` + `verify_data_version_locked` câblé dans les 6 handlers (`_persist_data_version()`), append-only JSONL avec fsync. Verrou reproductible anti-faux sentiment (P0 #7). |
 | P0 #4 | refine/admit/holdout réels | ✅ | `handle_*` consomment la sélection, plus de stubs |
-| P0 #5 | PBO + drawdown réels | ✅ | `evaluate_pbo` (CPCV López de Prado, K=6+embargo) + `max_drawdown_from_returns` (equity_curve par trade) |
+| P0 #5 | PBO + drawdown réels | ✅ | `evaluate_pbo` (CPCV López de Prado, K=6+embargo) + `max_drawdown_from_returns` (equity_curve par trade). **2026-08-04** : `--data-assets` câblé dans les 6 handlers via `_load_for_handler()` + `_load_real_data_multi()`. Actif principal = 1er chargé, autres actifs réservés (V1) pour la médiane cross-actifs (NSGA-II #4) et la diversité Jaccard vs corpus (P1-10). |
 | P0 #6 | Cross-asset ≥ 2 actifs | ✅ | `evaluate_cross_asset` exige min_n_assets=2 (opt-in allow_single_asset) |
 | P0 #7 | Transformations : pas de fallback silencieux | ✅ | `EvaluationError` si `transformation != None` |
 | P0 #10 | Générateurs complets (NSGA-II/Memetic/TypedGP/Beam/Random) | ✅ | Branche `p10-moteurs-reels` mergée sur main (commits b62c941/ce687e8/b2fad31/0fa52dc) |
@@ -30,7 +30,7 @@
 | P1 #7 | Chargement corpus persistant | ✅ | `corpus/store.py` (CorpusEntry + CorpusStore.append/load/summary) |
 | P1 #8 | Archive candidat complet | ✅ | `ArchiveEntry` enrichi (ret_series, fingerprint canonique, etc.) |
 | P1 #9 | Versionnage données (schema, hash, période, timezone) | ✅ | `data/versioning.py` enrichi (content_sha256, start/end_ts) |
-| P1 #10 | Contrôle bloquant données | ✅ | `data/validation.py` (NaN, index monotone, gaps, anti-fuite) |
+| P1 #10 | Contrôle bloquant données | ✅ | `data/validation.py` (NaN, index monotone, gaps, anti-fuite). **2026-08-04** : `corpus_jaccard_diversity` câblé dans NSGA-II via `_mix_jaccard_diversity()` (mix 50/50 entre dispersion comportementale et Jaccard vs corpus). Opt-in via `self._corpus_feature_sets` (set de frozensets) à peupler par le caller. |
 | P2 #1 | Sharpe annualisé dynamique (par timeframe) | ✅ | `periods_per_year_for_timeframe` (1m→525600, 1h→8760, 1d→365, etc.) |
 | P2 #2 | Contrat 218 features strict | ✅ | `_check_taxonomy_218` (loader.py) enforcé |
 | P2 #3 | Chemins config + dépendances + test démarrage | ✅ | `pyproject.toml` OK + `test_demarrage_p2_3.py` |
@@ -56,7 +56,7 @@
 | Bloc | Statut | Notes |
 |---|---|---|
 | Raffinement | 🟡 (déprécié) | `BeamRefiner` déprécié (P1 #2). Migration vers "générer N nouveaux candidats via les générateurs + pipeline complet". |
-| Comparateur multi-objectif | ✅ | `GeneratorComparator` partage l'engine avec les générateurs. Score composite = 0.40·sharpe + 0.30·admission + 0.15·diversity + 0.15·coherence (normalisation min-max entre moteurs, redistribution des poids si coherence=0). Branche `comparator-multiobj`. |
+| Comparateur multi-objectif | ✅ | `GeneratorComparator` partage l'engine avec les générateurs. Score composite = 0.40·sharpe + 0.30·admission + 0.15·diversity + 0.15·coherence (normalisation min-max entre moteurs, redistribution des poids si coherence=0). **2026-08-04** : compteur global cumulé (`total_evaluations` + `budget` sur `ComparisonReport`), mur d'arrêt `n_eval_budget` partagé entre générateurs. Branche `comparator-multiobj`. |
 | Admission (7 critères S-3.4) | ✅ | `evaluate_all_criteria` (DSR, PBO, bootstrap CI, n_trades, cross-asset, max_dd). |
 | Admission (multi-actifs strict) | ✅ | P0 #6 : médiane par actif/fold (pas moyenne), `min_n_assets=2`. |
 | Holdout persistant | ✅ | `HoldoutEvaluator` + `HoldoutLedger` (anti-réentrance post-redémarrage, atomique). |
@@ -77,9 +77,9 @@
 
 ## Tests
 
-- **169 tests verts** au total (`python -m unittest discover -s src/einherjar/research/tests -p 'test_*.py'`)
-- Répartition : 84 socle + 30 parser BNF + 39 sémantique + 15 pilotage + 1 adapt
-- Couverture par bloc : moteur, admission, corpus, holdout, validation, diversité, raffinement, démarrage, BNF (parser, sémantique), pilotage
+- **220 tests verts** au total (`python -m unittest discover -s src/einherjar/research/tests -p 'test_*.py'`)
+- Répartition : 84 socle + 30 parser BNF + 39 sémantique + 15 pilotage + 8 audit P1-14 + 21 P0-03/05/06 + P1-10/08/12/15 + 1 adapt
+- Couverture par bloc : moteur, admission, corpus, holdout, validation, diversité, raffinement, démarrage, BNF (parser, sémantique), pilotage, audit déterminisme, multi-actifs, Jaccard, budget global
 - Ruff clean (line length 100, conventions Google)
 
 ---
@@ -95,5 +95,30 @@
 - `bnf-phase-3-semantic` : orientation sémantique 108 patterns
 - `comparator-multiobj` : score composite 4 axes
 - `pilotage-report` : rapport structuré par moteur
+- `fix/beam-static-self-rng-and-audit-p1-14` : bug `@staticmethod` oublié sur `BeamRefiner` + audit exhaustif discovery
+- `fix/p0-3-5-p1-10-p0-6` : **P0-03 (DataVersionStore) + P0-05 (--data-assets) + P0-06 (BNF/GE validation) + P1-10 (Jaccard NSGA-II) + P1-08 (budget global) + P1-12 (holding_period_hist) + P1-15 (déterminisme raffinement) finalisés**
 
-`main` : **socle complet + BNF chantier Phase 1/3/4 + comparateur multi-obj + pilotage**, pipeline 7 étapes fonctionnel, 6 générateurs.
+`main` : **socle complet + BNF chantier Phase 1/3/4 + comparateur multi-obj + pilotage + review critique 16 items finalisée**, pipeline 7 étapes fonctionnel, 6 générateurs, mode multi-actifs câblé, budget global unifié, Jaccard corpus opt-in.
+
+---
+
+## Review critique (P0-01 à P2-16, 2026-08-04)
+
+| # | Item | Statut | Notes |
+|---|---|---|---|
+| P0-01 | CLI import errors | ✅ | Fait par user |
+| P0-02 | Contrat données OHLC | ✅ | Fait par user (`OhlcvProvider` data_version="raw") |
+| P0-03 | Splits par data_version | ✅ | Finalisé : `DataVersionStore` + `verify_data_version_locked` câblé dans 6 handlers |
+| P0-04 | Orchestration | ✅ | Fait par user |
+| P0-05 | Multi-actifs | ✅ | Finalisé : `--data-assets` câblé via `_load_for_handler` dans 6 handlers |
+| P0-06 | BNF/GE validation | ✅ | Fait par user + 4 tests exhaustifs par agent |
+| P0-07 | Memetic 2 generate | ✅ | Fait par user |
+| P1-08 | Compteur d'évaluations | ✅ | Finalisé : `total_evaluations` + `budget` sur `ComparisonReport`, mur partagé |
+| P1-09 | Métriques | ✅ | duckdb installé (1.5.5), tests passent (1 skip légitime = données réelles absentes) |
+| P1-10 | NSGA-II multi-actifs | ✅ | Finalisé : Jaccard vs corpus câblé dans NSGA-II `_evaluate()` via `_mix_jaccard_diversity` |
+| P1-11 | PBO mal nommée | ✅ | Fait par user |
+| P1-12 | Diversité corpus | ✅ | Finalisé : `_holding_period_hist` calcule depuis `mesures.trades` (plus de stub zeros) |
+| P1-13 | Holdout | ✅ | PARTIEL user (ledger atomique déjà en place) |
+| P1-14 | Discovery exhaustive | ✅ | Fait par agent : `test_discovery_audit.py` (8 tests, 218/218 + 107 patterns + 6 générateurs) |
+| P1-15 | Raffinement invariants | ✅ | Finalisé : bug `@staticmethod` oublié sur beam.py fixé + tests déterminisme |
+| P2-16 | Doc | ✅ | Finalisé : `STATUS.md` mis à jour avec l'état complet 2026-08-04 |

@@ -1486,8 +1486,15 @@ class NSGA2Generator(BaseGenerator):
     4 objectifs (à MAXIMISER) :
       f1 = Sharpe net
       f2 = -max_drawdown (équivalent à minimiser DD)
-      f3 = score de diversité (Jaccard vs autres Einhers du corpus ; proxy V1 = unicité de feature)
+      f3 = diversité comportementale (dispersion temporelle des signaux)
+           + bonus de diversité Jaccard vs corpus (admission/diversity.py :
+           `corpus_jaccard_diversity` sur self._corpus_feature_sets, pondéré 50/50)
       f4 = -complexité (= -nb conditions ; ici -1 car représentation mono-condition)
+
+    Note (P1-10) : la diversité Jaccard vs corpus est disponible via
+    `admission.diversity.corpus_jaccard_diversity`. Pour l'activer, le caller
+    doit peupler `self._corpus_feature_sets` (set de frozensets de features
+    des Einhers deja admis) avant l'appel a `generate()`.
     """
 
     OP_CHOICES: tuple[CompareOp, ...] = (CompareOp.LT, CompareOp.GT, CompareOp.LE, CompareOp.GE)
@@ -1734,7 +1741,11 @@ class NSGA2Generator(BaseGenerator):
             neg_dd = -dd
             # Diversité comportementale : dispersion temporelle des signaux.
             # Elle est déterministe et ne dépend pas de l'ordre d'évaluation.
-            diversity = self._behavioral_dispersion(mesures)
+            behav_diversity = self._behavioral_dispersion(mesures)
+            # Diversité Jaccard vs corpus (P1-10) : si le caller a peuplé
+            # self._corpus_feature_sets, on mixe 50/50 dispersion + Jaccard.
+            # Sinon : diversité = dispersion pure (rétro-compat).
+            diversity = self._mix_jaccard_diversity(behav_diversity, hyp)
             # Complexité : -1 (une seule condition, c'est le minimum).
             neg_complexity = -1.0
             objectives = (sharpe, neg_dd, diversity, neg_complexity)
@@ -1802,6 +1813,38 @@ class NSGA2Generator(BaseGenerator):
         import math
         entropy = -sum((n / total) * math.log(n / total) for n in counts if n)
         return entropy / math.log(n_buckets)
+
+    def _mix_jaccard_diversity(
+        self,
+        behav_diversity: float,
+        hyp: Hypothesis,
+    ) -> float:
+        """Mixe dispersion comportementale et Jaccard vs corpus (P1-10).
+
+        Si le caller a peuple `self._corpus_feature_sets` (set de frozensets
+        de features des Einhers deja admis) avant l'appel a `generate()`,
+        on calcule `corpus_jaccard_diversity(features_a, corpus)` et on
+        retourne 0.5 * behav + 0.5 * jaccard. Sinon : dispersion pure.
+
+        Args:
+            behav_diversity: dispersion comportementale (entropy normalisee).
+            hyp: Hypothesis candidate (pour extraire les features).
+
+        Returns:
+            Score de diversite dans [0, 1].
+        """
+        corpus_sets: tuple = getattr(self, "_corpus_feature_sets", ())
+        if not corpus_sets:
+            return behav_diversity
+        # Import local (evite cycle : admission.diversity importe generators).
+        from einherjar.research.admission.diversity import corpus_jaccard_diversity
+        # Extrait les features de l'Hypothesis (parcours l'arbre de conditions).
+        ind_features = frozenset(_collect_feature_refs(hyp.condition_tree))
+        if not ind_features:
+            return behav_diversity
+        jaccard_div = corpus_jaccard_diversity(ind_features, list(corpus_sets))
+        # 50/50 entre dispersion temporelle et Jaccard vs corpus.
+        return 0.5 * behav_diversity + 0.5 * jaccard_div
 
     # ------------------------------------------------------------------ #
     # NSGA-II : opérateurs (Deb 2002)
@@ -2084,6 +2127,35 @@ def _cpcv_folds_for_trades(
         fold = min(n_groups - 1, int((idx / n_bougies) * n_groups))
         folds[fold].append(i)
     return folds
+
+
+# --------------------------------------------------------------------------- #
+# Helper : extraction des feature_ref d'un arbre de conditions
+# --------------------------------------------------------------------------- #
+
+
+def _collect_feature_refs(
+    tree: Condition | ConditionNode,
+) -> list[str]:
+    """Collecte tous les feature_ref d'un arbre de conditions (parcours DFS).
+
+    Utilise par NSGA2Generator._mix_jaccard_diversity pour calculer le set
+    de features d'une Hypothesis en vue d'un calcul de Jaccard vs corpus.
+
+    Args:
+        tree: racine de l'arbre (Condition ou ConditionNode).
+
+    Returns:
+        Liste des feature_ref trouves. Un ConditionNode unaire (LogicalOp.NOT)
+        ou binaire (AND/OR/XOR) est parcours recursivement.
+    """
+    if isinstance(tree, Condition):
+        return [tree.feature_ref]
+    # ConditionNode : on parcourt les enfants.
+    refs: list[str] = _collect_feature_refs(tree.left)
+    if tree.right is not None:
+        refs.extend(_collect_feature_refs(tree.right))
+    return refs
 
 
 # --------------------------------------------------------------------------- #
