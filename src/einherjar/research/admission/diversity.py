@@ -252,12 +252,28 @@ def _max_pearson(
 
 
 def _holding_period_hist(mesures: MesuresBrutes, n_bins: int = 20) -> tuple[int, ...]:
-    """Histogramme grossier de la durée des trades (binned).
+    """Histogramme de la duree des trades (P1-12 : calcule, plus de zeros).
 
-    V1 : on retourne un tuple de zéros de longueur n_bins, le calcul exact
-    se fera quand on aura accès à la liste de trades dans MesuresBrutes.
+    Args:
+        mesures: MesuresBrutes (doit contenir `trades`).
+        n_bins: Nombre de buckets pour l'histogramme (defaut 20).
+
+    Returns:
+        Tuple de n_bins entiers (compte par bucket), ou zeros si pas de trades.
     """
-    return (0,) * n_bins
+    if not mesures.trades:
+        return (0,) * n_bins
+    durations: list[int] = [
+        max(0, t.exit_idx - t.entry_idx) for t in mesures.trades
+    ]
+    if not durations:
+        return (0,) * n_bins
+    max_dur = max(durations) or 1  # evite /0
+    counts = [0] * n_bins
+    for d in durations:
+        bucket = min(n_bins - 1, (d * n_bins) // (max_dur + 1))
+        counts[bucket] += 1
+    return tuple(counts)
 
 
 # --------------------------------------------------------------------------- #

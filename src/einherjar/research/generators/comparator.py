@@ -91,6 +91,9 @@ class ComparisonReport:
     sharpe_distributions: dict[str, list[float]] = field(default_factory=dict)
     elapsed_s: float = 0.0
     winner_name: str | None = None
+    # P1-08 : budget global + compteur cumule (audit + mur d'arret partage).
+    total_evaluations: int = 0
+    budget: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -99,6 +102,8 @@ class ComparisonReport:
             "sharpe_distributions": {k: sorted(v) for k, v in self.sharpe_distributions.items()},
             "elapsed_s": round(self.elapsed_s, 3),
             "winner_name": self.winner_name,
+            "total_evaluations": self.total_evaluations,
+            "budget": self.budget,
         }
 
 
@@ -164,6 +169,11 @@ class GeneratorComparator:
         """
         t0 = time.time()
         report = ComparisonReport(protocol=self.protocol)
+        # P1-08 : compteur global cumule d'evaluations (toutes phases confondues).
+        # On respecte le mur d'arret n_eval_budget : si on l'atteint, on
+        # raccourcit la liste d'hypotheses des generateurs suivants.
+        global_eval_count: int = 0
+        budget_remaining: int = int(self.protocol.n_eval_budget)
         # Phase 1 : generer + evaluer chaque generateur, collecter sub-scores bruts.
         raw_subscores: list[dict[str, float]] = []
         for gen in self.generators:
@@ -193,7 +203,13 @@ class GeneratorComparator:
             coherence_match: int = 0
             coherence_total: int = 0
             # External evaluation budget is a hard wall as well.
-            for hyp in result.hypotheses[: self.protocol.n_eval_budget]:
+            # P1-08 : le mur d'arret est global, pas par-generateur.
+            # On prend le min(hypotheses, budget_restant).
+            n_skipped_budget = 0
+            for hyp in result.hypotheses:
+                if budget_remaining <= 0:
+                    n_skipped_budget += 1
+                    continue
                 # Track feature usage (pour diversity)
                 _collect_features(hyp.condition_tree, features_used)
                 # Track semantic coherence (orientation vs direction)
@@ -206,6 +222,8 @@ class GeneratorComparator:
                         hyp, val_ohlcv, val_features, calibrated, "val",
                     )
                     n_eval += 1
+                    global_eval_count += 1
+                    budget_remaining -= 1
                     if mesures.sharpe_net == mesures.sharpe_net:  # not NaN
                         sharpes_all.append(mesures.sharpe_net)
                     if admission_fn is not None and admission_fn(hyp, calibrated, mesures):
@@ -214,6 +232,12 @@ class GeneratorComparator:
                             sharpes.append(mesures.sharpe_net)
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("Échec eval %s sur %s : %s", gen.name, hyp.id, exc)
+            if n_skipped_budget > 0:
+                logger.warning(
+                    "P1-08 : %s : %d hypotheses non evaluees (budget global epuise : %d/%d)",
+                    gen.name, n_skipped_budget,
+                    global_eval_count, self.protocol.n_eval_budget,
+                )
             elapsed = time.time() - t_gen
             # Mise à jour des résultats avec les vrais compteurs.
             raw = GeneratorResult(
@@ -319,9 +343,14 @@ class GeneratorComparator:
             )
         report.winner_name = report.rankings[0].generator_name if report.rankings else None
         report.elapsed_s = time.time() - t0
+        # P1-08 : expose le compteur global sur le report (auditabilite).
+        report.total_evaluations = global_eval_count
+        report.budget = int(self.protocol.n_eval_budget)
         logger.info(
-            "Comparaison terminée : winner=%s, %d générateurs, %.2fs",
+            "Comparaison terminée : winner=%s, %d générateurs, %.2fs, "
+            "%d/%d évaluations (P1-08 budget global)",
             report.winner_name, len(self.generators), report.elapsed_s,
+            global_eval_count, self.protocol.n_eval_budget,
         )
         return report
 

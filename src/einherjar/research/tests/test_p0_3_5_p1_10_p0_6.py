@@ -187,11 +187,11 @@ class TestP0_03_DataVersionPersistence(unittest.TestCase):
         # On verifie juste que les champs attendus sont presents.
         # Si data reelles absentes OU deps (duckdb, etc.) manquants, on skip.
         try:
+            config = self.cfg_load()
             provider = OhlcvProvider()
-            ohlcv = provider.load(asset="BTCUSD", timeframe="1h", data_version="raw",
-                                 config=self.cfg_load())
-            feats = FeaturesProvider(self.cfg_load()).compute(ohlcv)
-            dv = make_frame_data_version(ohlcv, feats, self.cfg_load())
+            ohlcv = provider.load(asset="BTCUSD", timeframe="1h", data_version="raw")
+            feats = FeaturesProvider(config).compute(ohlcv)
+            dv = make_frame_data_version(ohlcv, feats, config)
             # Champs obligatoires pour la persistance.
             self.assertIsNotNone(dv.tag)
             self.assertIsNotNone(dv.hash)
@@ -400,25 +400,17 @@ class TestP1_10_NSGA2Diversity(unittest.TestCase):
     def test_diversity_score_function_exists(self) -> None:
         """Le moteur NSGA-II doit exposer un calcul de diversite par
         rapport au corpus (Jaccard), pas juste unicite de feature."""
-        # On cherche une fonction de calcul de diversite dans le module.
-        from einherjar.research.generators import algorithms
-        # Liste des symboles exposes par le module.
-        public_symbols = [n for n in dir(algorithms) if not n.startswith("_")]
-        # On verifie qu'il existe au moins une fonction de diversite
-        # exploitable (Jaccard, pearson, ou similaire).
-        # NOTE : si seul un proxy d'unicite existe, ce test skip.
-        diversity_funcs = [
-            n for n in public_symbols
-            if "divers" in n.lower() or "jaccard" in n.lower()
-        ]
-        if not diversity_funcs:
-            self.skipTest(
-                "P1-10 a finaliser : pas de fonction de diversite Jaccard "
-                "vs corpus dans algorithms.py. Le moteur NSGA-II utilise "
-                "un proxy d'unicite de feature (cf. commentaire ligne 1489)."
-            )
-        # Si une fonction existe, on la valide.
-        self.assertGreater(len(diversity_funcs), 0)
+        from einherjar.research.generators.algorithms import NSGA2Generator
+        # P1-10 a ete finalise (commit a5a5baf) : la fonction Jaccard
+        # est exposee via _mix_jaccard_diversity (helper de NSGA2).
+        self.assertTrue(
+            hasattr(NSGA2Generator, "_mix_jaccard_diversity"),
+            "NSGA2Generator._mix_jaccard_diversity doit exister (P1-10 finalise).",
+        )
+        self.assertTrue(
+            callable(getattr(NSGA2Generator, "_mix_jaccard_diversity", None)),
+            "_mix_jaccard_diversity doit etre appelable.",
+        )
 
     def test_nsga2_constraints_include_multi_asset(self) -> None:
         """Les contraintes dures de NSGA-II doivent inclure multi-actifs."""
@@ -655,6 +647,237 @@ class TestP0_03_DataVersionStoreCabled(unittest.TestCase):
             n_calls, 7,
             f"_persist_data_version doit etre appele dans les 6 handlers "
             f"+ 1 declaration = 7 occurrences minimum. Trouve : {n_calls}",
+        )
+
+
+# --------------------------------------------------------------------------- #
+# P0-05 : --data-assets cable dans discovery (helpers + handlers)
+# --------------------------------------------------------------------------- #
+
+
+class TestP0_05_DataAssetsCabled(unittest.TestCase):
+    """P0-05 : --data-assets dispatche vers _load_real_data_multi."""
+
+    def _make_args(self, data_asset: str = "BTCUSD", data_assets: str | None = None) -> object:
+        """Construit un Namespace minimal pour _resolve_assets / _load_for_handler."""
+        import argparse
+        return argparse.Namespace(
+            data_asset=data_asset,
+            data_assets=data_assets,
+            data_class="crypto",
+            data_timeframe="1h",
+            data_root=r"D:\midas_v2\midasV3\src\data\compiled",
+        )
+
+    def test_resolve_assets_single(self) -> None:
+        """Sans --data-assets, on retourne un tuple d'1 actif (--data-asset)."""
+        from einherjar.research.discovery import _resolve_assets
+        args = self._make_args(data_asset="BTCUSD", data_assets=None)
+        self.assertEqual(_resolve_assets(args), ("BTCUSD",))
+
+    def test_resolve_assets_multi(self) -> None:
+        """Avec --data-assets, on retourne le tuple des actifs splittes."""
+        from einherjar.research.discovery import _resolve_assets
+        args = self._make_args(data_assets="BTCUSD,ETHUSD,SOLUSD")
+        self.assertEqual(
+            _resolve_assets(args),
+            ("BTCUSD", "ETHUSD", "SOLUSD"),
+        )
+
+    def test_resolve_assets_multi_with_spaces(self) -> None:
+        """Les espaces autour des virgules sont toleres (strip)."""
+        from einherjar.research.discovery import _resolve_assets
+        args = self._make_args(data_assets="BTCUSD , ETHUSD ,SOLUSD")
+        self.assertEqual(
+            _resolve_assets(args),
+            ("BTCUSD", "ETHUSD", "SOLUSD"),
+        )
+
+    def test_resolve_assets_multi_priority(self) -> None:
+        """--data-assets prend le pas sur --data-asset."""
+        from einherjar.research.discovery import _resolve_assets
+        args = self._make_args(data_asset="BTCUSD", data_assets="ETHUSD,SOLUSD")
+        self.assertEqual(_resolve_assets(args), ("ETHUSD", "SOLUSD"))
+
+    def test_primary_asset(self) -> None:
+        """_primary_asset retourne le 1er actif du dict (ordre stable)."""
+        from einherjar.research.discovery import _primary_asset
+        loaded = {"BTCUSD": (None,) * 6, "ETHUSD": (None,) * 6}
+        self.assertEqual(_primary_asset(loaded), "BTCUSD")
+
+    def test_primary_asset_raises_if_empty(self) -> None:
+        """_primary_asset leve ValueError si le dict est vide (fail-fast)."""
+        from einherjar.research.discovery import _primary_asset
+        with self.assertRaises(ValueError):
+            _primary_asset({})
+
+    def test_load_for_handler_uses_dispatch(self) -> None:
+        """_load_for_handler dispatche sur single vs multi via _resolve_assets."""
+        import inspect
+        from einherjar.research import discovery
+        source = inspect.getsource(discovery._load_for_handler)
+        # Le helper doit appeler _load_real_data (single) ou _load_real_data_multi.
+        self.assertIn("_load_real_data", source)
+        self.assertIn("_load_real_data_multi", source)
+        # Doit utiliser _resolve_assets pour determiner le mode.
+        self.assertIn("_resolve_assets", source)
+
+    def test_handlers_use_load_for_handler(self) -> None:
+        """Les 6 handlers doivent passer par _load_for_handler (plus _load_real_data)."""
+        import inspect
+        from einherjar.research import discovery
+        source = inspect.getsource(discovery)
+        # Chaque handler de donnees doit utiliser _load_for_handler.
+        for handler_name in (
+            "handle_baselines", "handle_compare", "handle_select",
+            "handle_refine", "handle_admit", "handle_holdout",
+        ):
+            handler_src = inspect.getsource(getattr(discovery, handler_name))
+            self.assertIn(
+                "_load_for_handler", handler_src,
+                f"{handler_name} doit utiliser _load_for_handler (P0-05 cablage).",
+            )
+
+
+# --------------------------------------------------------------------------- #
+# P1-12 : _holding_period_hist calcule (plus de zeros) + P1-08 budget global
+# --------------------------------------------------------------------------- #
+
+
+class TestP1_12_HoldingPeriodHist(unittest.TestCase):
+    """P1-12 : histogramme de duree des trades reellement calcule."""
+
+    def test_holding_period_hist_empty(self) -> None:
+        """Aucun trade : 20 zeros."""
+        from einherjar.research.admission.diversity import _holding_period_hist
+        # Mock minimal : on n'a besoin que de l'attribut .trades.
+        from types import SimpleNamespace
+        mesures = SimpleNamespace(trades=())
+        hist = _holding_period_hist(mesures, n_bins=20)
+        self.assertEqual(len(hist), 20)
+        self.assertEqual(sum(hist), 0)
+
+    def test_holding_period_hist_real(self) -> None:
+        """Avec des trades, l'histogramme a des comptes non nuls repartis."""
+        from einherjar.research.admission.diversity import _holding_period_hist
+        from einherjar.research.utils.types import TradeMesure, ExitReason
+        # 10 trades : 5 avec duree 1, 3 avec duree 5, 2 avec duree 10.
+        trades = tuple(
+            TradeMesure(
+                entry_idx=i * 100, exit_idx=i * 100 + (1 if i < 5 else (5 if i < 8 else 10)),
+                entry_price=100.0, exit_price=101.0,
+                mfe_pct=1.0, mae_pct=0.0,
+                ret_pct_brut=1.0, ret_pct_net=1.0,
+                n_bougies_held=(1 if i < 5 else (5 if i < 8 else 10)),
+                exit_reason=ExitReason.TP,
+            )
+            for i in range(10)
+        )
+        from types import SimpleNamespace
+        mesures = SimpleNamespace(trades=trades)
+        hist = _holding_period_hist(mesures, n_bins=20)
+        # Le total des comptes doit etre egal au nombre de trades.
+        self.assertEqual(sum(hist), 10)
+        # Pas de zeros partout (donc l'histogramme est calcule, pas le V1 stub).
+        non_zero = sum(1 for c in hist if c > 0)
+        self.assertGreater(
+            non_zero, 0,
+            "L'histogramme doit contenir des comptes non nuls "
+            "(P1-12 : V1 stub = zeros = FAIL).",
+        )
+
+
+class TestP1_08_GlobalBudget(unittest.TestCase):
+    """P1-08 : le comparateur expose un budget global cumule."""
+
+    def test_comparison_report_has_budget_fields(self) -> None:
+        """ComparisonReport doit avoir total_evaluations et budget."""
+        from einherjar.research.generators.comparator import ComparisonReport
+        from einherjar.research.generators.protocol import make_protocol
+        from einherjar.research.config.loader import load_config
+        from pathlib import Path
+        config = load_config(Path("src/einherjar/research/config"))
+        protocol = make_protocol(config, data_version="v1", seed=42, n_eval_budget=200)
+        report = ComparisonReport(protocol=protocol)
+        # Champs P1-08 exposes.
+        self.assertTrue(
+            hasattr(report, "total_evaluations"),
+            "ComparisonReport doit exposer total_evaluations (P1-08).",
+        )
+        self.assertTrue(
+            hasattr(report, "budget"),
+            "ComparisonReport doit exposer budget (P1-08).",
+        )
+        # Valeurs par defaut a 0 (jamais evalue).
+        self.assertEqual(report.total_evaluations, 0)
+        self.assertEqual(report.budget, 0)
+        # to_dict doit les inclure.
+        d = report.to_dict()
+        self.assertIn("total_evaluations", d)
+        self.assertIn("budget", d)
+
+
+# --------------------------------------------------------------------------- #
+# P1-15 : determinisme du raffinement (BeamRefiner + Memetic)
+# --------------------------------------------------------------------------- #
+
+
+class TestP1_15_RefinementDeterminism(unittest.TestCase):
+    """P1-15 : le raffinement est deterministe pour un meme seed."""
+
+    def test_beamrefiner_uses_isolated_rng(self) -> None:
+        """BaseRefiner doit utiliser un random.Random(isolated du RNG global)."""
+        from einherjar.research.refinement.beam import BaseRefiner, BeamRefiner
+        from einherjar.research.config.loader import load_config
+        from pathlib import Path
+        config = load_config(Path("src/einherjar/research/config"))
+        # self._rng est dans la classe parente BaseRefiner (heritee par BeamRefiner).
+        import inspect
+        init_src = inspect.getsource(BaseRefiner.__init__)
+        self.assertIn(
+            "self._rng = random.Random(seed)", init_src,
+            "BaseRefiner.__init__ doit initialiser self._rng = random.Random(seed) "
+            "(P1-15 determinisme, herite par BeamRefiner).",
+        )
+        # Verification de la hierarchie.
+        self.assertTrue(
+            issubclass(BeamRefiner, BaseRefiner),
+            "BeamRefiner doit heriter de BaseRefiner.",
+        )
+
+    def test_tweak_threshold_is_deterministic(self) -> None:
+        """_tweak_threshold (methode d'instance) doit etre deterministe."""
+        from einherjar.research.refinement.beam import BeamRefiner
+        from einherjar.research.config.loader import load_config
+        from pathlib import Path
+        config = load_config(Path("src/einherjar/research/config"))
+        # Mock minimal : on n'instancie pas le BeamRefiner (pas d'engine),
+        # on appelle juste _tweak_threshold sur un objet bidon avec _rng.
+        class _Mock:
+            pass
+        mock = _Mock()
+        # Reprend le RNG depuis BeamRefiner (meme formule).
+        import random
+        mock._rng = random.Random(42)
+        # 10 appels successifs : reproductibles.
+        results_a = [BeamRefiner._tweak_threshold(mock, 1.0) for _ in range(10)]
+        mock._rng = random.Random(42)
+        results_b = [BeamRefiner._tweak_threshold(mock, 1.0) for _ in range(10)]
+        self.assertEqual(results_a, results_b)
+
+    def test_memetic_uses_typedgp_with_seed(self) -> None:
+        """MemeticGenerator.delegue a TypedGPGenerator qui utilise seed du protocol."""
+        import inspect
+        from einherjar.research.generators.algorithms import MemeticGenerator
+        init_src = inspect.getsource(MemeticGenerator.__init__)
+        # La delegation a TypedGPGenerator doit propager le seed.
+        self.assertIn(
+            "TypedGPGenerator(", init_src,
+            "MemeticGenerator doit deleguer a TypedGPGenerator (P1-15 determinisme).",
+        )
+        self.assertIn(
+            "engine=engine", init_src,
+            "La delegation doit propager engine (incluant seed via protocol).",
         )
 
 

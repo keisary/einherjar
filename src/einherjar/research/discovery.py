@@ -310,6 +310,60 @@ def _load_real_data_multi(
     return results
 
 
+def _resolve_assets(args: argparse.Namespace) -> tuple[str, ...]:
+    """Resoud la liste d'actifs a charger depuis les args CLI (P0-05).
+
+    Priorite :
+      1. --data-assets (liste separee par virgules) si fourni.
+      2. --data-asset (single) sinon (en tuple d'1 element).
+
+    Returns:
+        Tuple de symboles d'actifs, jamais vide.
+    """
+    if args.data_assets:
+        return tuple(a.strip() for a in args.data_assets.split(",") if a.strip())
+    return (args.data_asset,)
+
+
+def _load_for_handler(
+    config: EinherjarConfig,
+    args: argparse.Namespace,
+) -> dict[str, tuple]:
+    """Charge les donnees reelles selon --data-asset ou --data-assets (P0-05).
+
+    Wrapper au-dessus de _load_real_data / _load_real_data_multi qui dispatch
+    automatiquement sur le mode single ou multi.
+
+    Returns:
+        Dict {asset_name: (train_ohlcv, train_features, val_ohlcv, val_features,
+        holdout_ohlcv, holdout_features)}.
+    """
+    assets = _resolve_assets(args)
+    if len(assets) == 1:
+        result = _load_real_data(
+            config=config, data_root=args.data_root, asset=assets[0],
+            asset_class=args.data_class, timeframe=args.data_timeframe,
+        )
+        return {assets[0]: result}
+    return _load_real_data_multi(
+        config=config, data_root=args.data_root, assets=assets,
+        asset_class=args.data_class, timeframe=args.data_timeframe,
+    )
+
+
+def _primary_asset(loaded: dict[str, tuple]) -> str:
+    """Retourne le nom de l'actif principal a utiliser pour l'engine.
+
+    En mode multi-actifs, l'actif principal est le 1er charge (ordre stable).
+    L'engine reste single-asset pour V1 ; les autres actifs sont utilises
+    pour la diversite Jaccard vs corpus (P1-10) et la mediane cross-actifs
+    (contrainte NSGA-II #4).
+    """
+    if not loaded:
+        raise ValueError("Aucun actif charge dans le dict multi-actifs")
+    return next(iter(loaded))
+
+
 def _persist_data_version(
     config: EinherjarConfig,
     train_ohlcv: Any,
@@ -373,11 +427,11 @@ def handle_baselines(args: argparse.Namespace) -> int:
     from einherjar.research.baselines.runner import BaselineRunner
     from einherjar.research.engine.evaluator import EvaluationEngine
     try:
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
-            config=config,
-            data_root=args.data_root,
-            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
-        )
+        loaded = _load_for_handler(config, args)
+        primary = _primary_asset(loaded)
+        if len(loaded) > 1:
+            logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
@@ -415,11 +469,16 @@ def handle_compare(args: argparse.Namespace) -> int:
     # Charge les données AVANT les générateurs : les générateurs évolutionnaires
     # (NSGA-II, Memetic) ont besoin d'accéder aux données pour évaluer leur fitness.
     try:
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
-            config=config,
-            data_root=args.data_root,
-            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
-        )
+        loaded = _load_for_handler(config, args)
+        primary = _primary_asset(loaded)
+        if len(loaded) > 1:
+            logger.info(
+                "P0-05 : mode multi-actifs (%d actifs charges), actif principal = %s. "
+                "Les autres actifs serviront a la mediane cross-actifs (NSGA-II #4) "
+                "et a la diversite Jaccard vs corpus (P1-10).",
+                len(loaded), primary,
+            )
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
@@ -485,11 +544,11 @@ def handle_select(args: argparse.Namespace) -> int:
     from einherjar.research.selection.selector import GeneratorSelector
     from einherjar.research.admission.baseline_gate import make_baseline_admission_fn
     try:
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
-            config=config,
-            data_root=args.data_root,
-            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
-        )
+        loaded = _load_for_handler(config, args)
+        primary = _primary_asset(loaded)
+        if len(loaded) > 1:
+            logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
@@ -540,10 +599,11 @@ def handle_refine(args: argparse.Namespace) -> int:
                 selected.generator_name, selected.rank, selected.score)
     # Charge les données réelles.
     try:
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
-            config=config, data_root=args.data_root,
-            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
-        )
+        loaded = _load_for_handler(config, args)
+        primary = _primary_asset(loaded)
+        if len(loaded) > 1:
+            logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
@@ -646,10 +706,11 @@ def handle_admit(args: argparse.Namespace) -> int:
     logger.info("Generateur selectionne : %s (rank=%d, score=%.4f)",
                 selected.generator_name, selected.rank, selected.score)
     try:
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = _load_real_data(
-            config=config, data_root=args.data_root,
-            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
-        )
+        loaded = _load_for_handler(config, args)
+        primary = _primary_asset(loaded)
+        if len(loaded) > 1:
+            logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
@@ -805,10 +866,11 @@ def handle_holdout(args: argparse.Namespace) -> int:
     # Charge les données + split holdout.
     config = load_config(args.config)
     try:
-        train_ohlcv, train_features, val_ohlcv, val_features, holdout_ohlcv, holdout_features = _load_real_data(
-            config=config, data_root=args.data_root,
-            asset=args.data_asset, asset_class=args.data_class, timeframe=args.data_timeframe,
-        )
+        loaded = _load_for_handler(config, args)
+        primary = _primary_asset(loaded)
+        if len(loaded) > 1:
+            logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
+        train_ohlcv, train_features, val_ohlcv, val_features, holdout_ohlcv, holdout_features = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
