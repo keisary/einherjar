@@ -881,5 +881,88 @@ class TestP1_15_RefinementDeterminism(unittest.TestCase):
         )
 
 
+# --------------------------------------------------------------------------- #
+# P1-10 finalisation : engine multi-actifs (items 1+2+3+4)
+# --------------------------------------------------------------------------- #
+
+
+class TestP1_10_MultiAssetEngine(unittest.TestCase):
+    """P1-10 items 1-4 : NSGA-II cross-actifs reellement evalue."""
+
+    def test_nsga2_evaluate_multi_asset_method_exists(self) -> None:
+        """NSGA2Generator doit exposer _evaluate_multi_asset (P1-10 items 1+2+3)."""
+        from einherjar.research.generators.algorithms import NSGA2Generator
+        self.assertTrue(
+            hasattr(NSGA2Generator, "_evaluate_multi_asset"),
+            "NSGA2Generator._evaluate_multi_asset doit exister (P1-10).",
+        )
+
+    def test_nsga2_evaluate_dispatches_to_multi(self) -> None:
+        """_evaluate doit appeler _evaluate_multi_asset si _multi_assets est defini."""
+        import inspect
+        from einherjar.research.generators.algorithms import NSGA2Generator
+        source = inspect.getsource(NSGA2Generator._evaluate)
+        self.assertIn(
+            "_evaluate_multi_asset", source,
+            "_evaluate doit dispatch vers _evaluate_multi_asset (P1-10).",
+        )
+        self.assertIn(
+            "_multi_assets", source,
+            "_evaluate doit detecter _multi_assets (P1-10).",
+        )
+
+    def test_comparator_injects_corpus_and_multi(self) -> None:
+        """GeneratorComparator doit injecter _corpus_feature_sets et _multi_assets."""
+        import inspect
+        from einherjar.research.generators.comparator import GeneratorComparator
+        source = inspect.getsource(GeneratorComparator.run)
+        self.assertIn(
+            "_build_corpus_feature_sets", source,
+            "run() doit construire le corpus Jaccard (P1-10).",
+        )
+        self.assertIn(
+            "_corpus_feature_sets", source,
+            "run() doit injecter _corpus_feature_sets au NSGA-II (P1-10).",
+        )
+        self.assertIn(
+            "_multi_assets", source,
+            "run() doit injecter _multi_assets au NSGA-II (P1-10).",
+        )
+
+    def test_comparator_build_corpus_empty(self) -> None:
+        """_build_corpus_feature_sets retourne () si corpus vide ou override vide."""
+        from einherjar.research.generators.comparator import GeneratorComparator
+        from einherjar.research.generators.protocol import make_protocol
+        from einherjar.research.config.loader import load_config
+        from pathlib import Path
+        from einherjar.research.generators.algorithms import BaseGenerator
+        config = load_config(Path("src/einherjar/research/config"))
+        protocol = make_protocol(config, data_version="v1", seed=42)
+        # Mock comparator (pas besoin d'engine pour ce test).
+        comp = GeneratorComparator.__new__(GeneratorComparator)
+        comp.protocol = protocol
+        comp.config = config
+        # Override vide -> () (meme si corpus existe).
+        comp._corpus_override = ()
+        result = comp._build_corpus_feature_sets()
+        self.assertEqual(result, ())
+
+    def test_comparator_run_accepts_multi_assets_kwarg(self) -> None:
+        """GeneratorComparator.run doit accepter multi_assets en keyword-only."""
+        import inspect
+        from einherjar.research.generators.comparator import GeneratorComparator
+        sig = inspect.signature(GeneratorComparator.run)
+        self.assertIn(
+            "multi_assets", sig.parameters,
+            "GeneratorComparator.run doit accepter multi_assets.",
+        )
+        # Doit etre keyword-only (apres *).
+        param = sig.parameters["multi_assets"]
+        self.assertEqual(
+            param.kind, inspect.Parameter.KEYWORD_ONLY,
+            "multi_assets doit etre keyword-only (apres *).",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

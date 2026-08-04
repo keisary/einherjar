@@ -515,10 +515,14 @@ def handle_compare(args: argparse.Namespace) -> int:
     generators = all_generators
     comparator = GeneratorComparator(generators=generators, protocol=protocol, engine=engine, config=config)
     admission_fn, _ = make_baseline_admission_fn(config)
+    # P1-10 : passe le dict multi-actifs au comparator (active l'evaluation
+    # cross-actifs pour NSGA-II). Si single-asset, on passe None.
+    multi_for_compare = loaded if len(loaded) > 1 else None
     report = comparator.run(
         train_ohlcv=train_ohlcv, train_features=train_features,
         val_ohlcv=val_ohlcv, val_features=val_features,
         admission_fn=admission_fn,
+        multi_assets=multi_for_compare,
     )
     logger.info("Comparaison terminée : winner=%s", report.winner_name)
     for r in report.rankings:

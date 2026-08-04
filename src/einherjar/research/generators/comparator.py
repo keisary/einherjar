@@ -132,15 +132,50 @@ class GeneratorComparator:
         protocol: GenerationProtocol,
         engine: EvaluationEngine,
         config: EinherjarConfig,
+        corpus_feature_sets: tuple[frozenset[str], ...] | None = None,
     ) -> None:
         self.generators = generators
         self.protocol = protocol
         self.engine = engine
         self.config = config
+        # P1-10 : override du corpus Jaccard (defaut = chargement auto depuis CorpusStore).
+        self._corpus_override = corpus_feature_sets
         logger.info(
             "GeneratorComparator instancié : %d générateurs, protocol=%s",
             len(generators), protocol.to_dict(),
         )
+
+    def _build_corpus_feature_sets(self) -> tuple[frozenset[str], ...]:
+        """Construit le tuple de frozensets[feature_ref] depuis le corpus (P1-10).
+
+        1. Si self._corpus_override est fourni : on l'utilise tel quel.
+        2. Sinon : on charge CorpusStore et on extrait les features de chaque entry.
+        3. Si corpus vide : retourne () (les generateurs retombent sur dispersion pure).
+        """
+        if self._corpus_override is not None:
+            return self._corpus_override
+        try:
+            from einherjar.research.corpus.store import CorpusStore
+            from einherjar.research.generators.algorithms import _collect_feature_refs
+            from einherjar.research.utils.types import Hypothesis
+            entries = CorpusStore().load()
+            result: list[frozenset[str]] = []
+            for entry in entries:
+                try:
+                    hyp = Hypothesis.from_dict(entry.hypothesis)
+                    feats = frozenset(_collect_feature_refs(hyp.condition_tree))
+                    if feats:
+                        result.append(feats)
+                except Exception:  # noqa: BLE001
+                    continue
+            logger.info(
+                "P1-10 : corpus charge pour Jaccard : %d entries, %d features distinctes (moyenne %.1f)",
+                len(entries), len(result), sum(len(s) for s in result) / max(len(result), 1),
+            )
+            return tuple(result)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("P1-10 : impossible de charger le corpus : %s", exc)
+            return ()
 
     def run(
         self,
@@ -150,6 +185,7 @@ class GeneratorComparator:
         val_features: Any,
         *,
         admission_fn: Callable | None = None,
+        multi_assets: dict[str, tuple] | None = None,
     ) -> ComparisonReport:
         """Compare les générateurs sous le protocole.
 
@@ -174,6 +210,9 @@ class GeneratorComparator:
         # raccourcit la liste d'hypotheses des generateurs suivants.
         global_eval_count: int = 0
         budget_remaining: int = int(self.protocol.n_eval_budget)
+        # P1-10 : peupler corpus_feature_sets sur NSGA-II (Jaccard vs corpus).
+        # Le caller peut overrider via self.corpus_feature_sets_override.
+        corpus_sets = self._build_corpus_feature_sets()
         # Phase 1 : generer + evaluer chaque generateur, collecter sub-scores bruts.
         raw_subscores: list[dict[str, float]] = []
         for gen in self.generators:
@@ -181,6 +220,12 @@ class GeneratorComparator:
             logger.info("Générateur : %s", gen.name)
             logger.info("=" * 60)
             t_gen = time.time()
+            # Injection du corpus si NSGA-II (opt-in).
+            if hasattr(gen, "_corpus_feature_sets"):
+                gen._corpus_feature_sets = corpus_sets
+            # P1-10 : injection du dict multi-actifs au NSGA-II.
+            if hasattr(gen, "_multi_assets"):
+                gen._multi_assets = multi_assets
             try:
                 gen.bind_data(train_ohlcv, train_features, val_ohlcv, val_features)
                 result = gen.generate()

@@ -1673,26 +1673,34 @@ class NSGA2Generator(BaseGenerator):
     def _evaluate(self, ind: _NSGA2Individual) -> _EvaluatedIndividual:
         """Évalue un individu : 4 objectifs + 8 contraintes dures.
 
-        Stratégie :
-          - train_calibrate + test_on(val) sur la série chargée.
-          - Si calibration échoue : contraintes [False, False, False, False, False, True, True, False]
+        Strategie :
+          - Multi-actifs (P1-10) : si self._multi_assets est defini, on boucle
+            sur les actifs et on agrege via la mediane (contrainte #4 devient
+            reellement mesurable). Sinon : single-asset (compat V1).
+          - Si calibration echoue : contraintes [False, False, False, False, False, True, True, False]
             (= pas de signal → fail presque tout, sauf no_temporal_leak et dd_bounded).
           - Si OK : 4 objectifs + 8 contraintes depuis MesuresBrutes + CPCV.
         """
         hyp = self._to_hypothesis(ind)
-        # Contraintes par défaut (si évaluation échoue).
+        # Contraintes par defaut (si evaluation echoue).
         objectives = (float("nan"), float("nan"), float("nan"), float("nan"))
         constraints = (False, False, False, False, False, True, True, False)
         n_violations = _N_CONSTRAINTS - 2  # tout sauf no_leak, dd_bounded
         n_signals = 0
         sharpe_per_asset_fold: tuple[float, ...] = ()
         try:
-            calibrated = self.engine.train_calibrate(
-                hyp, self._search_train_ohlcv, self._search_train_features,
-            )
-            mesures = self.engine.test_on(
-                hyp, self._search_val_ohlcv, self._search_val_features, calibrated, "search_val",
-            )
+            # P1-10 : mode multi-actifs si _multi_assets est peuple par le comparator.
+            multi = getattr(self, "_multi_assets", None)
+            if multi:
+                mesures = self._evaluate_multi_asset(hyp, multi)
+            else:
+                calibrated = self.engine.train_calibrate(
+                    hyp, self._search_train_ohlcv, self._search_train_features,
+                )
+                mesures = self.engine.test_on(
+                    hyp, self._search_val_ohlcv, self._search_val_features,
+                    calibrated, "search_val",
+                )
             n_signals = mesures.n_signals
             # --- 8 contraintes dures ---
             # 1. Données réelles et versionnées (data_version non vide).
@@ -1702,8 +1710,8 @@ class NSGA2Generator(BaseGenerator):
             # 3. Minimum de trades.
             c3 = n_signals >= self._min_trades
             # 4. Performance non concentrée sur un seul actif.
-            #    V1 : on utilise la médiane du Sharpe par fold CPCV.
-            #    Si multi-asset est activé, on prend la médiane sur per_asset_stats.
+            #    V1 : on utilise la médiane du Sharpe par actif (per_asset_stats).
+            #    P1-10 : per_asset_stats est peuple par _evaluate_multi_asset.
             sharpes: list[float] = []
             if mesures.per_asset_stats:
                 for sub in mesures.per_asset_stats.values():
@@ -1725,7 +1733,7 @@ class NSGA2Generator(BaseGenerator):
             worst_dd = max_drawdown_from_returns([t.ret_pct_net for t in mesures.trades])
             c7 = worst_dd <= self._max_dd
             # 8. Stabilité entre folds de validation : std(Sharpe par fold CPCV) < seuil.
-            sharpe_per_fold = self._compute_sharpe_per_fold(mesures, hyp, calibrated)
+            sharpe_per_fold = self._compute_sharpe_per_fold(mesures, hyp, calibrated) if not multi else []
             if len(sharpe_per_fold) >= 2:
                 import statistics
                 std_sharpe = statistics.stdev(sharpe_per_fold)
@@ -1761,6 +1769,48 @@ class NSGA2Generator(BaseGenerator):
             n_signals=n_signals,
             sharpe_per_asset_fold=sharpe_per_asset_fold,
         )
+
+    def _evaluate_multi_asset(
+        self,
+        hyp: Hypothesis,
+        multi: dict,
+    ) -> Any:
+        """Evalue une hypothesis sur N actifs et agrege via mediane (P1-10).
+
+        Args:
+            hyp: Hypothesis a evaluer.
+            multi: Dict {asset_name: (train_ohlcv, train_features, val_ohlcv,
+                val_features)}.
+
+        Returns:
+            MesuresBrutes agregees : les stats globales sont celles de
+            l'actif avec la mediane de Sharpe, et per_asset_stats contient
+            les stats de chaque actif.
+        """
+        from dataclasses import replace as dc_replace
+        from einherjar.research.utils.types import MesuresBrutes
+        per_asset: dict[str, MesuresBrutes] = {}
+        for asset, frames in multi.items():
+            train_ohlcv_a, train_features_a, val_ohlcv_a, val_features_a = frames
+            try:
+                cal = self.engine.train_calibrate(hyp, train_ohlcv_a, train_features_a)
+                m = self.engine.test_on(hyp, val_ohlcv_a, val_features_a, cal, f"search_val_{asset}")
+                per_asset[asset] = m
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("NSGA-II multi-asset : echec pour %s : %s", asset, exc)
+                continue
+        if not per_asset:
+            raise RuntimeError("Aucun actif n'a pu etre evalue en multi-actifs")
+        # Mediane des Sharpe nets (l'actif median devient l'actif de reference).
+        sharpes_with_asset = sorted(
+            [(asset, m.sharpe_net) for asset, m in per_asset.items()
+             if m.sharpe_net == m.sharpe_net],
+            key=lambda x: x[1],
+        )
+        median_asset = sharpes_with_asset[len(sharpes_with_asset) // 2][0]
+        ref = per_asset[median_asset]
+        # Injecte per_asset_stats dans la MesuresBrutes de reference.
+        return dc_replace(ref, per_asset_stats=per_asset)
 
     def _compute_sharpe_per_fold(
         self,
