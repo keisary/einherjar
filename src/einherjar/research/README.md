@@ -1,194 +1,223 @@
-# Einherjar — Moteur de découverte (research/)
+# Discovery — moteur de recherche d'Einherjar
 
-Ce sous-package implémente le **moteur de découverte d'Einhers** : un système qui explore automatiquement des règles de trading, les valide, et les archive dans un corpus exploitable.
+CLI unique pour piloter le pipeline 7 étapes du moteur de découverte. Un seul
+point d'entrée : `python -m einherjar.research.discovery`.
 
-## Point d'entrée
+---
 
-```bash
-python -m einherjar.research.discovery <mode> [options]
+## Prérequis
+
+- Python 3.11+
+- venv activé : `$env:PYTHONPATH='src'; $env:PYTHONIOENCODING='utf-8'`
+- Données MIDAS V3 compilées à `D:\midas_v2\midasV3\src\data\compiled\`
+  (override via `--data-root`)
+- Le module `duckdb` doit être installé dans le venv (utilisé par le moteur)
+
+---
+
+## Modes (étapes du pipeline)
+
+| Mode | Étape | Rôle |
+|---|---|---|
+| `engine` | 0 | Construit/vérifie le moteur d'évaluation. Smoke test : à lancer en 1er pour valider l'environnement. |
+| `baselines` | 1 | Évalue 3 baselines (Human, Shallow, Random) avec admission réelle (7 critères S-3.4). Sert à calibrer les seuils d'admission. |
+| `compare` | 2 | Compare les 6 générateurs (Random, Beam, TypedGP, GE, Memetic, NSGA-II) sur le même train/val et retourne un ranking multi-objectif. |
+| `select` | 3 | Installe le générateur gagnant dans `outputs/selection.json`. Si la sélection existe déjà, la recharge. |
+| `refine` | 4 | Raffine les top-N hypothèses du générateur sélectionné via BeamRefiner. |
+| `admit` | 5 | Applique `AdmissionDecider` (DSR + PBO + bootstrap CI + n_trades + cross_asset + max_dd + diversité + dédup + quota). Admis → corpus. Rejets → archive. |
+| `holdout` | 6 | Évaluation finale unique sur le holdout sacré. **1 seule fois par session.** |
+| `run` | 0→5 | Enchaîne engine → baselines → compare → select → refine → admit. Le holdout reste manuel. |
+| `pipeline` | 0→5 | Alias de `run`. |
+
+---
+
+## Cas d'usage concrets
+
+### 1. Smoke test (vérifier que le moteur tourne)
+
+```powershell
+python -m einherjar.research.discovery engine --data-asset BTCUSD --data-timeframe 1h
 ```
 
-Modes disponibles (voir `discovery.py` pour le détail) :
+Aucune hypothèse générée. Valide juste que :
+- le moteur d'évaluation s'instancie
+- les données OHLCV chargent
+- le data_version est calculé
 
-| Mode       | Étape | Description                                                |
-|------------|-------|------------------------------------------------------------|
-| `engine`   | 0     | Construit / vérifie le moteur d'évaluation (priorité 0)    |
-| `baselines`| 1     | 3 baselines honnêtes (human + shallow + random)            |
-| `compare`  | 2     | Comparaison reproductible des générateurs (random/GE/GP/beam) |
-| `select`   | 3     | Sélection du générateur gagnant                            |
-| `refine`   | 4     | Raffinement beam local (sans recalibrer SL/TP)              |
-| `admit`    | 5     | Admission au corpus (DSR + PBO + bootstrap CI + diversité) |
-| `holdout`  | 6     | Évaluation finale unique sur le holdout (sacré)             |
-| `run`      | 0→5   | Pipeline complet (sans le holdout)                          |
-| `pipeline` | 0→5   | Alias de `run`                                              |
+### 2. Single asset / single timeframe
 
-Options communes :
-- `--config <path>` : dossier contenant les fichiers de config (défaut: `config`)
-- `--data-version <tag>` : identifiant de version de données (défaut: `v1`)
-- `--seed <int>` : seed RNG maître (défaut: 42)
-- `--n-eval <int>` : budget d'évaluations (pour compare)
-- `--dry-run` : affiche le plan sans rien lancer
-
-## Architecture
-
-Voir `ONTOLOGY.md` (contrat conceptuel) et `ALGORITHME_RESEARCH.md` (étude comparative).
-
-### Pipeline 7 étapes
-
-```
-[Step 0] engine     [Step 1] baselines   [Step 2] compare    [Step 3] select
-                                                                    
-[Step 4] refine     [Step 5] admit       [Step 6] holdout (sacré)
+```powershell
+python -m einherjar.research.discovery run `
+  --data-asset BTCUSD `
+  --data-timeframe 1h `
+  --n-eval 200
 ```
 
-### Arborescence
+Charge **un seul actif** (`BTCUSD`) sur **un seul timeframe** (`1h`).
+Effectue le pipeline complet sauf holdout. Budget de 200 évaluations.
 
-```
-research/
-├── discovery.py              # CLI entry point
-├── README.md                 # ce fichier
-│
-├── config/                   # Configs (thresholds, splits, costs, features)
-│   ├── features_taxonomy.json    # 218 features utilisables (28 exclues)
-│   ├── thresholds.yaml           # S-3.4 : DSR, PBO, bootstrap CI, n_trades, dd, diversité
-│   ├── splits.yaml               # train/val/holdout + purging + embargo
-│   ├── costs.yaml                # spread, commission, slippage
-│   ├── evaluation.yaml           # ATR, N, simulation intrabar, block bootstrap
-│   └── loader.py                 # Chargement + validation
-│
-├── data/                     # Interfaces données
-│   ├── ohlcv.py                  # Loader OHLCV (cache, validation, backend injectable)
-│   ├── features.py               # Calcul features (FeatureEngine, filtre 218)
-│   ├── versioning.py             # data_version (hash reproductible)
-│   └── corpus.py                 # Lecture/écriture corpus actif
-│
-├── utils/                    # Utilitaires transverses
-│   ├── logging.py                # Logging structuré (1 fichier/run)
-│   ├── time.py                   # Splits + purging + embargo
-│   ├── stats.py                  # Block bootstrap, percentiles, ATR(14)
-│   ├── fingerprint.py            # Fingerprint canonique (structurel + comportemental)
-│   ├── metrics.py                # Sharpe, Sortino, MAR, MDD, CAGR, DSR
-│   └── types.py                  # Hypothesis, Einher, MesuresBrutes, TradeMesure
-│
-├── engine/                   # Step 0 — MOTEUR D'ÉVALUATION (priorité 0)
-│   ├── evaluator.py              # train_calibrate + test_on + evaluate
-│   ├── simulator.py              # Simulation intrabar TP/SL
-│   └── bootstrap.py              # Block bootstrap CI
-│
-├── baselines/                # Step 1 — Baselines (3 dans 1 fichier)
-│   ├── algorithms.py             # HumanRules + ShallowEnumeration + RandomConstrained
-│   └── runner.py                 # Lance les 3, produit distribution Sharpe
-│
-├── generators/               # Step 2 — Compétition reproductible
-│   ├── algorithms.py             # 5 candidats : Random, Beam, TypedGP, GE, Memetic, NSGA2
-│   ├── protocol.py               # Protocole figé (seed, budget, splits, max_conditions)
-│   └── comparator.py             # Compare, classe, retourne le gagnant
-│
-├── selection/                # Step 3 — Sélection du générateur
-│   └── selector.py               # Installe le gagnant, persiste pour runs suivants
-│
-├── refinement/               # Step 4 — Raffinement beam
-│   └── beam.py                   # Beam search local (sans recalibrer SL/TP)
-│
-├── admission/                # Step 5 — Admission au corpus
-│   ├── criteria.py               # 7 critères S-3.4 (UN fichier)
-│   ├── diversity.py              # Descripteurs comportementaux + quotas structurels
-│   └── decision.py               # Combine critères + diversité + dédup fingerprint
-│
-├── holdout/                  # Step 6 — Holdout sacré
-│   └── evaluator.py              # Évaluation finale unique (1 seule passe)
-│
-├── archive/                  # Mémoire scientifique (rejets)
-│   ├── reasons.py                # Catalogue normalisé (13 raisons)
-│   ├── schema.py                 # ArchiveEntry + validation
-│   └── store.py                  # I/O append-only + dédup fingerprint
-│
-├── v2/                       # Candidats V2 (PAS actifs en V1, mais testables)
-│   └── (LLM, NSGA2 complet, memetic complet, MAP-Elites, full CPCV)
-│
-└── tests/                    # Tests
-    ├── test_engine_no_leak.py    # Non-régression + anti-leak
-    ├── test_evaluator_smoke.py   # Smoke test du moteur
-    └── test_baselines_admission_generators.py
+Variante (étape par étape) :
+
+```powershell
+python -m einherjar.research.discovery baselines --data-asset BTCUSD --data-timeframe 1h
+python -m einherjar.research.discovery compare --data-asset BTCUSD --data-timeframe 1h
+python -m einherjar.research.discovery select  --data-asset BTCUSD --data-timeframe 1h
+python -m einherjar.research.discovery refine  --data-asset BTCUSD --data-timeframe 1h --n-eval 50
+python -m einherjar.research.discovery admit   --data-asset BTCUSD --data-timeframe 1h --n-eval 50
 ```
 
-## Philosophie
+### 3. Multi-actifs (--data-assets)
 
-1. **Moteur d'évaluation d'abord** (Step 0). Sans lui, aucune comparaison n'a de sens.
-2. **Baselines avant générateurs** (Step 1). Pas de sophistication sans plancher de performance.
-3. **Choix empirique** (Step 2-3). Pas de "GE figé comme moteur principal" sans benchmark reproductible.
-4. **SL/TP figés depuis le train** (jamais recalibrés sur val/holdout/live).
-5. **Holdout sacré** (Step 6) — consulté une seule fois à la fin.
-6. **Diversité comportementale**, pas seulement structurelle (I-8).
-7. **Archive append-only**, réévaluable sur nouveau `data_version`.
-8. **Décisions empiriques, pas idéologiques** (cf. critique IA tierce, ALGORITHME_RESEARCH.md § 13).
+```powershell
+python -m einherjar.research.discovery run `
+  --data-assets BTCUSD,ETHUSD,SOLUSD `
+  --data-timeframe 1h `
+  --n-eval 200
+```
 
-## Données
+Charge **plusieurs actifs** via `--data-assets` (séparés par virgules).
+L'actif principal est le 1er chargé (utilisé par les générateurs non-NSGA-II).
+NSGA-II exploite tous les actifs via `_evaluate_multi_asset` :
+médiane des Sharpe par actif, contrainte #4 multi-actifs effective.
 
-- **218 features utilisables** (28 exclues : 19 fantômes, 8 meta-factors, 1 alias) — voir `config/features_taxonomy.json`.
-- **Splits train/val/holdout 60/20/20** + purging + embargo.
-- **Coûts simulés** (spread, commission, slippage) — voir `config/costs.yaml`.
-- **Seuils d'admission** — voir `config/thresholds.yaml`.
+Si tu passes à la fois `--data-asset` et `--data-assets`, **c'est `--data-assets` qui gagne**.
+
+### 4. Choisir un moteur sans passer par la comparaison
+
+Si tu sais déjà quel générateur tu veux utiliser, tu peux court-circuiter
+`compare` et `select` en passant `--generator=...` directement à `admit`
+ou `holdout`. Le générateur est instancié depuis son nom (alias ou nom de classe).
+
+```powershell
+# Admettre des hypothèses générées par NSGA-II directement
+python -m einherjar.research.discovery admit `
+  --generator nsga2 `
+  --data-asset BTCUSD `
+  --data-timeframe 1h `
+  --n-eval 100
+```
+
+Générateurs disponibles (alias) :
+| Alias | Classe |
+|---|---|
+| `random` | `RandomSearchGenerator` |
+| `beam` | `BeamSearchGenerator` |
+| `stgp` | `TypedGPGenerator` |
+| `ge` | `GrammaticalEvolutionGenerator` |
+| `memetic` | `MemeticGenerator` |
+| `nsga2` | `NSGA2Generator` |
+
+> **Note** : sans `compare` préalable, le `select` ne peut pas recharger
+> une sélection existante. Le générateur est instancié à la volée par
+> `GeneratorSelector.instantiate`. Utile pour itérer sur un générateur
+> spécifique sans repasser par la comparaison complète.
+
+### 5. Run multi-actifs avec NSGA-II seulement
+
+```powershell
+python -m einherjar.research.discovery run `
+  --data-assets BTCUSD,ETHUSD,SOLUSD `
+  --data-timeframe 1h `
+  --generator nsga2 `
+  --n-eval 200
+```
+
+`--generator` filtre l'instance : seul NSGA-II est créé, ce qui économise
+du temps si tu veux comparer NSGA-II à un autre setup sans relancer tous
+les générateurs.
+
+### 6. Holdout sacré (à déclencher manuellement)
+
+```powershell
+# D'abord, il faut un Einher admis (via admit).
+# Son JSON sérialisé sert d'input au holdout.
+python -m einherjar.research.discovery holdout `
+  --hypothesis-file outputs/some_admitted_hyp.json
+```
+
+Le holdout est évalué **une seule fois par session**. Une 2e tentative
+lèvera une erreur (`HoldoutEvaluator._holdout_used`).
+
+---
+
+## Arguments de la CLI
+
+| Argument | Défaut | Effet |
+|---|---|---|
+| `--config` | `./config` | Dossier de configuration (thresholds, splits, costs, taxonomy). |
+| `--data-version` | None | Tag du data_version à utiliser (override config). |
+| `--seed` | 42 | Seed RNG maître (reproductibilité). |
+| `--generator` | None | Filtre le générateur à utiliser (`random`, `beam`, `stgp`, `ge`, `memetic`, `nsga2`). |
+| `--n-eval` | 200 | Budget d'évaluations (compare, baselines, refine, admit). |
+| `--n-samples` | 200 | Nombre d'hypothèses par baseline random. |
+| `--selection-path` | `outputs/selection.json` | Fichier de persistance de la sélection. |
+| `--log-level` | INFO | `DEBUG`, `INFO`, `WARNING`, `ERROR`. |
+| `--data-root` | `D:\midas_v2\midasV3\src\data\compiled` | Racine des `.npy` MIDAS V3. |
+| `--data-asset` | `BTCUSD` | Actif unique (ex: `BTCUSD`, `ETHUSD`). |
+| `--data-assets` | None | Liste d'actifs séparés par virgules (ex: `BTCUSD,ETHUSD,SOLUSD`). Priorité sur `--data-asset`. |
+| `--data-class` | `crypto` | `crypto`, `forex`, `indices`, `commodities`, `stocks_growth`, `stocks_tech`, `stocks_value`. |
+| `--data-timeframe` | `1h` | `1m`, `5m`, `15m`, `1h`, `4h`, `1d`, etc. |
+| `--dry-run` | False | Affiche le plan d'exécution sans rien lancer. |
+| `--hypothesis-file` | None | Fichier JSON d'Hypothesis (utilisé par `holdout`). |
+
+---
+
+## Comportements automatiques (à connaître)
+
+- **P0-05** : `--data-assets` active le mode multi-actifs. NSGA-II utilise
+  la médiane des Sharpe par actif (contrainte #4). Les autres générateurs
+  restent sur l'actif principal (1er de la liste).
+
+- **P1-10** : NSGA-II charge automatiquement le corpus (`CorpusStore`) et
+  injecte les `feature_set` dans `_corpus_feature_sets` pour le calcul
+  Jaccard vs corpus (objectif #3 diversité).
+
+- **P0-03** : `DataVersionStore` (append-only JSONL) verrouille le
+  `data_version` au début de chaque handler. Si un run utilise un
+  data_version non encore persisté, il est appendé avec `fsync`. Sinon,
+  le tag existant est réutilisé (lock).
+
+- **P1-08** : `n_eval_budget` est partagé entre tous les générateurs.
+  Quand le compteur global atteint le budget, les générateurs suivants
+  sont skippés (avec warning).
+
+- **Holdout** : sacré, 1 seule évaluation par session, atomique
+  (`HoldoutLedger` avec `fsync`).
+
+- **Échecs** : pas de fallback silencieux (P0 #7). Toute erreur
+  d'évaluation lève explicitement (ValueError, NpyRealLoaderError,
+  AdmissionError, etc.).
+
+---
 
 ## Tests
 
-```bash
-# Depuis la racine du projet
+```powershell
 cd D:\midas_v2\Einherjar
-$env:PYTHONPATH = 'src'
+$env:PYTHONPATH='src'
+$env:PYTHONIOENCODING='utf-8'
 python -m unittest discover -s src/einherjar/research/tests -p 'test_*.py'
 ```
 
-Tests critiques :
-- `test_engine_no_leak.py` : déterminisme, anti-leak, splits disjoints, fingerprint stable.
-- `test_evaluator_smoke.py` : pipeline complet (calibrate + test_on + holdout une seule fois).
-- `test_baselines_admission_generators.py` : 3 modules, 18 tests.
+225 tests verts, 1 skip légitime (test qui requiert les `.npy` MIDAS réels).
 
-## Exemples d'usage
+---
 
-```bash
-# Vérifier que la config charge
-python -m einherjar.research.discovery engine --dry-run
+## Fichiers de sortie
 
-# Lancer un pipeline complet (étapes 0 à 5)
-python -m einherjar.research.discovery run --data-version v1
+- `outputs/selection.json` : générateur sélectionné par `select`.
+- `outputs/refined.json` : top-N hypothèses raffinées par `refine`.
+- `outputs/admit_summary.json` : synthèse d'admission (admis/rejets).
+- `outputs/holdout_result.json` : résultat du holdout sacré.
+- `outputs/data_versions.jsonl` : append-only des `DataVersion` (P0-03).
+- `outputs/archive/archive.jsonl` : append-only des Einhers rejetés.
+- `data/corpus.jsonl` : append-only des Einhers admis (corpus).
 
-# Lancer juste les baselines
-python -m einherjar.research.discovery baselines --n-samples 500
+---
 
-# Comparer les générateurs
-python -m einherjar.research.discovery compare --n-eval 1000
+## Pour aller plus loin
 
-# Sélectionner le gagnant
-python -m einherjar.research.discovery select --selection-path outputs/selection.json
-
-# Holdout (à déclencher manuellement UNE SEULE FOIS par Einher final)
-python -m einherjar.research.discovery holdout --data-version v1
-```
-
-## Statut
-
-| Module | Statut | Notes |
-|---|---|---|
-| `engine/` | ✅ Codé | Calibration + test_on + holdout unique |
-| `data/ohlcv.py` | ✅ Codé | Provider avec cache, backend injectable |
-| `data/features.py` | ✅ Codé | Provider avec filtre 28 exclues, cache |
-| `baselines/` | ✅ Codé | 3 baselines, distribution Sharpe |
-| `generators/` | ✅ Codé (5/6) | GE en placeholder (BNF à écrire) |
-| `admission/` | ✅ Codé | 7 critères + diversité + decision |
-| `refinement/` | ✅ Codé | Beam search local sans recalibrage SL/TP |
-| `selection/` | ✅ Codé | Lecture/écriture de la sélection |
-| `holdout/` | ✅ Codé | Évaluation unique + flag dégradation |
-| `archive/` | ✅ Codé | Schéma + catalogue + I/O append-only |
-| `v2/` | 🟡 Skeleton | Candidats V2 à brancher |
-| `discovery.py` | ✅ Codé | 9 modes wired |
-
-## TODO restants (V1 → V2)
-
-1. **Écrire la grammaire BNF** complète (cf. ALGORITHME_RESEARCH.md § 11.5)
-2. **Brancher `refinement` sur le corpus** (V1 : nécessite un Einher viable en input)
-3. **Brancher `admit` end-to-end** (V1 : stub, à connecter au runner)
-4. **Corriger les warnings ruff D102/D107/E501** (mineurs, non bloquants)
-5. **Remplacer les stubs** (NSGA2, Memetic complet) par implémentations complètes
-6. **MAP-Elites** si diversité comportementale insuffisante en V1
-7. **CPCV complet** (Lopez de Prado) au lieu du CPCV léger actuel
+- `STATUS.md` à la racine : état détaillé du moteur (socle + BNF + review critique).
+- `src/einherjar/research/ALGORITHME_RESEARCH.md` : algorithmes des générateurs.
+- `src/einherjar/research/ONTOLOGY.md` : concepts (Einhers, MesuresBrutes, etc.).
+- `src/einherjar/research/config/` : configuration (thresholds, taxonomy, splits).
