@@ -144,14 +144,27 @@ class CalibratedParams:
         atr_at_entry: float,
         direction: Direction,
     ) -> tuple[float, float]:
-        """Calcule les niveaux SL/TP en prix absolus à partir du prix d'entrée et de l'ATR local.
+        """Calcule les niveaux SL/TP en prix absolus a partir du prix d'entree et de l'ATR local.
 
-        Les distances sont en multiples d'ATR (sl_n_atr, tp_n_atr), recalculées
-        à chaque trade. Pas de prix absolu figé.
+        Choix de design (documente ONTOLOGY.md S-3.2 - S-3.6) : les
+        distances (sl_n_atr, tp_n_atr) sont calibrees sur le train (MFE/MAE
+        observes sur la fenetre N), mais l'echelle finale utilise l'ATR
+        LOCAL au moment de l'entree, pas l'atr_p50 du train fige.
+
+        Justification : la volatilite courante peut s'ecarter fortement
+        de l'atr_p50 du train. En re-scalant par l'ATR local, SL/TP
+        s'adaptent a la volatilite du moment. Ce n'est pas un leak
+        temporel (l'ATR local a t+1 n'utilise que du passe) et l'invariant
+        I-5 (aucune fuite temporelle) reste respecte. Voir ONTOLOGY.md
+        S-3.6 pour la distinction explicite entre calibration (train) et
+        application (entree locale).
+
+        Si atr_at_entry <= 0 (debut de serie, ATR non disponible), on
+        retombe sur atr_p50 du train (fallback explicite).
 
         Args:
-            entry_price: Prix d'entrée (OPEN de t+1).
-            atr_at_entry: ATR local calculé sur la fenêtre se terminant à t+1.
+            entry_price: Prix d'entree (OPEN de t+1).
+            atr_at_entry: ATR local calcule sur la fenetre se terminant a t+1.
             direction: Direction du trade.
 
         Returns:
@@ -428,8 +441,11 @@ class _TradeRunner:
         L'entrée est l'OPEN de la bougie t+1 (entry_idx + 1). La fenêtre
         d'observation va de t+1 à t+N. Si la fenêtre déborde, retourne None.
 
-        SL et TP sont calculés à l'entrée (multiples d'ATR × ATR local),
-        conformément à l'invariant I-5 (jamais de prix absolu figé).
+        SL et TP sont calcules a l'entree (multiples d'ATR x ATR local,
+        reechelonnes sur la volatilite courante - pas l'atr_p50 du train
+        fige). Cf. compute_sl_tp_at_entry pour la justification complete
+        et ONTOLOGY.md S-3.6. L'invariant I-5 (aucune fuite temporelle)
+        est respecte : l'ATR local a t+1 n'utilise que du passe.
 
         Args:
             entry_idx: Index du signal (t).
@@ -746,17 +762,19 @@ class EvaluationEngine:
         else:
             raise CalibrationError(f"Unité d'amplitude non supportée : {amplitude.unité}")
 
-        # 3. Passe provisoire avec distances 1.5×ATR (symétriques pour avoir
-        # un premier signal mesurable). C'est une vraie simulation sur
-        # de vrais trades avec prix et ATR observés.
-        # Calibration needs the full N-bar excursions. A provisional stop/TP
-        # would censor MFE/MAE before their observation window is complete.
+        # 3. Passe provisoire avec SL/TP quasi inatteignables
+        # (1_000_000 × ATR = jamais touche sur la fenetre N). Le but est de
+        # mesurer MFE/MAE sur TOUTE la fenetre d'observation sans sortie
+        # prematuree. C'est une vraie simulation intrabar sur de vrais prix
+        # et ATR locaux observes (cf. ONTOLOGY.md S-3.2).
+        # Le calibrage final (sl_n_atr, tp_n_atr) est ensuite derive
+        # depuis MFE_p50 / MAE_p75 (etape 4 ci-dessous).
         provisional_n_atr = 1_000_000.0
         provisional_calibrated = CalibratedParams(
             n_window=n_window,
             sl_n_atr=provisional_n_atr,
             tp_n_atr=provisional_n_atr,
-            sl_distance=provisional_n_atr,  # approximation initiale (1.5 = 150%)
+            sl_distance=provisional_n_atr,
             tp_distance=provisional_n_atr,
             atr_p50=atr_p50,
             n_observations=train_ohlcv.n_bougies,

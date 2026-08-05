@@ -99,6 +99,15 @@ class BaseGenerator(ABC):
         raise NotImplementedError
 
     def _make_amplitude(self, direction: Direction) -> Amplitude:
+        """Construit l'Amplitude d'un Einher.
+
+        Choix de design (intentionnel, documente GenerationProtocol) :
+        l'unite est fixee a MULTIPLE_ATR. Les generateurs produisent
+        tous des Einher dont l'amplitude est exprimee en multiple d'ATR
+        (cf. evaluator.py::_compute_n_multiple_atr). Pour un mouvement
+        en prix absolu, il faut construire l'Hypothesis directement
+        (cas non couvert par les generateurs actuels).
+        """
         return Amplitude(
             valeur=self.protocol.amplitude_value,
             unité=AmplitudeUnit.MULTIPLE_ATR,

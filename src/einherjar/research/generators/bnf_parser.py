@@ -420,17 +420,8 @@ def _parse_sequence(
     return _parse_atom(tokens, default_feature=default_feature)
 
 
-def _absorb_nots(tokens: list[str]) -> list[str]:
-    """Absorbe les NOT unaires en les reappliquant sur l'element suivant.
-
-    Heuristique simple : "NOT X" -> "X" inverse (note : on ne gere pas
-    parfaitement la negation ici, on l'approxime en supprimant le NOT
-    et en laissant l'evaluateur inverse la condition. Une implementation
-    complete utiliserait un NOT explicite dans ConditionNode).
-    """
-    # Kept only for compatibility with external callers. Parsing now builds an
-    # explicit unary ConditionNode and never erases a negation.
-    return list(tokens)
+# _absorb_nots() a ete supprime (etait du code mort : aucun appelant
+# dans research/, le docstring principal mentait sur le comportement).
 
 
 def _find_top_level_op(tokens: list[str], op: str) -> int | None:

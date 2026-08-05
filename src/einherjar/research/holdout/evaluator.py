@@ -166,16 +166,28 @@ class HoldoutEvaluator:
         metrics_holdout = self.engine.test_on(
             hypothesis, holdout_ohlcv, holdout_features, calibrated, "holdout",
         )
-        # Calcul de la dégradation val → holdout.
+        # Calcul de la degradation val -> holdout.
+        # Convention "toute difference importante declenche un flag" :
+        # si val_sharpe <= 0, on ne peut pas calculer le ratio relatif
+        # (division par 0 / signe incoherent). On retourne NaN + flag
+        # INDETERMINATE au lieu de 0.0 (qui masquerait silencieusement
+        # un Einher degrade).
         holdout_sharpe = metrics_holdout.sharpe_net
         if holdout_sharpe != holdout_sharpe:  # NaN
-            degradation_ratio = float("inf")
+            degradation_ratio = float("nan")
         elif val_sharpe > 0:
             degradation_ratio = abs((val_sharpe - holdout_sharpe) / val_sharpe)
         else:
-            degradation_ratio = 0.0
-        # Flag de dégradation.
-        if degradation_ratio >= self.degradation_critical_ratio:
+            degradation_ratio = float("nan")
+        # Flag de degradation.
+        # Convention : INDETERMINATE si val_sharpe <= 0 ou NaN (cas
+        # d'un Einher sans edge mesurable - l'auditeur doit regarder
+        # manuellement). Les comparaisons avec NaN renvoient False,
+        # donc on teste explicitement.
+        import math
+        if math.isnan(degradation_ratio):
+            flag = "INDETERMINATE"
+        elif degradation_ratio >= self.degradation_critical_ratio:
             flag = "CRITICAL"
         elif degradation_ratio >= self.degradation_warning_ratio:
             flag = "WARNING"

@@ -28,7 +28,16 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_LEDGER_PATH: Path = Path("outputs") / "holdout_ledger.jsonl"
+# Chemin par defaut ancre sur la racine du repo (pas le cwd).
+# Sans cet ancrage, deux invocations depuis deux cwd differents obtiennent
+# deux fichiers ledger distincts, ce qui defait silencieusement l'invariant
+# "le holdout n'est consulte qu'une seule fois" (S-3.8) : chaque execution
+# se croit unique.
+# Path(__file__) = .../src/einherjar/research/holdout/ledger.py
+# parents[3] = racine du repo.
+DEFAULT_LEDGER_PATH: Path = (
+    Path(__file__).resolve().parents[3] / "outputs" / "holdout_ledger.jsonl"
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -213,6 +222,24 @@ class HoldoutLedger:
         return len(self.iter_entries())
 
     def clear_for_testing(self) -> None:
-        """Vide le ledger (POUR LES TESTS UNIQUEMENT)."""
+        """Vide le ledger. PROTEGE : interdit hors contexte de test.
+
+        Le holdout est sacre (S-3.8). Permettre d'effacer le ledger depuis
+        n'importe quel script de maintenance / notebook / debug rouvrirait
+        silencieusement la porte a une double consultation. On verifie
+        donc que l'appelant est bien un test (PYTEST_CURRENT_TEST dans
+        l'env) OU que le chemin du ledger pointe sous le tempdir
+        (cas typique : tests avec ledger isole).
+        """
+        import tempfile
+        in_pytest = "PYTEST_CURRENT_TEST" in os.environ
+        in_tempdir = str(self.path).startswith(tempfile.gettempdir())
+        if not (in_pytest or in_tempdir):
+            raise RuntimeError(
+                "clear_for_testing() interdit hors contexte de test. "
+                "Si c'est un script de maintenance legitime, utilise "
+                "un chemin sous tempfile.gettempdir() ou lance pytest. "
+                f"(path={self.path}, PYTEST_CURRENT_TEST={'PYTEST_CURRENT_TEST' in os.environ})"
+            )
         self.path.write_text("", encoding="utf-8")
-        logger.warning("Holdout ledger cleared (testing only)")
+        logger.warning("Holdout ledger cleared (testing only) path=%s", self.path)

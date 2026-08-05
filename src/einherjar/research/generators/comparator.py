@@ -430,13 +430,7 @@ def _collect_features(node: Any, out: set[str]) -> None:
             _collect_features(node.right, out)
 
 
-def _track_semantic_coherence_unused() -> None:
-    """DEPRECIE : utiliser _compute_coherence_for_hyp a la place.
-
-    Conserve ici uniquement pour reference ; ne pas appeler.
-    """
-    pass
-
+# _track_semantic_coherence_unused() a ete supprime (code mort).
 
 def _compute_coherence_for_hyp(hyp: Any) -> tuple[int, int]:
     """Retourne (match, total) pour une Hypothesis (1 si match, 0 sinon).

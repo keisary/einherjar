@@ -45,7 +45,13 @@ class GenerationProtocol:
         p_compound: Probabilité de générer une condition composée.
         assets: Assets du universe (tuple).
         timeframes: Timeframes du universe (tuple).
-        amplitude_value: Valeur d'amplitude (prix absolu par défaut).
+        amplitude_value: Valeur d'amplitude. L'unite est fixee a
+            AmplitudeUnit.MULTIPLE_ATR dans BaseGenerator._make_amplitude
+            (cf. algorithms.py). Avec la valeur par defaut 5.0, cela
+            represente 5x ATR (multiple d'ATR), PAS 5 unites de prix absolu.
+            Si tu veux exprimer un mouvement en prix absolu, passe par
+            AmplitudeUnit.PRICE_ABSOLU directement (non utilise par les
+            generateurs actuels).
         cooldown_k: Cooldown d'observation (K bougies).
     """
 

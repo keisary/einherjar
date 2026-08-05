@@ -144,6 +144,8 @@ class AdmissionDecider:
         pbo_candidate_paths: list[tuple[tuple[int, int, float], ...]] | None = None,
         cooldown_k: int = 5,
         n_indep_trials: int = 1,
+        mesures_train: MesuresBrutes | None = None,
+        splits: dict[str, Any] | None = None,
     ) -> AdmissionDecision:
         """Prend la décision d'admission complète.
 
@@ -252,6 +254,9 @@ class AdmissionDecider:
                 mesures_val=mesures_val,
                 fp_struct=fp_struct,
                 fp_comport=fp_comport,
+                criteria_verdict=criteria_verdict,
+                mesures_train=mesures_train,
+                splits={"n_indep_trials": n_indep_trials},
                 data_version=self.data_version,
                 seed=self.seed,
                 hypothesis=_build_hypothesis_for_fp(
@@ -358,8 +363,25 @@ def _make_archive_entry(
     data_version: str,
     seed: int,
     hypothesis: dict[str, Any],
+    criteria_verdict: AdmissionVerdict,
+    mesures_train: MesuresBrutes | None = None,
+    splits: dict[str, Any] | None = None,
 ) -> ArchiveEntry:
-    """Construit une ArchiveEntry (pas encore append — c'est l'appelant qui le fait)."""
+    """Construit une ArchiveEntry (pas encore append — c'est l'appelant qui le fait).
+
+    P1-12 (completude Archive S-3.9) : on extrait les valeurs numeriques
+    DSR et PBO depuis criteria_verdict.verdicts pour qu'elles soient
+    tracables dans l'archive (pas seulement la raison categorielle).
+    On remplit aussi mesures_brutes_train et splits si fournis.
+    """
+    # Extraction des valeurs numeriques depuis les verdicts.
+    dsr_val: float | None = None
+    pbo_val: float | None = None
+    for v in criteria_verdict.verdicts:
+        if v.name == "DSR" and v.observed == v.observed:  # not NaN
+            dsr_val = float(v.observed)
+        elif v.name == "PBO" and v.observed == v.observed:
+            pbo_val = float(v.observed)
     return ArchiveEntry(
         id=f"rej_{hypothesis_id}",
         type_élément="hypothesis",
@@ -367,10 +389,13 @@ def _make_archive_entry(
         date_rejet=ArchiveEntry.now_utc(),
         data_version=data_version,
         seed=seed,
-        splits={},  # À remplir par le caller si dispo
+        splits=dict(splits) if splits else {},
         costs_simulated=mesures_val.costs_applied,
         sl_tp_source="from_train",
+        mesures_brutes_train=mesures_train,
         mesures_brutes_val=mesures_val,
+        deflated_sharpe_ratio=dsr_val,
+        probability_of_backtest_overfitting=pbo_val,
         fingerprint_structurel=fp_struct,
         fingerprint_comportemental=fp_comport,
         fingerprint=f"{fp_struct}:{fp_comport}",

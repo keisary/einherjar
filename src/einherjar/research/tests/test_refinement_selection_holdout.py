@@ -255,7 +255,7 @@ class TestHoldout(unittest.TestCase):
             )
             self.assertIsInstance(result, HoldoutResult)
             self.assertEqual(result.hypothesis_id, h.id)
-            self.assertIn(result.degradation_flag, ("OK", "WARNING", "CRITICAL"))
+            self.assertIn(result.degradation_flag, ("OK", "WARNING", "CRITICAL", "INDETERMINATE"))
 
     def test_holdout_evaluator_refuses_second_call(self):
         h, calibrated = self._make_hypothesis_and_calibrated()

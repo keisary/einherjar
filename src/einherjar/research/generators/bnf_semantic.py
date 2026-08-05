@@ -257,26 +257,31 @@ def _classify_pattern_orientation(pattern_name: str) -> SemanticOrientation:
 # --------------------------------------------------------------------------- #
 
 
-def _build_orientation_table() -> dict[str, SemanticOrientation]:
-    """Construit le mapping pattern_name -> SemanticOrientation au chargement.
+def _build_orientation_table(
+    config: Any | None = None,
+) -> dict[str, SemanticOrientation]:
+    """Construit le mapping pattern_name -> SemanticOrientation.
 
-    Importe la taxonomie depuis config (lazy pour eviter cycles).
+    Args:
+        config: EinherjarConfig (P1-10 : injection explicite). Si None,
+            fallback sur load_config() au chemin par defaut (compat
+            ascendante, deconseille : effet de bord I/O au chargement
+            du module, non traçable).
+
+    Returns:
+        Dict {feature_name: SemanticOrientation}. Inclut les patterns de
+        la taxonomie + le bloc __relations_ohlcv__.
     """
-    from einherjar.research.config.loader import load_config
-    from einherjar.research.generators.bnf import FEATURE_GRAMMARS
-
-    # Le module peut etre appele depuis la racine du depot ou depuis le
-    # paquet installe : ne pas dependre du repertoire de travail courant.
-    from pathlib import Path
-    cfg = load_config(Path(__file__).resolve().parents[1] / "config")
+    if config is None:
+        from einherjar.research.config.loader import load_config
+        from pathlib import Path
+        config = load_config(Path(__file__).resolve().parents[1] / "config")
     table: dict[str, SemanticOrientation] = {}
-    for feat_name in cfg.usable_feature_names:
+    for feat_name in config.usable_feature_names:
         if feat_name.startswith("pattern_"):
             table[feat_name] = _classify_pattern_orientation(feat_name)
-    # Aussi les features du bloc relations OHLCV
-    for rel_key, rel_grammar in [
-        ("ohlcv", "ohlcv"),
-    ]:
+    # Aussi les features du bloc relations OHLCV.
+    for rel_key in ("ohlcv",):
         # Les relations OHLCV sont classees par le caller (cas special,
         # pas un pattern mais un bloc). On les marque NEUTRAL ici.
         table[f"__relations_{rel_key}__"] = SemanticOrientation.NEUTRAL
@@ -291,7 +296,9 @@ def _build_orientation_table() -> dict[str, SemanticOrientation]:
     return table
 
 
-# Construit une seule fois au premier import (cache module-level).
+# Cache module-level avec config par defaut (retro-compat).
+# Note : ce cache est construit a l'import avec le config du chemin par
+# defaut. Pour une utilisation multi-config, preferer get_orientation_for_config.
 PATTERN_ORIENTATION: dict[str, SemanticOrientation] = _build_orientation_table()
 
 
@@ -301,14 +308,11 @@ PATTERN_ORIENTATION: dict[str, SemanticOrientation] = _build_orientation_table()
 
 
 def get_orientation(feature_or_source: str) -> SemanticOrientation:
-    """Retourne l'orientation semantique d'une feature ou d'une source BNF.
+    """Retourne l'orientation semantique (P1-10 : utilise le cache module-level).
 
-    Args:
-        feature_or_source: nom de feature (ex: "pattern_hammer") ou
-            cle speciale de bloc (ex: "__ohlcv_relations__").
-
-    Returns:
-        SemanticOrientation (NEUTRAL par defaut si non trouve).
+    Pour une utilisation multi-config (tests, data_versions differentes),
+    preferer get_orientation_for_config(source, config) qui injecte le
+    config explicitement.
     """
     # Cas special : bloc relations OHLCV
     if feature_or_source == "__ohlcv_relations__":
@@ -316,6 +320,31 @@ def get_orientation(feature_or_source: str) -> SemanticOrientation:
     return PATTERN_ORIENTATION.get(
         feature_or_source, SemanticOrientation.NEUTRAL,
     )
+
+
+def get_orientation_for_config(
+    feature_or_source: str,
+    config: Any,
+) -> SemanticOrientation:
+    """Retourne l'orientation semantique pour un config explicite (P1-10).
+
+    Args:
+        feature_or_source: Nom d'une feature pattern_* ou cle speciale.
+        config: EinherjarConfig explicite (pas de fallback auto).
+
+    Returns:
+        SemanticOrientation. Si la cle est inconnue, retourne NEUTRAL.
+        Le calcul utilise un cache par id(config) (memoization legere).
+    """
+    # Cas special : bloc relations OHLCV
+    if feature_or_source == "__ohlcv_relations__":
+        return SemanticOrientation.NEUTRAL
+    cache_attr = "_ORIENTATION_CACHE_BY_CONFIG"
+    cache: dict = globals().setdefault(cache_attr, {})
+    cid = id(config)
+    if cid not in cache:
+        cache[cid] = _build_orientation_table(config)
+    return cache[cid].get(feature_or_source, SemanticOrientation.NEUTRAL)
 
 
 def orientation_summary() -> dict[str, int]:

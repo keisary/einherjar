@@ -598,8 +598,10 @@ Ces métriques sont **toujours accompagnées de leur IC bootstrap** (cf. S-2 : `
 Si toutes les marches de S-3.4 passent :
 
 - L'Einher hérite de l'hypothèse (condition_tree, direction, universe, amplitude_cible)
-- Le **SL** = `sl_price` **figé depuis S-3.2** (calculé sur le train)
-- Le **TP** = `tp_price` **figé depuis S-3.2** (calculé sur le train)
+- Les **multiples d'ATR** (`sl_n_atr`, `tp_n_atr`) sont **figés depuis S-3.2** (calculés sur le train)
+- L'**application** au trade utilise `compute_sl_tp_at_entry` : `sl_price = entry ± sl_n_atr × atr_at_entry` (idem TP), où `atr_at_entry` est l'ATR local au moment de l'entrée (pas l'atr_p50 du train figé)
+- **Justification du choix ATR local** : la volatilité courante peut s'écarter fortement de l'atr_p50 du train. En re-scalant par l'ATR local, SL/TP s'adaptent à la volatilité du moment. Ce n'est pas un leak temporel (l'ATR local à t+1 n'utilise que du passé) — l'invariant I-5 (aucune fuite temporelle) reste respecté
+- **Fallback** : si `atr_at_entry <= 0` (début de série, ATR non disponible), on retombe sur `atr_p50` du train
 - Les **métriques de validation publiées** sont celles du val, accompagnées de leur IC bootstrap
 - Statut initial : `validé`, puis `actif` au premier passage dans le scheduler live
 - Le holdout n'est **pas** consulté à ce stade
