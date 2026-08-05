@@ -964,5 +964,58 @@ class TestP1_10_MultiAssetEngine(unittest.TestCase):
         )
 
 
+# --------------------------------------------------------------------------- #
+# Full system mode : --all-assets (28 actifs, 5 classes)
+# --------------------------------------------------------------------------- #
+
+
+class TestFullSystemAllAssets(unittest.TestCase):
+    """Le mode --all-assets charge la selection de 28 actifs depuis config/assets_v1.json."""
+
+    def test_load_default_assets_returns_28(self) -> None:
+        """load_default_assets doit retourner 28 actifs repartis sur 5+ classes."""
+        from einherjar.research.discovery import load_default_assets
+        per_class = load_default_assets()
+        total = sum(len(v) for v in per_class.values())
+        self.assertEqual(
+            total, 28,
+            f"Total devrait etre 28, obtenu {total} (repartition : "
+            f"{ {k: len(v) for k, v in per_class.items()} })",
+        )
+        # Au moins 5 classes attendues (crypto, forex, stocks_tech, indices, commodities).
+        self.assertGreaterEqual(
+            len(per_class), 5,
+            f"Au moins 5 classes attendues, obtenu {len(per_class)}",
+        )
+        # La classe crypto doit contenir BTCUSD (sanity check).
+        self.assertIn("BTCUSD", per_class.get("crypto", []))
+
+    def test_all_assets_flag_in_parser(self) -> None:
+        """La CLI doit exposer --all-assets (flag booleen)."""
+        import inspect
+        from einherjar.research.discovery import build_parser
+        parser = build_parser()
+        # On verifie que le flag existe (via parse d'args minimaux).
+        args = parser.parse_args(["run", "--all-assets"])
+        self.assertTrue(
+            args.all_assets,
+            "--all-assets doit etre un flag booleen active.",
+        )
+
+    def test_handle_run_iterates_per_class(self) -> None:
+        """handle_run doit contenir la logique d'iteration par classe quand --all-assets."""
+        import inspect
+        from einherjar.research.discovery import handle_run
+        source = inspect.getsource(handle_run)
+        self.assertIn(
+            "load_default_assets", source,
+            "handle_run doit appeler load_default_assets quand --all-assets.",
+        )
+        self.assertIn(
+            "discover_report", source,
+            "handle_run doit persister un rapport discover_report.json.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

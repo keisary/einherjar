@@ -31,8 +31,10 @@ Philosophie : moteur d'évaluation d'abord, générateurs après, holdout à la 
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -121,6 +123,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--data-assets", type=str, default=None,
         help="Liste d'actifs separes par des virgules; requise en mode multi-actifs.",
+    )
+    parser.add_argument(
+        "--all-assets", action="store_true",
+        help="Lance sur la selection complete de 28 actifs depuis config/assets_v1.json. "
+             "Le pipeline est execute par classe (5 classes). Le corpus s'accumule.",
     )
     parser.add_argument(
         "--data-class", type=str, default="crypto",
@@ -323,6 +330,49 @@ def _resolve_assets(args: argparse.Namespace) -> tuple[str, ...]:
     if args.data_assets:
         return tuple(a.strip() for a in args.data_assets.split(",") if a.strip())
     return (args.data_asset,)
+
+
+def load_default_assets(
+    config_dir: Optional[Path] = None,
+) -> dict[str, list[str]]:
+    """Charge la selection par defaut d'actifs depuis config/assets_v1.json.
+
+    Recherche par ordre :
+      1. config_dir/assets_v1.json (parametre explicite).
+      2. <cwd>/config/assets_v1.json (racine du repo).
+      3. <module_dir>/../../config/assets_v1.json (relatif au module).
+
+    Returns:
+        Dict {asset_class: [asset_symbols]}. 5 classes (crypto, forex,
+        stocks_tech, stocks_value, stocks_growth, indices, commodities).
+        28 actifs au total.
+    """
+    candidates: list[Path] = []
+    if config_dir is not None:
+        candidates.append(config_dir / "assets_v1.json")
+    candidates.append(Path("config") / "assets_v1.json")
+    candidates.append(
+        Path(__file__).resolve().parent.parent.parent / "config" / "assets_v1.json"
+    )
+    assets_path: Path | None = None
+    for c in candidates:
+        if c.exists():
+            assets_path = c
+            break
+    if assets_path is None:
+        raise FileNotFoundError(
+            f"Fichier de selection d'actifs introuvable. Chemins testes : "
+            f"{[str(c) for c in candidates]}"
+        )
+    with assets_path.open("r", encoding="utf-8") as fp:
+        data = json.loads(fp.read())
+    result: dict[str, list[str]] = {}
+    for entry in data.get("assets", []):
+        cls = entry.get("class")
+        asset = entry.get("asset")
+        if cls and asset:
+            result.setdefault(cls, []).append(asset)
+    return result
 
 
 def _load_for_handler(
@@ -911,7 +961,69 @@ def handle_holdout(args: argparse.Namespace) -> int:
 
 
 def handle_run(args: argparse.Namespace) -> int:
-    """Pipeline complet (étapes 0→5). Le holdout reste manuel."""
+    """Pipeline complet (étapes 0→5). Le holdout reste manuel.
+
+    Si --all-assets est active, itere sur les 5 classes de la selection
+    par defaut (28 actifs) et accumule les Einhers admis dans le meme
+    corpus (data/corpus.jsonl, append-only). Le bilan par classe est
+    persiste dans outputs/discover_report.json.
+    """
+    if getattr(args, "all_assets", False):
+        logger.info("[PIPELINE ALL] Mode full system sur 28 actifs (5 classes)")
+        config = load_config(args.config)
+        per_class = load_default_assets(args.config)
+        report: dict[str, Any] = {
+            "started_at": datetime.now().isoformat(),
+            "n_classes": len(per_class),
+            "n_assets_total": sum(len(v) for v in per_class.values()),
+            "classes": {},
+        }
+        for cls, assets in sorted(per_class.items()):
+            logger.info(
+                "[PIPELINE ALL] === Classe %s (%d actifs : %s) ===",
+                cls, len(assets), ", ".join(assets),
+            )
+            sub_args = argparse.Namespace(**vars(args))
+            sub_args.data_class = cls
+            sub_args.data_assets = ",".join(assets)
+            sub_args.data_asset = assets[0]  # actif principal = 1er
+            sub_args.all_assets = False  # evite recursion infinie
+            class_rc = 0
+            class_stats: dict[str, int] = {}
+            for mode in ("engine", "baselines", "compare", "select", "refine", "admit"):
+                sub_args.mode = mode
+                rc = HANDLERS[mode](sub_args)
+                class_stats[mode] = rc
+                if rc != 0:
+                    logger.error("Classe %s, etape %s en erreur (rc=%d)", cls, mode, rc)
+                    class_rc = rc
+                    break
+            report["classes"][cls] = {
+                "n_assets": len(assets),
+                "assets": list(assets),
+                "rc": class_rc,
+                "step_rcs": class_stats,
+            }
+            if class_rc != 0:
+                report["classes"][cls]["status"] = "error"
+            else:
+                report["classes"][cls]["status"] = "ok"
+        report["finished_at"] = datetime.now().isoformat()
+        # Bilan global.
+        n_ok = sum(1 for c in report["classes"].values() if c["rc"] == 0)
+        report["summary"] = f"{n_ok}/{len(per_class)} classes OK, corpus = data/corpus.jsonl"
+        # Persistance du rapport.
+        out_path = Path("outputs") / "discover_report.json"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            json.dumps(report, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        logger.info(
+            "[PIPELINE ALL] Termine : %s. Rapport dans %s.",
+            report["summary"], out_path,
+        )
+        return 0 if n_ok == len(per_class) else 1
     logger.info("[PIPELINE] Exécution séquentielle des étapes 0 → 5")
     sub_args = argparse.Namespace(**vars(args))
     for mode in ("engine", "baselines", "compare", "select", "refine", "admit"):
