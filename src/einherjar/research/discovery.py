@@ -130,6 +130,12 @@ def build_parser() -> argparse.ArgumentParser:
              "Le pipeline est execute par classe (5 classes). Le corpus s'accumule.",
     )
     parser.add_argument(
+        "--all-timeframes", action="store_true",
+        help="Avec --all-assets : itere aussi sur tous les timeframes presents dans "
+             "le data_root pour chaque classe (genere 7 classes x N TF runs). "
+             "Sans ce flag : le timeframe est fixe par --data-timeframe (defaut 1h).",
+    )
+    parser.add_argument(
         "--data-class", type=str, default="crypto",
         choices=("crypto", "forex", "indices", "commodities",
                  "stocks_growth", "stocks_tech", "stocks_value"),
@@ -187,6 +193,7 @@ def _load_real_data(
     # prices for ATR, SL/TP or trade returns.
     full_ohlcv = OhlcvProvider().load(
         asset=asset, timeframe=timeframe, data_version="raw",
+        asset_class=asset_class,
     )
     full_features = load_features_from_npy(
         asset=asset, asset_class=asset_class, timeframe=timeframe,
@@ -373,6 +380,31 @@ def load_default_assets(
         if cls and asset:
             result.setdefault(cls, []).append(asset)
     return result
+
+
+def list_available_timeframes(
+    data_root: Path | str,
+    asset_class: str,
+) -> tuple[str, ...]:
+    """Liste les timeframes disponibles pour une classe dans le data_root MIDAS.
+
+    Args:
+        data_root: Racine des .npy MIDAS V3.
+        asset_class: Classe d'actifs (ex: 'crypto').
+
+    Returns:
+        Tuple des timeframes (ex: ('5m', '15m', '1h', '4h', '1d')).
+        Trie pour reproductibilite. Vide si pas de dossier.
+    """
+    root = Path(data_root)
+    cls_dir = root / asset_class
+    if not cls_dir.exists():
+        return ()
+    tfs: list[str] = []
+    for entry in sorted(cls_dir.iterdir()):
+        if entry.is_dir() and not entry.name.startswith("."):
+            tfs.append(entry.name)
+    return tuple(tfs)
 
 
 def _load_for_handler(
@@ -978,40 +1010,68 @@ def handle_run(args: argparse.Namespace) -> int:
             "n_assets_total": sum(len(v) for v in per_class.values()),
             "classes": {},
         }
+        # Liste les timeframes si --all-timeframes.
+        all_tfs = (
+            list_available_timeframes(args.data_root, "__any__")
+            if getattr(args, "all_timeframes", False)
+            else ()
+        )
         for cls, assets in sorted(per_class.items()):
-            logger.info(
-                "[PIPELINE ALL] === Classe %s (%d actifs : %s) ===",
-                cls, len(assets), ", ".join(assets),
+            # Pour cette classe, liste les TF si all_timeframes.
+            tfs_for_cls: tuple[str, ...] = (
+                list_available_timeframes(args.data_root, cls)
+                if getattr(args, "all_timeframes", False)
+                else ()
             )
-            sub_args = argparse.Namespace(**vars(args))
-            sub_args.data_class = cls
-            sub_args.data_assets = ",".join(assets)
-            sub_args.data_asset = assets[0]  # actif principal = 1er
-            sub_args.all_assets = False  # evite recursion infinie
-            class_rc = 0
-            class_stats: dict[str, int] = {}
-            for mode in ("engine", "baselines", "compare", "select", "refine", "admit"):
-                sub_args.mode = mode
-                rc = HANDLERS[mode](sub_args)
-                class_stats[mode] = rc
-                if rc != 0:
-                    logger.error("Classe %s, etape %s en erreur (rc=%d)", cls, mode, rc)
-                    class_rc = rc
-                    break
-            report["classes"][cls] = {
-                "n_assets": len(assets),
-                "assets": list(assets),
-                "rc": class_rc,
-                "step_rcs": class_stats,
-            }
-            if class_rc != 0:
-                report["classes"][cls]["status"] = "error"
-            else:
-                report["classes"][cls]["status"] = "ok"
+            if not tfs_for_cls:
+                tfs_for_cls = (args.data_timeframe,)
+            for tf in tfs_for_cls:
+                logger.info(
+                    "[PIPELINE ALL] === Classe %s / TF %s (%d actifs : %s) ===",
+                    cls, tf, len(assets), ", ".join(assets),
+                )
+                sub_args = argparse.Namespace(**vars(args))
+                sub_args.data_class = cls
+                sub_args.data_timeframe = tf
+                sub_args.data_assets = ",".join(assets)
+                sub_args.data_asset = assets[0]  # actif principal = 1er
+                sub_args.all_assets = False  # evite recursion infinie
+                sub_args.all_timeframes = False
+                class_tf_rc = 0
+                class_tf_stats: dict[str, int] = {}
+                for mode in ("engine", "baselines", "compare", "select", "refine", "admit"):
+                    sub_args.mode = mode
+                    rc = HANDLERS[mode](sub_args)
+                    class_tf_stats[mode] = rc
+                    if rc != 0:
+                        logger.error(
+                            "Classe %s / TF %s, etape %s en erreur (rc=%d)",
+                            cls, tf, mode, rc,
+                        )
+                        class_tf_rc = rc
+                        break
+                # Bilan par (classe, tf) : on garde une entree par TF.
+                report["classes"].setdefault(cls, {}).setdefault("timeframes", {})
+                report["classes"][cls].setdefault("n_assets", len(assets))
+                report["classes"][cls].setdefault("assets", list(assets))
+                report["classes"][cls]["timeframes"][tf] = {
+                    "rc": class_tf_rc,
+                    "step_rcs": class_tf_stats,
+                    "status": "ok" if class_tf_rc == 0 else "error",
+                }
         report["finished_at"] = datetime.now().isoformat()
-        # Bilan global.
-        n_ok = sum(1 for c in report["classes"].values() if c["rc"] == 0)
-        report["summary"] = f"{n_ok}/{len(per_class)} classes OK, corpus = data/corpus.jsonl"
+        # Bilan global : on compte chaque (classe, tf).
+        n_ok = 0
+        n_total = 0
+        for cls_data in report["classes"].values():
+            for tf_data in cls_data.get("timeframes", {}).values():
+                n_total += 1
+                if tf_data["rc"] == 0:
+                    n_ok += 1
+        report["summary"] = (
+            f"{n_ok}/{n_total} runs (classe x TF) OK, "
+            f"corpus = data/corpus.jsonl"
+        )
         # Persistance du rapport.
         out_path = Path("outputs") / "discover_report.json"
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1023,7 +1083,7 @@ def handle_run(args: argparse.Namespace) -> int:
             "[PIPELINE ALL] Termine : %s. Rapport dans %s.",
             report["summary"], out_path,
         )
-        return 0 if n_ok == len(per_class) else 1
+        return 0 if n_ok == n_total and n_total > 0 else 1
     logger.info("[PIPELINE] Exécution séquentielle des étapes 0 → 5")
     sub_args = argparse.Namespace(**vars(args))
     for mode in ("engine", "baselines", "compare", "select", "refine", "admit"):

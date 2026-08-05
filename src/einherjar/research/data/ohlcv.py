@@ -167,11 +167,36 @@ class _DataStoreBackend(_OhlcvBackend):
         asset: str,
         timeframe: str,
         data_version: str,
+        *,
+        asset_class: str = "crypto",
     ) -> pl.DataFrame:
+        """Fetch OHLCV depuis le DataStore. Fallback npy_loader si vide.
+
+        P0-02 (contrat OHLC) : si le DataStore n'a pas l'asset, on tente
+        un fallback vers npy_loader.load_ohlcv_from_npy qui lit les
+        .npy MIDAS V3 directement. Le store est la voie principale (live),
+        les .npy sont la voie bootstrap.
+        """
         df = self._store.query_ohlcv(asset=asset, timeframe=timeframe, since=None, limit=10_000_000)
         if df.is_empty():
+            # Fallback : lecture directe des .npy MIDAS V3.
+            try:
+                from einherjar.data.npy_loader import load_ohlcv_from_npy
+                fallback = load_ohlcv_from_npy(
+                    asset=asset, asset_class=asset_class, timeframe=timeframe,
+                )
+                if fallback is not None and not fallback.is_empty():
+                    logger.info(
+                        "OHLCV fallback via npy_loader : %s x %s, %d bougies",
+                        asset, timeframe, fallback.height,
+                    )
+                    return fallback
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("npy_loader fallback echoue (%s)", exc)
             raise OhlcvEmptyError(
-                f"Aucune bougie OHLCV pour ({asset}, {timeframe}) — le store est vide ?"
+                f"Aucune bougie OHLCV pour ({asset}, {timeframe}) — "
+                f"DataStore vide et fallback npy_loader indisponible. "
+                f"Verifie --data-root ({asset_class}/{timeframe}/{asset}_*.npy)."
             )
         return df
 
@@ -228,6 +253,7 @@ class OhlcvProvider:
         data_version: str,
         *,
         use_cache: bool = True,
+        asset_class: str = "crypto",
     ) -> OhlcvFrame:
         """Charge (ou récupère du cache) la série OHLCV.
 
@@ -236,6 +262,7 @@ class OhlcvProvider:
             timeframe: Granularité.
             data_version: Identifiant de version (utilisé comme clé de cache).
             use_cache: Si True (défaut), renvoie le cache si disponible.
+            asset_class: Classe d'actifs (pour le fallback npy_loader).
 
         Returns:
             OhlcvFrame validée et triée ASC par timestamp.
@@ -249,7 +276,10 @@ class OhlcvProvider:
             logger.debug("OHLCV cache hit : %s", cache_key)
             return self._cache[cache_key]
 
-        raw = self._backend.fetch(asset=asset, timeframe=timeframe, data_version=data_version)
+        raw = self._backend.fetch(
+            asset=asset, timeframe=timeframe, data_version=data_version,
+            asset_class=asset_class,
+        )
         frame = self._sanitize(raw, asset=asset, timeframe=timeframe, data_version=data_version)
         self._cache[cache_key] = frame
         logger.info(
@@ -298,8 +328,44 @@ class OhlcvProvider:
         timeframe: str,
         data_version: str,
     ) -> OhlcvFrame:
-        """Valide le schéma, dédoublonne, trie, drop les NaN critiques."""
+        """Valide le schema, normalise le timestamp, dedoublonne, trie, drop les NaN critiques.
+
+        P0-02 + fix npy_loader : on normalise le timestamp en datetime[us, UTC]
+        (le format des FeaturesFrame) pour que les join OHLCV x features
+        fonctionnent sans cast manuel. Le backend peut renvoyer int64 (ms Unix)
+        ou datetime ; on normalise vers datetime[us, UTC].
+        """
         _validate_schema(df)
+        # Normalisation du timestamp vers datetime[us, UTC].
+        ts_dtype = df.schema["timestamp"]
+        if ts_dtype == pl.Datetime("us", "UTC"):
+            pass  # deja normalise
+        elif ts_dtype == pl.Datetime:
+            # autre timezone ou precision : on cast en us + UTC
+            df = df.with_columns(
+                pl.col("timestamp").dt.replace_time_zone("UTC").dt.cast_time_unit("us")
+            )
+        elif ts_dtype == pl.Int64 or ts_dtype == pl.Int32:
+            # int = ms Unix (convention npy_loader)
+            # from_epoch cree un Datetime sans timezone ; on l'attache UTC,
+            # puis on convertit en us.
+            df = df.with_columns(
+                pl.from_epoch("timestamp", time_unit="ms")
+                .dt.replace_time_zone("UTC")
+                .dt.cast_time_unit("us")
+                .alias("timestamp")
+            )
+        else:
+            # Autres types (string, etc.) : on tente un cast datetime direct.
+            try:
+                df = df.with_columns(
+                    pl.col("timestamp").str.to_datetime(time_unit="us").alias("timestamp")
+                )
+            except Exception as exc:
+                raise OhlcvSchemaError(
+                    f"Timestamp OHLCV non convertible en datetime[us, UTC] : "
+                    f"dtype={ts_dtype}, erreur={exc}"
+                ) from exc
         df = _dedupe_and_sort(df)
         df = _drop_critical_nans(df)
         return OhlcvFrame(

@@ -56,8 +56,10 @@ def load_ohlcv_from_npy(
         ts = np.load(ts_path)
         X = np.load(x_path)
 
-        # Convertir timestamps Unix ms en datetime UTC
-        timestamps = [datetime.fromtimestamp(t / 1000, tz=timezone.utc) for t in ts]
+        # Les timestamps .npy sont en ms Unix. On les GARDE en int64
+        # pour compatibilite avec ohlcv._sanitize qui attend des entiers.
+        # (datetime causerait int() argument must be a string... not 'datetime.timedelta')
+        timestamps = ts.astype("int64")
 
         # Les 5 premieres colonnes de X sont typiquement OHLCV
         # (a verifier avec la structure reelle des features MIDAS)
@@ -66,7 +68,7 @@ def load_ohlcv_from_npy(
         # NOTE : les .npy contiennent des features normalisees, pas les prix bruts.
         # Il faut les recuperer via les API broker pour le live.
 
-        # On cree un DataFrame minimal avec les timestamps
+        # On cree un DataFrame minimal avec les timestamps en int (ms Unix).
         df = pl.DataFrame({
             "timestamp": timestamps,
             "open": np.zeros(len(ts), dtype=np.float64),
