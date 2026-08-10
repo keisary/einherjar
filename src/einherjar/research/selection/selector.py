@@ -210,7 +210,7 @@ class GeneratorSelector:
         if cls_name == "BeamSearchGenerator":
             return BeamSearchGenerator(protocol=protocol, config=config, engine=engine)
         if cls_name == "TypedGPGenerator":
-            return TypedGPGenerator(protocol=protocol, config=config)
+            return TypedGPGenerator(protocol=protocol, config=config, engine=engine)
         if cls_name == "GrammaticalEvolutionGenerator":
             return GrammaticalEvolutionGenerator(protocol=protocol, config=config, engine=engine)
         if cls_name == "MemeticGenerator":
