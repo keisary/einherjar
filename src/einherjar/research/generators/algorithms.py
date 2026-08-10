@@ -148,6 +148,66 @@ class BaseGenerator(ABC):
             return float("-inf")
         return (periods_per_year / held) * math.log1p(ret_mean)
 
+    # ------------------------------------------------------------------ #
+    # Tasting : sous-échantillonnage seedé pour l'évolution (Décision 2026-08-10)
+    # ------------------------------------------------------------------ #
+    def _taste_frames(
+        self,
+        val_ohlcv: Any,
+        val_features: Any,
+    ) -> tuple[Any, Any]:
+        """Réduit les frames val à un échantillon de blocs contigus seedé.
+
+        protocol.n_samples <= 0 ou >= longueur : renvoie (val_ohlcv, val_features)
+        inchangés (pas de tasting). Sinon : sélectionne n_blocks blocs contigus
+        (taille n_samples // n_blocks, seed via self._rng) répartis sur la
+        fenêtre, et reconstruit des sous-frames alignées OHLCV/features.
+
+        L'échantillon est IDENTIQUE pour toute la population (construit une
+        seule fois avant la boucle d'évolution) → fitness comparables entre
+        individus. L'admission finale évalue TOUJOURS sur le val complet.
+        """
+        n_samples = int(getattr(self.protocol, "n_samples", 0) or 0)
+        if n_samples <= 0:
+            return val_ohlcv, val_features
+        # Cache : le même (val, n_samples) produit le même échantillon seedé
+        # (stabilité population + pas de reconstruction à chaque génération).
+        _cache = getattr(self, "_taste_cache", None)
+        if _cache is not None and _cache[0] is val_ohlcv and _cache[1] == n_samples:
+            return _cache[2], _cache[3]
+        n_total = val_ohlcv.n_bougies
+        if n_total <= n_samples:
+            self._taste_cache = (val_ohlcv, n_samples, val_ohlcv, val_features)
+            return val_ohlcv, val_features
+        import random as _random
+        n_blocks = max(2, min(6, n_total // max(200, n_samples // 6)))
+        block_size = max(200, n_samples // n_blocks)
+        # Détermine des starts répartis uniformément, avec jitter seedé.
+        rng = _random.Random(int(self.protocol.seed) ^ 0x7A57)
+        usable = n_total - block_size
+        starts = sorted(rng.sample(range(usable), n_blocks))
+        # Slices polars par position (frames alignées OHLCV/features).
+        ohlcv_slices = [val_ohlcv.df.slice(s, block_size) for s in starts]
+        feat_slices = [val_features.df.slice(s, block_size) for s in starts]
+        import polars as pl
+        from einherjar.research.data.ohlcv import OhlcvFrame
+        from einherjar.research.data.features import FeaturesFrame
+        tasted_ohlcv = OhlcvFrame(
+            asset=val_ohlcv.asset, timeframe=val_ohlcv.timeframe,
+            df=pl.concat(ohlcv_slices), data_version=val_ohlcv.data_version,
+        )
+        tasted_features = FeaturesFrame(
+            asset=val_features.asset, timeframe=val_features.timeframe,
+            df=pl.concat(feat_slices), feature_names=val_features.feature_names,
+            data_version=val_features.data_version,
+        )
+        logger.info(
+            "Tasting : %d blocs × %d bougies = %d (au lieu de %d)",
+            n_blocks, block_size, tasted_ohlcv.n_bougies, n_total,
+        )
+        self._taste_cache = (val_ohlcv, n_samples, tasted_ohlcv, tasted_features)
+        return tasted_ohlcv, tasted_features
+
     def _make_amplitude(self, direction: Direction) -> Amplitude:
         """Construit l'Amplitude d'un Einher.
 
@@ -850,6 +910,13 @@ class TypedGPGenerator(BaseGenerator):
         val_features = val_features or getattr(self, "_search_val_features", None)
         if train_ohlcv is None or val_ohlcv is None:
             return [float("-inf")] * len(population)
+        # Tasting (Décision 2026-08-10) : si protocol.n_samples > 0, évalue
+        # sur un sous-échantillon seedé de blocs contigus. L'échantillon est
+        # reconstruit à CHAQUE appel : toutes les générations partagent le
+        # même seed → même fenêtre → fitness comparables entre individus.
+        # L'admission finale, elle, évalue TOUJOURS le val complet.
+        if int(getattr(self.protocol, "n_samples", 0) or 0) > 0:
+            val_ohlcv, val_features = self._taste_frames(val_ohlcv, val_features)
         min_trades = int(
             self.config.thresholds.get("n_trades", {}).get("min_total", 30) or 30
         )
@@ -859,7 +926,12 @@ class TypedGPGenerator(BaseGenerator):
         for h in population:
             try:
                 calibrated = self.engine.train_calibrate(h, train_ohlcv, train_features)
-                m = self.engine.test_on(h, val_ohlcv, val_features, calibrated, "val")
+                # with_bootstrap=False : l'évolution ne lit que CAGR/n_signals,
+                # le bootstrap (~90% du temps) est réservé à l'admission.
+                m = self.engine.test_on(
+                    h, val_ohlcv, val_features, calibrated, "val",
+                    with_bootstrap=False,
+                )
                 fitness.append(self._growth_fitness(m, periods_per_year, min_trades))
             except Exception:  # noqa: BLE001
                 fitness.append(float("-inf"))

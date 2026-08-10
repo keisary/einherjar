@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+### 2026-08-10
+- **Optimisation run-time de l'évolution (objectif verdicts ~60-90 min, décision 2026-08-10)** :
+  - `protocol.py` : champ `n_samples` (tasting) + option `make_protocol(n_samples=...)`. Valeur 0 = fenêtre complète (comportement historique préservé).
+  - `algorithms.py` : helper `_taste_frames` — échantillonne le val en blocs contigus seedés (même fenêtre pour toute la population, cache par (val, n_samples)) ; branchement dans `_evaluate_population` (TypedGP). L'admission finale évalue TOUJOURS le val complet : l'honnêteté est préservée.
+  - `evaluator.py` : `test_on(..., with_bootstrap=False)` — le block bootstrap (~90 % du temps de test_on) n'est lu QUE par l'admission ; pendant l'évolution/la comparaison, CI = NaN. Admission inchangée (bootstrap conservé).
+  - `comparator.py` : competition en `with_bootstrap=False`.
+  - `discovery.py` : flag `--taste-samples` (défaut 0) transmis aux 4 pipelines (compare/select/refine/admit).
+  - Suppression de `_tasted_eval` (mort, logique doublonnée par le branchement direct).
+  - Mesures : 15m bootstrap OFF → ~0,11 s/test_on au lieu de ~0,64 s ; run BTCUSD 3 TF estimé ~10 min au lieu de ~10 h.
+- **Fichiers** : `src/einherjar/research/generators/protocol.py`, `algorithms.py`, `engine/evaluator.py`, `generators/comparator.py`, `research/discovery.py`
+
 ### 2026-07-20
 - **Cahier des charges** : mise a jour complete v0.3
   - Limites globales relachees (expo 60%, 15 positions, etc.)

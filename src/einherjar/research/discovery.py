@@ -175,6 +175,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Nombre d'hypothèses par baseline random (défaut: 200).",
     )
     parser.add_argument(
+        "--taste-samples", type=int, default=0,
+        help=(
+            "Tasting (Décision 2026-08-10) : nb de bougies val échantillonnées "
+            "en blocs contigus seedés pour l'évolution (0 = fenêtre complète, "
+            "défaut). L'admission finale reste sur le val complet."
+        ),
+    )
+    parser.add_argument(
         "--selection-path", type=Path, default=Path("outputs/selection.json"),
         help="Fichier de persistance de la sélection du générateur.",
     )
@@ -669,6 +677,7 @@ def handle_compare(args: argparse.Namespace) -> int:
         assets=tuple(loaded.keys()),
         timeframes=(train_ohlcv.timeframe,),
         max_conditions=getattr(args, "max_conditions", 4) or 4,
+        n_samples=getattr(args, "taste_samples", 0) or 0,
     )
     # Philosophie arbres d'abord (decision utilisateur 2026-08-09).
     all_generators = make_all_generators(protocol, config, engine=engine)
@@ -773,6 +782,7 @@ def handle_select(args: argparse.Namespace) -> int:
         assets=tuple(loaded.keys()),
         timeframes=(train_ohlcv.timeframe,),
         max_conditions=getattr(args, "max_conditions", 4) or 4,
+        n_samples=getattr(args, "taste_samples", 0) or 0,
     )
     generators = _filter_competition_generators(
         make_all_generators(protocol, config, engine=engine), args)
@@ -833,6 +843,7 @@ def handle_refine(args: argparse.Namespace) -> int:
         assets=tuple(loaded.keys()),
         timeframes=(train_ohlcv.timeframe,),
         max_conditions=getattr(args, "max_conditions", 4) or 4,
+        n_samples=getattr(args, "taste_samples", 0) or 0,
     )
     engine = EvaluationEngine(
         config=config, data_version=args.data_version or train_ohlcv.data_version, seed=args.seed,
@@ -954,6 +965,7 @@ def handle_admit(args: argparse.Namespace) -> int:
         assets=tuple(loaded.keys()),
         timeframes=(train_ohlcv.timeframe,),
         max_conditions=getattr(args, "max_conditions", 4) or 4,
+        n_samples=getattr(args, "taste_samples", 0) or 0,
     )
     engine = EvaluationEngine(
         config=config, data_version=args.data_version or train_ohlcv.data_version, seed=args.seed,

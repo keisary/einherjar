@@ -549,8 +549,16 @@ class _MesuresAggregator:
         self,
         trades: list[TradeMesure],
         per_asset_trades: dict[str, list[TradeMesure]],
+        *,
+        with_bootstrap: bool = True,
     ) -> MesuresBrutes:
-        """Construit MesuresBrutes à partir de la liste de trades."""
+        """Construit MesuresBrutes à partir de la liste de trades.
+
+        with_bootstrap=False : saute le block bootstrap (CI = NaN). Le bootstrap
+        est coûteux (~90% du temps de test_on) et n'est lu QUE par l'admission
+        (criteria.py). Pendant l'évolution / la comparaison, personne ne lit les
+        CI : on les économise. (Décision 2026-08-10, optimisation run-time.)
+        """
         n = len(trades)
         if n == 0:
             return self._empty_mesures()
@@ -563,13 +571,19 @@ class _MesuresAggregator:
         n_to = sum(1 for t in trades if t.exit_reason == ExitReason.TIMEOUT)
         held = [t.n_bougies_held for t in trades]
 
-        # Block bootstrap CI.
+        # Block bootstrap CI (optionnel : coûteux, lu uniquement par l'admission).
         # Trade returns have variable holding periods. Annualising them as if
         # each trade were a bar is invalid, so this is a per-trade Sharpe.
-        bs_sharpe = bootstrap_sharpe(
-            returns_net, self._config, periods_per_year=1.0, rng_seed=self._seed,
-        )
-        bs_ret = bootstrap_ret_total(returns_net, self._config, rng_seed=self._seed + 1)
+        if with_bootstrap:
+            bs_sharpe = bootstrap_sharpe(
+                returns_net, self._config, periods_per_year=1.0, rng_seed=self._seed,
+            )
+            bs_ret = bootstrap_ret_total(returns_net, self._config, rng_seed=self._seed + 1)
+            bs_sharpe_ci_low, bs_sharpe_ci_high = bs_sharpe.ci_low, bs_sharpe.ci_high
+            bs_ret_ci_low, bs_ret_ci_high = bs_ret.ci_low, bs_ret.ci_high
+        else:
+            bs_sharpe_ci_low = bs_sharpe_ci_high = float("nan")
+            bs_ret_ci_low = bs_ret_ci_high = float("nan")
 
         # Sharpe annualisé. Chaque trade a une durée de détention variable
         # (avg_holding_period bougies). Le Sharpe par-trade est annualisé en
@@ -620,10 +634,10 @@ class _MesuresAggregator:
                 float(np.mean([t.n_bougies_held for t in trades if t.exit_reason == ExitReason.TP]))
                 if n_tp else 0.0
             ),
-            bootstrap_sharpe_ci_low=bs_sharpe.ci_low,
-            bootstrap_sharpe_ci_high=bs_sharpe.ci_high,
-            bootstrap_ret_ci_low=bs_ret.ci_low,
-            bootstrap_ret_ci_high=bs_ret.ci_high,
+            bootstrap_sharpe_ci_low=bs_sharpe_ci_low,
+            bootstrap_sharpe_ci_high=bs_sharpe_ci_high,
+            bootstrap_ret_ci_low=bs_ret_ci_low,
+            bootstrap_ret_ci_high=bs_ret_ci_high,
             per_asset_stats=per_asset_stats,
             trades=tuple(trades),
             n_window=self._calibrated.n_window,
@@ -891,6 +905,8 @@ class EvaluationEngine:
         features: FeaturesFrame,
         calibrated: CalibratedParams,
         split_name: str,
+        *,
+        with_bootstrap: bool = True,
     ) -> MesuresBrutes:
         """Évalue l'hypothèse sur un split, en utilisant la CalibratedParams figée.
 
@@ -956,7 +972,11 @@ class EvaluationEngine:
         )
         # Per-asset : ici un seul asset, mais on garde la structure.
         per_asset = {ohlcv.asset: trades} if trades else {}
-        mesures = aggregator.aggregate(trades=trades, per_asset_trades=per_asset)
+        mesures = aggregator.aggregate(
+            trades=trades,
+            per_asset_trades=per_asset,
+            with_bootstrap=with_bootstrap,
+        )
 
         logger.info(
             "test_on(%s) OK : %d signaux → %d trades (TP=%d, SL=%d, TO=%d), Sharpe=%.3f [%.3f, %.3f]",

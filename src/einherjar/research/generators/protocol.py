@@ -82,6 +82,11 @@ class GenerationProtocol:
     timeframes: tuple[str, ...] = ("1h",)
     amplitude_value: float = 5.0
     cooldown_k: int = 5
+    # Tasting : nb de bougies échantillonnées par test_on pendant l'ÉVOLUTION
+    # (0 = fenêtre complète). Décision 2026-08-10 : l'échantillon seedé de
+    # blocs contigus est identique pour toute la population → évolution
+    # ~10-50× plus rapide ; l'admission reste sur le val complet.
+    n_samples: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -96,6 +101,7 @@ class GenerationProtocol:
             "timeframes": list(self.timeframes),
             "amplitude_value": self.amplitude_value,
             "cooldown_k": self.cooldown_k,
+            "n_samples": self.n_samples,
         }
 
 
@@ -108,6 +114,7 @@ def make_protocol(
     assets: tuple[str, ...] = ("BTCUSD",),
     timeframes: tuple[str, ...] = ("1h",),
     max_conditions: int = 4,
+    n_samples: int = 0,
 ) -> GenerationProtocol:
     """Construit un GenerationProtocol depuis la config + data_version + seed.
 
@@ -147,4 +154,5 @@ def make_protocol(
         assets=assets,
         timeframes=timeframes,
         max_conditions=max_conditions,
+        n_samples=n_samples,
     )

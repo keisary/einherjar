@@ -323,6 +323,7 @@ class GeneratorComparator:
                     calibrated = self.engine.train_calibrate(hyp, train_ohlcv, train_features)
                     mesures = self.engine.test_on(
                         hyp, val_ohlcv, val_features, calibrated, "val",
+                        with_bootstrap=False,
                     )
                     n_eval += 1
                     global_eval_count += 1
