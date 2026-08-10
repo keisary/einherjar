@@ -68,6 +68,20 @@ class TestEvaluateQuotas(unittest.TestCase):
         # Direction 100% long > 30% → OK.
         self.assertTrue(r.direction_ok)
 
+    def test_empty_corpus_passes_all_structural_quotas(self):
+        # (fix 2026-08-10) Corpus vide : le premier Einher ne viole aucune
+        # concentration existante — family/type/direction passent tous.
+        config = self._config()
+        r = evaluate_quotas(
+            new_family="momentum", new_type="atomic", new_direction="long",
+            current_family_fracs={}, current_type_fracs={}, current_direction_fracs={},
+            config=config,
+        )
+        self.assertTrue(r.family_ok)
+        self.assertTrue(r.type_ok)
+        self.assertTrue(r.direction_ok)
+        self.assertTrue(r.passed)
+
     def test_over_family_quota_fails(self):
         # Si 39% momentum, ajout d'un 5e momentum -> ~44% > 40% → FAIL.
         config = self._config()

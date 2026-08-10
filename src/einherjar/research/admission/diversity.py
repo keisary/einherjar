@@ -349,9 +349,16 @@ def evaluate_quotas(
     future_type_fracs = _increment(current_type_fracs, new_type)
     future_dir_fracs = _increment(current_direction_fracs, new_direction)
 
-    family_ok = all(frac <= family_max for frac in future_family_fracs.values())
-    type_ok = all(frac <= type_max for frac in future_type_fracs.values())
-    direction_ok = all(frac >= direction_min for frac in future_dir_fracs.values())
+    # (fix 2026-08-10) Corpus vide : aucune concentration existante a violer —
+    # le premier Einher ne peut pas creer une concentration abusive (1/1 = 100 %
+    # > family_max ferait echouer TOUTE premiere admission).
+    corpus_vide = not current_family_fracs and not current_type_fracs and not current_direction_fracs
+    if corpus_vide:
+        family_ok = type_ok = direction_ok = True
+    else:
+        family_ok = all(frac <= family_max for frac in future_family_fracs.values())
+        type_ok = all(frac <= type_max for frac in future_type_fracs.values())
+        direction_ok = all(frac >= direction_min for frac in future_dir_fracs.values())
 
     return QuotaReport(
         family_ok=family_ok,
