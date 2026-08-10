@@ -115,6 +115,17 @@ class HoldoutEvaluator:
             self._ledger.path,
         )
 
+    @staticmethod
+    def _window_key(frame: Any) -> str:
+        """Clé de fenêtre : 'start_ts_ms:end_ts_ms' (vide si indisponible)."""
+        try:
+            df = frame.df
+            start = int(df["timestamp"][0])
+            end = int(df["timestamp"][-1])
+            return f"{start}:{end}"
+        except Exception:  # noqa: BLE001
+            return ""
+
     def evaluate(
         self,
         hypothesis: Any,                      # Hypothesis
@@ -147,15 +158,19 @@ class HoldoutEvaluator:
                 "Si tu veux comparer plusieurs Einhers finaux, IL FAUT un nouveau holdout "
                 "(et donc un nouveau data_version)."
             )
+        # (fix) La clé inclut la fenêtre du holdout : deux runs sur le même
+        # data_version mais des bornes temporelles différentes ne se bloquent
+        # plus mutuellement (cf. HoldoutLedger window).
+        window = self._window_key(holdout_ohlcv)
         # P1 #4 : vérification PERSISTANTE via le ledger (anti-réentrance post-redémarrage).
-        if self._ledger.has_access(hypothesis.id, self.data_version):
+        if self._ledger.has_access(hypothesis.id, self.data_version, window):
             raise HoldoutAlreadyUsedError(
                 f"Holdout déjà consommé pour (strategy_id={hypothesis.id}, "
-                f"data_version={self.data_version}). Voir {self._ledger.path}."
+                f"data_version={self.data_version}, window={window}). Voir {self._ledger.path}."
             )
         # Reserve before reading the holdout. A crash afterwards intentionally
         # leaves the strategy blocked rather than allowing a silent retry.
-        self._ledger.reserve(hypothesis.id, self.data_version)
+        self._ledger.reserve(hypothesis.id, self.data_version, window)
         self._holdout_used = True
         timestamp = datetime.now(timezone.utc).isoformat()
         logger.warning(
@@ -212,6 +227,7 @@ class HoldoutEvaluator:
         # P1 #4 : append ATOMIQUE dans le ledger persistant.
         self._ledger.record(HoldoutEntry(
             strategy_id=hypothesis.id,
+            window=window,
             data_version=self.data_version,
             timestamp=timestamp,
             n_trades=metrics_holdout.n_signals,

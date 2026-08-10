@@ -45,6 +45,61 @@ from einherjar.research.data.ohlcv import OhlcvFrame
 
 logger = logging.getLogger(__name__)
 
+# --- Competition "arbres d'abord" (decision utilisateur 2026-08-09) ---
+# Les generateurs de recherche aleatoire (RandomSearch) et l'expansion par
+# grammaire (GrammaticalEvolution) sortent de la competition par defaut :
+# les random gagnent uniquement par volume de points, sans construire de
+# structure exploitable ; GE score tres faible (0.0029) avec branches mortes.
+_DEFAULT_EXCLUDED_GENERATORS = (
+    "RandomSearchGenerator",
+    "GrammaticalEvolutionGenerator",
+)
+
+
+def _filter_competition_generators(generators, args: argparse.Namespace):
+    """Retire de la competition les generateurs ecartes par defaut (arbres
+    d'abord), sauf si l'utilisateur les re-inclut explicitement via
+    --generator (alias simple) ou --generators (liste, prioritaire)."""
+    if getattr(args, "generators", None):
+        wanted = {g.strip() for g in args.generators.split(",") if g.strip()}
+        return [g for g in generators if g.__class__.__name__ in wanted]
+    if getattr(args, "generator", None):
+        # alias existant : laisse passer (l'utilisateur demande explicitement)
+        return generators
+    return [g for g in generators if g.__class__.__name__ not in _DEFAULT_EXCLUDED_GENERATORS]
+
+
+def _compare_report_path(args: argparse.Namespace) -> Path:
+    asset = getattr(args, "data_asset", None) or "BTCUSD"
+    tf = getattr(args, "data_timeframe", None) or "1h"
+    return Path("outputs") / f"compare_report_{asset}_{tf}.json"
+
+
+def _load_compare_report(args: argparse.Namespace):
+    """Retourne le dict du rapport de comparaison si celui-ci correspond au
+    run courant (asset/TF/seed/n_eval/max_conditions), sinon None."""
+    path = _compare_report_path(args)
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Rapport de comparaison illisible (%s) : ignore.", exc)
+        return None
+    meta = payload.get("meta", {})
+    want = {
+        "asset": getattr(args, "data_asset", None) or "BTCUSD",
+        "timeframe": getattr(args, "data_timeframe", None) or "1h",
+        "seed": getattr(args, "seed", None),
+        "n_eval": getattr(args, "n_eval", None),
+        "max_conditions": getattr(args, "max_conditions", None),
+    }
+    if not all(meta.get(k) == want.get(k) for k in ("asset", "timeframe", "seed", "n_eval", "max_conditions")):
+        logger.info("Rapport de comparaison present mais stale pour ce run : ignore.")
+        return None
+    return payload["report"]
+
+
 # --------------------------------------------------------------------------- #
 # Modes
 # --------------------------------------------------------------------------- #
@@ -95,8 +150,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Générateur à utiliser (utile pour select/refine/admit/holdout).",
     )
     parser.add_argument(
+        "--generators", type=str, default=None,
+        help="Liste de générateurs pour la comparaison (noms de classes, séparés par "
+             "des virgules, ex: TypedGPGenerator,NSGA2Generator). Par défaut, seuls "
+             "les générateurs d'arbres participent (random et GE exclus).",
+    )
+    parser.add_argument(
+        "--max-conditions", type=int, default=4,
+        help="Profondeur max des conditions pour les générateurs d'arbres (défaut: 4).",
+    )
+    parser.add_argument(
         "--n-eval", type=int, default=None,
-        help="Budget d'évaluations (utilisé par compare et baselines).",
+        help="Budget d'évaluations moteur — plafond de COÛT global reparti équitablement "
+             "entre generateurs (utilisé par compare et baselines).",
+    )
+    parser.add_argument(
+        "--n-candidates", type=int, default=None,
+        help="Volume de GÉNÉRATION : nombre d'hypothèses produites par moteur "
+             "(défaut 100k). Indépendant du budget d'évaluation : l'évaluation "
+             "et l'admission resserrent l'étau ensuite.",
     )
     parser.add_argument(
         "--n-samples", type=int, default=200,
@@ -186,7 +258,7 @@ def _load_real_data(
     from einherjar.research.data.npy_real_loader import load_features_from_npy
     from einherjar.research.data.ohlcv import OhlcvProvider
     from einherjar.research.data.validation import validate_or_raise
-    from einherjar.research.data.versioning import make_frame_data_version
+    from einherjar.research.data.versioning import make_frame_data_version, make_splits_hash
 
     root = Path(data_root)
     # MIDAS X.npy is normalized feature data. It must never provide execution
@@ -264,10 +336,25 @@ def _load_real_data(
             data_version=full_features.data_version,
         )
 
+    # (fix) splits_hash : hash des BORNES RÉELLES des splits (purge/embargo
+    # inclus), pas de la data_version. Deux fenêtres différentes sur la même
+    # data produisent deux splits_hash différents — c'est ce qui trace la
+    # portion temporelle exacte utilisée pour chaque Einher du corpus.
+    splits_key = make_splits_hash(
+        train_start=0,
+        train_end=train_end,
+        val_start=val_start,
+        val_end=val_end,
+        holdout_start=holdout_start,
+        holdout_end=n,
+        embargo_bougies=embargo,
+        horizon_label=purge,
+    )
     return (
         _slice_ohlcv(0, train_end), _slice_features(0, train_end),
         _slice_ohlcv(val_start, val_end), _slice_features(val_start, val_end),
         _slice_ohlcv(holdout_start, n), _slice_features(holdout_start, n),
+        splits_key,
     )
 
 
@@ -513,7 +600,7 @@ def handle_baselines(args: argparse.Namespace) -> int:
         primary = _primary_asset(loaded)
         if len(loaded) > 1:
             logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _, splits_hash = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
@@ -524,7 +611,9 @@ def handle_baselines(args: argparse.Namespace) -> int:
     )
     # Admission RÉELLE (7 critères S-3.4), pas un fallback "tout admis".
     admission_fn, counter = make_baseline_admission_fn(config)
-    runner = BaselineRunner(engine=engine)
+    # Budget moteur : part = n_eval // n_baselines (P1-08, meme philosophie que le comparateur).
+    budget = args.n_eval if getattr(args, "n_eval", None) else None
+    runner = BaselineRunner(engine=engine, eval_budget=budget)
     report = runner.run(
         train_ohlcv=train_ohlcv, train_features=train_features,
         val_ohlcv=val_ohlcv, val_features=val_features,
@@ -560,7 +649,7 @@ def handle_compare(args: argparse.Namespace) -> int:
                 "et a la diversite Jaccard vs corpus (P1-10).",
                 len(loaded), primary,
             )
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _, splits_hash = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
@@ -571,26 +660,22 @@ def handle_compare(args: argparse.Namespace) -> int:
     _persist_data_version(config, train_ohlcv, train_features)
     protocol = make_protocol(
         config, data_version=data_version,
-        seed=args.seed, n_eval_budget=args.n_eval or 200,
+        seed=args.seed,
+        n_eval_budget=args.n_eval if args.n_eval is not None else 2_000,
+        n_candidates=args.n_candidates if args.n_candidates is not None else 100_000,
+        # BUG #4 : les artefacts portaient toujours universe.timeframes=['1h']
+        # (defaut make_protocol) quel que soit le TF du run — l'etiquette du
+        # run reel est portee par les donnees chargees, pas par le defaut.
+        assets=tuple(loaded.keys()),
+        timeframes=(train_ohlcv.timeframe,),
+        max_conditions=getattr(args, "max_conditions", 4) or 4,
     )
-    # Si l'utilisateur a filtré via --generator, on n'instancie que celui-là.
+    # Philosophie arbres d'abord (decision utilisateur 2026-08-09).
     all_generators = make_all_generators(protocol, config, engine=engine)
-    if args.generator:
-        # Match par sous-chaine insensible à la casse sur le nom de classe.
-        # Aliases : stgp=TypedGPGenerator, nsga2=NSGA2Generator, etc.
-        alias = args.generator.lower()
-        alias_to_class = {
-            "stgp": "TypedGPGenerator",
-            "nsga2": "NSGA2Generator",
-            "nsga": "NSGA2Generator",
-            "ge": "GrammaticalEvolutionGenerator",
-        }
-        target = alias_to_class.get(alias, alias)
-        all_generators = [g for g in all_generators if g.name.lower() == target.lower()]
-        if not all_generators:
-            logger.error("Aucun générateur ne matche --generator=%s (cible=%s)", args.generator, target)
-            return 2
-        logger.info("Filtre --generator=%s : %d générateur(s) actif(s)", args.generator, len(all_generators))
+    all_generators = _filter_competition_generators(all_generators, args)
+    if not all_generators:
+        logger.error("Aucun générateur actif apres filtrage competition.")
+        return 2
     # Injecte les données dans les générateurs qui en ont besoin (NSGA-II, Memetic).
     for gen in all_generators:
         gen.bind_data(train_ohlcv, train_features, val_ohlcv, val_features)
@@ -610,6 +695,23 @@ def handle_compare(args: argparse.Namespace) -> int:
     for r in report.rankings:
         logger.info("  #%d %s : score=%.4f, admission_rate=%.4f, median_sharpe=%.4f",
                     r.rank, r.generator_name, r.score, r.admission_rate, r.median_sharpe)
+    # P1 : persiste le rapport pour que 'select' l'utilise sans relancer la
+    # comparaison (~540 evaluations economisees par TF). Indexe par asset/TF.
+    report_path = _compare_report_path(args)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(
+        json.dumps({
+            "meta": {
+                "asset": args.data_asset,
+                "timeframe": args.data_timeframe,
+                "seed": args.seed,
+                "n_eval": args.n_eval,
+            },
+            "report": report.to_dict(),
+        }, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    logger.info("Rapport de comparaison persisté : %s", report_path)
     return 0
 
 
@@ -622,6 +724,28 @@ def handle_select(args: argparse.Namespace) -> int:
         logger.info("Sélection chargée depuis %s : %s", args.selection_path, selected.generator_name)
         return 0
     # Sinon, on lance une comparaison rapide pour avoir un ranking.
+    # P1 : si 'compare' a déjà tourné pour ce run (même asset/TF/seed/n_eval),
+    # on consomme son rapport au lieu de relancer la comparaison.
+    from einherjar.research.generators.comparator import ComparisonReport
+    cached = _load_compare_report(args)
+    if cached is not None:
+        config = load_config(args.config)
+        try:
+            loaded = _load_for_handler(config, args)
+            primary = _primary_asset(loaded)
+            train_ohlcv = loaded[primary][0]
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Impossible de charger les données réelles : %s", exc)
+            return 2
+        data_version = args.data_version or train_ohlcv.data_version
+        report = ComparisonReport.from_dict(cached)
+        from einherjar.research.selection.selector import GeneratorSelector
+        selector = GeneratorSelector(protocol=report.protocol)
+        selected = selector.select(report)
+        selector.save(selected, args.selection_path)
+        logger.info("Sélection (sans re-comparer) : %s (rank=%d, score=%.4f)",
+                    selected.generator_name, selected.rank, selected.score)
+        return 0
     config = load_config(args.config)
     from einherjar.research.engine.evaluator import EvaluationEngine
     from einherjar.research.generators.algorithms import make_all_generators
@@ -634,7 +758,7 @@ def handle_select(args: argparse.Namespace) -> int:
         primary = _primary_asset(loaded)
         if len(loaded) > 1:
             logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _, splits_hash = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
@@ -643,9 +767,15 @@ def handle_select(args: argparse.Namespace) -> int:
     data_version = args.data_version or train_ohlcv.data_version
     engine = EvaluationEngine(config=config, data_version=data_version, seed=args.seed)
     protocol = make_protocol(
-        config, data_version=data_version, seed=args.seed, n_eval_budget=args.n_eval or 200,
+        config, data_version=data_version, seed=args.seed,
+        n_eval_budget=args.n_eval if args.n_eval is not None else 2_000,
+        n_candidates=args.n_candidates if args.n_candidates is not None else 100_000,
+        assets=tuple(loaded.keys()),
+        timeframes=(train_ohlcv.timeframe,),
+        max_conditions=getattr(args, "max_conditions", 4) or 4,
     )
-    generators = make_all_generators(protocol, config, engine=engine)
+    generators = _filter_competition_generators(
+        make_all_generators(protocol, config, engine=engine), args)
     for generator in generators:
         generator.bind_data(train_ohlcv, train_features, val_ohlcv, val_features)
     comparator = GeneratorComparator(generators=generators, protocol=protocol, engine=engine, config=config)
@@ -689,7 +819,7 @@ def handle_refine(args: argparse.Namespace) -> int:
         primary = _primary_asset(loaded)
         if len(loaded) > 1:
             logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _, splits_hash = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
@@ -698,7 +828,12 @@ def handle_refine(args: argparse.Namespace) -> int:
     # Instancie le générateur avec un budget limité.
     import dataclasses
     n_eval = args.n_eval or 20
-    protocol = dataclasses.replace(selected.protocol, n_eval_budget=n_eval)
+    protocol = dataclasses.replace(
+        selected.protocol, n_eval_budget=n_eval,
+        assets=tuple(loaded.keys()),
+        timeframes=(train_ohlcv.timeframe,),
+        max_conditions=getattr(args, "max_conditions", 4) or 4,
+    )
     engine = EvaluationEngine(
         config=config, data_version=args.data_version or train_ohlcv.data_version, seed=args.seed,
     )
@@ -708,10 +843,20 @@ def handle_refine(args: argparse.Namespace) -> int:
     generator.bind_data(train_ohlcv, train_features, val_ohlcv, val_features)
     result = generator.generate()
     logger.info("Génération OK : %d hypothèses en %.2fs", len(result.hypotheses), result.generation_time_s)
-    # Calibre + test_on(val) sur chaque hypothèse, garde le top M.
-    n_top = min(5, len(result.hypotheses))
+    # Plafond d'évaluation : on NE teste que `n_eval` hypothèses max (budget
+    # moteur partagé, philosophie P1-08). Sans ce plafond, RandomSearch (n_candidates
+    # = 100k par défaut) enverrait ~100k calibrations à la suite (~28 h pour le 1h).
+    eval_budget = max(1, n_eval)
+    hyps_a_evaluer = result.hypotheses[:eval_budget]
+    if len(result.hypotheses) > eval_budget:
+        logger.info(
+            "Plafond raffinement : %d hypothèses générées -> %d évaluées (budget n_eval)",
+            len(result.hypotheses), eval_budget,
+        )
+    # Calibre + test_on(val) sur chaque hypothèse du budget, garde le top M.
+    n_top = min(5, len(hyps_a_evaluer))
     candidates: list[tuple[float, Any, Any, Any]] = []  # (sharpe_val, hyp, calibrated, m_val)
-    for hyp in result.hypotheses:
+    for hyp in hyps_a_evaluer:
         try:
             calibrated = engine.train_calibrate(hyp, train_ohlcv, train_features)
             m_val = engine.test_on(hyp, val_ohlcv, val_features, calibrated, "val")
@@ -796,7 +941,7 @@ def handle_admit(args: argparse.Namespace) -> int:
         primary = _primary_asset(loaded)
         if len(loaded) > 1:
             logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
-        train_ohlcv, train_features, val_ohlcv, val_features, _, _ = loaded[primary]
+        train_ohlcv, train_features, val_ohlcv, val_features, _, _, splits_hash = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2
@@ -804,7 +949,12 @@ def handle_admit(args: argparse.Namespace) -> int:
     _persist_data_version(config, train_ohlcv, train_features)
     import dataclasses
     n_eval = args.n_eval or 20
-    protocol = dataclasses.replace(selected.protocol, n_eval_budget=n_eval)
+    protocol = dataclasses.replace(
+        selected.protocol, n_eval_budget=n_eval,
+        assets=tuple(loaded.keys()),
+        timeframes=(train_ohlcv.timeframe,),
+        max_conditions=getattr(args, "max_conditions", 4) or 4,
+    )
     engine = EvaluationEngine(
         config=config, data_version=args.data_version or train_ohlcv.data_version, seed=args.seed,
     )
@@ -813,6 +963,16 @@ def handle_admit(args: argparse.Namespace) -> int:
     generator.bind_data(train_ohlcv, train_features, val_ohlcv, val_features)
     result = generator.generate()
     logger.info("Génération OK : %d hypothèses en %.2fs", len(result.hypotheses), result.generation_time_s)
+    # Plafond (P1-08, même philosophie que baselines/refine) : on ne construit
+    # la matrice CPCV que sur `n_eval` hypothèses max. Sans cela, RandomSearch
+    # (n_candidates=100k) enverrait 100k calibrations à ~2,7 s chacune (≈75 h).
+    eval_budget = max(1, n_eval)
+    hyps_a_evaluer = result.hypotheses[:eval_budget]
+    if len(result.hypotheses) > eval_budget:
+        logger.info(
+            "Plafond admission : %d hypothèses générées -> %d évaluées (budget n_eval)",
+            len(result.hypotheses), eval_budget,
+        )
     data_version = args.data_version or train_ohlcv.data_version
     engine = EvaluationEngine(config=config, data_version=data_version, seed=args.seed)
     decider = AdmissionDecider(config=config, data_version=data_version, seed=args.seed)
@@ -820,9 +980,9 @@ def handle_admit(args: argparse.Namespace) -> int:
     corpus = CorpusStore()
     corpus_entries = corpus.load()
     # CPCV/PBO requiert la matrice de tous les candidats testés sur la même
-    # validation. On l'évalue avant toute admission, sans consulter le holdout.
+    # validation. On l'évalue avant toute admission, sans conditionner le holdout.
     evaluated_candidates: dict[str, tuple[Any, Any]] = {}
-    for hyp in result.hypotheses:
+    for hyp in hyps_a_evaluer:
         try:
             calibrated = engine.train_calibrate(hyp, train_ohlcv, train_features)
             measures = engine.test_on(hyp, val_ohlcv, val_features, calibrated, "val")
@@ -836,12 +996,18 @@ def handle_admit(args: argparse.Namespace) -> int:
     n_admitted = 0
     n_rejected = 0
     reasons: dict[str, int] = {}
-    for i, hyp in enumerate(result.hypotheses, start=1):
+    for i, hyp in enumerate(hyps_a_evaluer, start=1):
         evaluation = evaluated_candidates.get(hyp.id)
         if evaluation is None:
             continue
         calibrated, m_val = evaluation
         returns_val = [t.ret_pct_net for t in m_val.trades]
+        # (fix refactor) Quotas I-8 : les fractions du corpus sont calculées à
+        # chaque itération (le corpus s'enrichit au fil des admissions). Avant
+        # ce branchement, current_corpus_fracs n'était JAMAIS fourni → les
+        # quotas structurels n'étaient jamais appliqués.
+        from einherjar.research.admission.diversity import compute_corpus_fracs
+        current_fracs = compute_corpus_fracs(corpus_entries, config)
         decision = decider.decide(
             hypothesis_id=hyp.id,
             condition_tree=hyp.condition_tree,
@@ -855,8 +1021,13 @@ def handle_admit(args: argparse.Namespace) -> int:
             corpus_signal_dates=[tuple(e.meta.get("signal_indices", ())) for e in corpus_entries],
             corpus_ret_series=[e.ret_series for e in corpus_entries],
             pbo_candidate_paths=pbo_candidate_paths,
+            current_corpus_fracs=current_fracs,
             cooldown_k=hyp.cooldown_k,
             n_indep_trials=i,
+            corpus_fingerprints=[
+                (e.fingerprint_structurel, e.fingerprint_comportemental)
+                for e in corpus_entries
+            ],
         )
         if decision.admitted:
             n_admitted += 1
@@ -879,7 +1050,7 @@ def handle_admit(args: argparse.Namespace) -> int:
                 probability_of_backtest_overfitting=float(verdicts.get("PBO", float("nan"))),
                 ret_series=tuple(returns_val),
                 data_version=train_ohlcv.data_version, seed=args.seed,
-                splits_hash=selected.protocol.data_version,
+                splits_hash=splits_hash,
                 admission_timestamp=CorpusEntry.now_utc(),
                 meta={"signal_indices": [t.entry_idx - 1 for t in m_val.trades]},
             )
@@ -956,7 +1127,7 @@ def handle_holdout(args: argparse.Namespace) -> int:
         primary = _primary_asset(loaded)
         if len(loaded) > 1:
             logger.info("P0-05 : multi-actifs charge (%d), actif principal = %s", len(loaded), primary)
-        train_ohlcv, train_features, val_ohlcv, val_features, holdout_ohlcv, holdout_features = loaded[primary]
+        train_ohlcv, train_features, val_ohlcv, val_features, holdout_ohlcv, holdout_features, splits_hash = loaded[primary]
     except Exception as exc:  # noqa: BLE001
         logger.error("Impossible de charger les données réelles : %s", exc)
         return 2

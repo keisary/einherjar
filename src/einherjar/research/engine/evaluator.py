@@ -289,8 +289,15 @@ class _ConditionEvaluator:
                 "toute Condition avec transformation doit être levée par le BNF/P0 #9."
             )
         if not features.has(c.feature_ref):
-            # Feature inconnue → False partout (NaN-propagation, règle dure S-1).
-            return pl.Series("cond", [False] * features.n_bougies)
+            # Feature inconnue → erreur EXPLICITE (pas de False partout).
+            # L'ancien comportement (False silencieux) produisait des Einhers
+            # vides sans aucun signal — des candidats "pas absurdes" passaient
+            # l'évaluation avec 0 trades, c'était un faux négatif permanent.
+            # Invariant V1 : tout écart est signalé (cf. docstring classe).
+            raise EvaluationError(
+                f"Feature inconnue : {c.feature_ref!r} (générateur invalide). "
+                "Les features autorisées sont celles de la taxonomie (218)."
+            )
         col = features.column(c.feature_ref)
         if c.transformation in (None, ""):
             return self._apply_op(col, c.operator, c.value)
@@ -305,7 +312,11 @@ class _ConditionEvaluator:
             return self._apply_op(col, c.operator, float(threshold))
         other_name = c.transformation.split(":", 1)[1]
         if not features.has(other_name):
-            return pl.Series("cond", [False] * features.n_bougies)
+            # Même invariant : feature inconnue → erreur explicite.
+            raise EvaluationError(
+                f"Feature inconnue dans featureref: {other_name!r} "
+                f"(hypothèse {c.feature_ref!r} invalide)."
+            )
         return self._apply_series_op(col, c.operator, features.column(other_name))
 
     @staticmethod
@@ -560,11 +571,21 @@ class _MesuresAggregator:
         )
         bs_ret = bootstrap_ret_total(returns_net, self._config, rng_seed=self._seed + 1)
 
-        # Sharpe annualisé (rendements par bougie → on suppose 1 bougie = 1 unité).
+        # Sharpe annualisé. Chaque trade a une durée de détention variable
+        # (avg_holding_period bougies). Le Sharpe par-trade est annualisé en
+        # multipliant par sqrt(periods_per_year / avg_holding_period), ce qui
+        # revient à ramener la fréquence des trades à une base annuelle.
         ret_mean = float(np.mean(returns_net)) if n else float("nan")
         ret_std = float(np.std(returns_net, ddof=1)) if n > 1 else float("nan")
+        avg_held = float(np.mean(held)) if held else 0.0
         if ret_std and not math.isnan(ret_std) and ret_std > 0:
-            sharpe = ret_mean / ret_std
+            sharpe_per_trade = ret_mean / ret_std
+            if avg_held > 0 and self._periods_per_year > 0:
+                sharpe = sharpe_per_trade * math.sqrt(
+                    self._periods_per_year / avg_held
+                )
+            else:
+                sharpe = sharpe_per_trade
         else:
             sharpe = float("nan")
 
@@ -815,6 +836,33 @@ class EvaluationEngine:
 
         sl_distance = (sl_n_atr * atr_p50) / entry_median if entry_median > 0 else 0.0
         tp_distance = (tp_n_atr * atr_p50) / entry_median if entry_median > 0 else 0.0
+
+        # Plancher économique : une sortie plus proche que le coût round-trip
+        # est perdante d'avance (TP < coût = perte garantie après frais).
+        # On rejette explicitement (« calibration économiquement impossible »)
+        # au lieu de produire des trades perdants d'avance par construction.
+        calibration_costs = TradingCosts.from_config(self.config, asset=train_ohlcv.asset)
+        round_trip_pct = calibration_costs.total_round_trip_pct
+        calibration_cfg = self.config.evaluation.get("calibration", {})
+        min_tp_pct = round_trip_pct * float(calibration_cfg.get("min_tp_multiple_of_costs", 3.0))
+        min_sl_pct = round_trip_pct * float(calibration_cfg.get("min_sl_multiple_of_costs", 2.0))
+        if tp_distance < min_tp_pct or sl_distance < min_sl_pct:
+                    violations = []
+                    if tp_distance < min_tp_pct:
+                        violations.append(
+                            f"TP calibre {tp_distance * 100:.4f}% < plancher TP {min_tp_pct * 100:.4f}%"
+                        )
+                    if sl_distance < min_sl_pct:
+                        violations.append(
+                            f"SL calibre {sl_distance * 100:.4f}% < plancher SL {min_sl_pct * 100:.4f}%"
+                        )
+                    raise CalibrationError(
+                        f"Calibration economiquement impossible pour {hypothesis.id} : "
+                        + "; ".join(violations)
+                        + f" (marge = couts round-trip {round_trip_pct * 100:.3f}% × multiplicateur; "
+                        f"plancher TP={min_tp_pct * 100:.4f}%, plancher SL={min_sl_pct * 100:.4f}%). "
+                        f"L'hypothese ne peut pas couvrir ses frais de transaction."
+                    )
 
         calibrated = CalibratedParams(
             n_window=n_window,

@@ -23,6 +23,22 @@ n_window:
     "1d": 1.0
   default_k_atr: 1.0
 
+# --- Plancher économique de calibration ---
+# Un TP calibré sous le coût round-trip ne peut JAMAIS dégager de bénéfice
+# après frais (trade perdant d'avance à l'entrée). Le coût round-trip par
+# défaut est 0.08 % (voir costs.yaml) ; on exige :
+#   TP minimale >= coût × min_tp_multiple_of_costs   (défaut 1.5 -> 0.12 %)
+#   SL minimale >= coût × min_sl_multiple_of_costs   (défaut 1.0 -> 0.08 %)
+# NOTE 15m : sur les indices 15 min, le MFE médian réel ~0.12-0.17 %
+# (cf. diagnostics/diag_calib_econ.py). Un plancher 3× (0.24 %) sur-filtrait
+# tout le marché (front F1 size=0) ; 1.5× élimine les TP microscopiques
+# (< 0.1 %) tout en laissant passer la plage réelle — la marge nette après
+# frais (~0.04-0.09 %) est ensuite jugée par l'admission (DSR, bootstrap CI,
+# croissance) et non par le plancher.
+calibration:
+  min_tp_multiple_of_costs: 1.5
+  min_sl_multiple_of_costs: 1.0
+
 # --- Simulation intrabar TP/SL ---
 # Convention : SL touché avant TP sur la même bougie (conservateur)
 # Entrée à l'OPEN de la bougie t+1, jamais au close

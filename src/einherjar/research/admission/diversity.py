@@ -381,6 +381,63 @@ def _increment(fracs: dict[str, float], key: str) -> dict[str, float]:
 # --------------------------------------------------------------------------- #
 
 
+def compute_corpus_fracs(
+    corpus_entries: list[Any],
+    config: EinherjarConfig,
+) -> dict[str, dict[str, float]]:
+    """Calcule les fractions actuelles du corpus pour les quotas (I-8).
+
+    (fix refactor) Cette fonction manquait : admission/decision.py acceptait
+    `current_corpus_fracs` mais AUCUN appelant ne le calculait → les quotas
+    structurels (family_max_frac, type_max_frac, direction_min_frac) n'étaient
+    JAMAIS appliqués. Elle est branchée par handle_admit (discovery.py).
+
+    Returns:
+        {"family": {famille: frac}, "type": {type: frac}, "direction": {dir: frac}}
+        où chaque frac = proportion des Einhers du corpus (normalisée à 1).
+    """
+    families: dict[str, float] = {}
+    types: dict[str, float] = {}
+    directions: dict[str, float] = {}
+    for entry in corpus_entries:
+        hyp_dict = entry.hypothesis if hasattr(entry, "hypothesis") else entry.get("hypothesis", {})
+        feat = _first_feature_ref_serialized(hyp_dict.get("condition_tree") if isinstance(hyp_dict, dict) else hyp_dict)
+        if feat is None:
+            continue
+        info = config.features_taxonomy.get("features", {}).get(feat, {})
+        family = info.get("economic_family", EconomicFamily.OTHER.value)
+        type_ = info.get("feature_type", FeatureType.ATOMIC.value)
+        direction = entry.direction if hasattr(entry, "direction") else (hyp_dict.get("direction") or "long")
+        families[family] = families.get(family, 0.0) + 1.0
+        types[type_] = types.get(type_, 0.0) + 1.0
+        directions[str(direction).lower()] = directions.get(str(direction).lower(), 0.0) + 1.0
+    # Renormalise chaque axe à 1.0
+    out = {"family": {}, "type": {}, "direction": {}}
+    for axis, counts in (("family", families), ("type", types), ("direction", directions)):
+        total = sum(counts.values())
+        if total > 0:
+            out[axis] = {k: v / total for k, v in counts.items()}
+    return out
+
+
+def _first_feature_ref_serialized(node: Any) -> str | None:
+    """Extrait feature_ref d'un condition_tree SÉRIALISÉ (dict imbriqué).
+
+    Les entrées de corpus stockent condition_tree au format to_dict() : une
+    Condition devient {'feature_ref': ..., 'operator': ..., ...} et un nœud
+    composite {'op': 'AND'/'OR', 'left': ..., 'right': ...}. On fait un DFS
+    sur la structure dict pour retrouver la première feature.
+    """
+    if isinstance(node, dict):
+        if "feature_ref" in node:
+            return node["feature_ref"]
+        for key in ("left", "right"):
+            found = _first_feature_ref_serialized(node.get(key))
+            if found is not None:
+                return found
+    return None
+
+
 def extract_dominant_family(
     condition_tree: Condition | ConditionNode,
     config: EinherjarConfig,

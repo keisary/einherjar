@@ -18,6 +18,7 @@ Conforme à ALGORITHME_RESEARCH.md § 10.2 étape 2.
 from __future__ import annotations
 
 import logging
+import math
 import random
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
@@ -26,6 +27,7 @@ from typing import Any
 
 from einherjar.research.config.loader import EinherjarConfig
 from einherjar.research.generators.protocol import GenerationProtocol
+from einherjar.research.utils.stats import max_drawdown_from_returns, periods_per_year_for_timeframe
 from einherjar.research.utils.types import (
     Amplitude,
     AmplitudeUnit,
@@ -98,6 +100,46 @@ class BaseGenerator(ABC):
         """Génère les hypothèses sous le protocole."""
         raise NotImplementedError
 
+    # ------------------------------------------------------------------ #
+    # Fitness CROISSANCE (alignée sur l'admission, critère 7, objectif ×10)
+    # ------------------------------------------------------------------ #
+    def _growth_fitness(
+        self, m: Any,
+        periods_per_year: float | None = None,
+        min_trades: int | None = None,
+        soft: bool = False,
+    ) -> float:
+        """log(1 + CAGR) annuel : l'objectif que l'admission va tester.
+
+        Formule : trades_par_an = periods_per_year / avg_holding_period ;
+        fitness = trades_par_an * log1p(ret_mean_net). Monotone en CAGR,
+        stable numériquement (pas d'overflow sur (1+r)^n).
+
+        Porte dure (soft=False) : n_signals < min_trades -> -inf (comme
+        l'admission). Porte douce (soft=True, beam interne) : pénalité
+        multiplicative sqrt(n/min_trades) pour garder un gradient pendant
+        l'expansion locale.
+        """
+        n = getattr(m, "n_signals", 0) or 0
+        held = getattr(m, "avg_holding_period", 0.0) or 0.0
+        ret_mean = getattr(m, "ret_mean_pct_net", float("nan"))
+        if n <= 0 or held <= 0:
+            return float("-inf")
+        if ret_mean != ret_mean or ret_mean <= -1.0:
+            return float("-inf")
+        if periods_per_year is None:
+            timeframe = getattr(self, "_search_timeframe", None) or "1h"
+            periods_per_year = periods_per_year_for_timeframe(timeframe)
+        if min_trades is None:
+            cfg_t = getattr(self, "config", None)
+            min_trades = int((cfg_t.thresholds.get("n_trades", {}).get("min_total", 30) or 30)
+                             if cfg_t is not None else 30)
+        if n < min_trades:
+            if soft:
+                return (periods_per_year / held) * math.log1p(max(ret_mean, 1e-9)) * (n / min_trades)
+            return float("-inf")
+        return (periods_per_year / held) * math.log1p(ret_mean)
+
     def _make_amplitude(self, direction: Direction) -> Amplitude:
         """Construit l'Amplitude d'un Einher.
 
@@ -109,9 +151,9 @@ class BaseGenerator(ABC):
         (cas non couvert par les generateurs actuels).
         """
         return Amplitude(
-            valeur=self.protocol.amplitude_value,
-            unité=AmplitudeUnit.MULTIPLE_ATR,
-            direction_implicite=direction,
+        valeur=self.protocol.amplitude_value,
+        unité=AmplitudeUnit.MULTIPLE_ATR,
+        direction_implicite=direction,
         )
 
     def _make_universe(self) -> Universe:
@@ -133,13 +175,16 @@ class BaseGenerator(ABC):
         # The outer validation set belongs to the comparator. Evolutionary
         # search may only optimise on this deterministic inner split of train.
         cut = max(1, int(train_ohlcv.n_bougies * 0.8))
+
         def _slice(frame: Any, start: int, end: int) -> Any:
             return type(frame)(
                 asset=frame.asset, timeframe=frame.timeframe,
                 df=frame.df.slice(start, end - start),
-                **({"feature_names": frame.feature_names} if hasattr(frame, "feature_names") else {}),
+                **(dict(feature_names=frame.feature_names) if hasattr(frame, "feature_names") else {}),
                 data_version=frame.data_version,
             )
+
+        self._search_timeframe = getattr(train_ohlcv, "timeframe", "1h")
         self._search_train_ohlcv = _slice(train_ohlcv, 0, cut)
         self._search_train_features = _slice(train_features, 0, cut)
         self._search_val_ohlcv = _slice(train_ohlcv, cut, train_ohlcv.n_bougies)
@@ -165,7 +210,7 @@ class BaseGenerator(ABC):
         if train_features is None:
             train_features = getattr(self, "_train_features", None)
         if train_features is None:
-            # Pas de train : on construit un pool par défaut par feature (uniforme).
+            # Pas de train : pool par défaut par feature (uniforme).
             self._threshold_quantiles = {
                 name: list(self._FALLBACK_THRESHOLD_POOL)
                 for name in self.config.usable_feature_names
@@ -221,9 +266,14 @@ class RandomSearchGenerator(BaseGenerator):
             f for f in self.config.usable_feature_names
             if self._feature_type(f) in (FeatureType.ATOMIC, FeatureType.QUANTITATIVE, FeatureType.FACTOR)
         ]
+        # NOTE (refactor) : RandomSearch est un générateur NON évolutionnaire —
+        # il génère `n_candidates` hypothèses (volume de génération, ex. 100k)
+        # SANS appeler le moteur. L'ancien code bouclait sur `n_eval_budget`
+        # (défaut 200) et épuisait à lui seul le budget global du comparator,
+        # ce qui empêchait Beam/TypedGP/GE/Memetic/NSGA-II d'être évalués.
         hyps: list[Hypothesis] = []
         i = 0
-        while i < self.protocol.n_eval_budget:
+        while i < self.protocol.n_candidates:
             direction = self._rng.choice([Direction.LONG, Direction.SHORT])
             n_cond = self._rng.randint(1, self.protocol.max_conditions)
             if n_cond == 1 or self._rng.random() > self.protocol.p_compound:
@@ -246,10 +296,10 @@ class RandomSearchGenerator(BaseGenerator):
             generator_name=self.name,
             hypotheses=tuple(hyps),
             n_generated=len(hyps),
-            n_evaluated=0,
+            n_evaluated=0,  # random search pur : aucun appel moteur ici
             n_passed_admission=0,
             generation_time_s=time.time() - t0,
-            meta={"budget_used": len(hyps)},
+            meta={"n_candidates": len(hyps), "evaluations_uses": "none"},
         )
 
     def _sample_atomic(self, pool: Sequence[str]) -> Condition:
@@ -432,8 +482,10 @@ class BeamSearchGenerator(BaseGenerator):
                         left=parent.condition_tree,
                         right=Condition(feature_ref=feat, operator=op, value=v, transformation=None),
                     )
+                    # id unique : prefixe parent + profondeur + index local.
+                    # (le prefixe seul pouvait collisionner entre deux niveaux)
                     new_h = Hypothesis(
-                        id=f"{parent.id}_x{len(expansions):02d}",
+                        id=f"{parent.id}_d{depth}_x{len(expansions):02d}",
                         condition_tree=new_cond,
                         amplitude=parent.amplitude,
                         direction=parent.direction,
@@ -463,11 +515,12 @@ class BeamSearchGenerator(BaseGenerator):
         """Évalue chaque candidat du beam (scoring intermédiaire)."""
         scores: list[float] = []
         remaining = max(0, self.protocol.n_eval_budget - getattr(self, "_n_internal_evaluated", 0))
+        ppy = periods_per_year_for_timeframe(getattr(val_ohlcv, "timeframe", "1h"))
         for h in beam[:remaining]:
             try:
                 calibrated = self.engine.train_calibrate(h, train_ohlcv, train_features)
                 m = self.engine.test_on(h, val_ohlcv, val_features, calibrated, "val")
-                scores.append(m.sharpe_net if m.sharpe_net == m.sharpe_net else float("-inf"))
+                scores.append(self._growth_fitness(m, ppy, soft=True))
             except Exception:  # noqa: BLE001
                 scores.append(float("-inf"))
             self._n_internal_evaluated += 1
@@ -586,13 +639,21 @@ class TypedGPGenerator(BaseGenerator):
             f for f in config.usable_feature_names
             if self._feature_type(f) in (FeatureType.ATOMIC, FeatureType.QUANTITATIVE, FeatureType.FACTOR)
         ]
-        if not self._continuous_features:
-            raise ValueError("Aucune feature continue exploitable pour TypedGP")
+        # P2-02 : features booléennes (patterns candlestick 0/1) — jusque-là
+        # jamais échantillonnées par les arbres (pool tronqué à 114/246).
+        # Elles sont comparées par EQ/NE/IN, pas par seuil continu.
+        self._pattern_features: list[str] = [
+            f for f in config.usable_feature_names
+            if self._feature_type(f) is FeatureType.PATTERN
+        ]
+        if not self._continuous_features and not self._pattern_features:
+            raise ValueError("Aucune feature exploitable pour TypedGP")
         logger.info(
-            "TypedGPGenerator : N=%d, gen=%d, %d features continues, "
+            "TypedGPGenerator : N=%d, gen=%d, %d features continues + %d patterns, "
             "crossover=%.2f, mutation=%.2f, tournament=%d, elitism=%d",
             population_size, n_generations, len(self._continuous_features),
-            crossover_prob, mutation_prob, tournament_size, elitism,
+            len(self._pattern_features), crossover_prob, mutation_prob,
+            tournament_size, elitism,
         )
 
     def generate(self) -> GeneratorResult:
@@ -657,7 +718,7 @@ class TypedGPGenerator(BaseGenerator):
             population = [union_pop[i] for i in order]
             fitness = [union_fit[i] for i in order]
             logger.info(
-                "TypedGP gen %d/%d : best_sharpe=%.4f, mean_sharpe=%.4f",
+                "TypedGP gen %d/%d : best_growth=%.4f, mean_growth=%.4f",
                 gen + 1, self.n_generations, fitness[0],
                 sum(fitness) / max(1, len(fitness)),
             )
@@ -723,7 +784,17 @@ class TypedGPGenerator(BaseGenerator):
         return ConditionNode(op=op, left=left, right=right)
 
     def _atom(self) -> Condition:
-        """Crée une feuille : feature (typée) + op + value."""
+        """Crée une feuille : feature (typée) + op + value.
+
+        P2-02 : tire AUSSI dans le pool de patterns booléens (0/1) avec des
+        opérateurs d'égalité (EQ/NE/IN) — un pattern est un fait discret
+        (présent/absent), pas un seuil continu.
+        """
+        if self._pattern_features and self._rng.random() < 0.35:
+            feat = self._rng.choice(self._pattern_features)
+            op = self._rng.choice([CompareOp.EQ, CompareOp.NE])
+            value = float(self._rng.randint(0, 1))
+            return Condition(feature_ref=feat, operator=op, value=value, transformation=None)
         feat = self._rng.choice(self._continuous_features)
         op = self._rng.choice([CompareOp.LT, CompareOp.GT, CompareOp.LE, CompareOp.GE])
         # P1 #1 : seuil tiré depuis le pool calibré sur le train (plus d'uniforme -2..2).
@@ -739,7 +810,7 @@ class TypedGPGenerator(BaseGenerator):
             return None
 
     # ------------------------------------------------------------------ #
-    # Évaluation de la fitness (Sharpe net)
+    # Évaluation de la fitness (CROISSANCE, alignée admission)
     # ------------------------------------------------------------------ #
 
     def _evaluate_population(
@@ -750,25 +821,40 @@ class TypedGPGenerator(BaseGenerator):
         val_ohlcv: Any | None = None,
         val_features: Any | None = None,
     ) -> list[float]:
-        """Évalue la fitness (Sharpe net) de chaque individu via engine.
+        """Évalue la fitness CROISSANCE de chaque individu via engine.
 
-        Retourne une liste de floats (NaN si l'évaluation échoue).
+        P1 : l'ancienne fitness (Sharpe net sur search_val) évoluait vers des
+        profils que l'admission n'admet jamais (critère 7 CROISSANCE, objectif
+        ×10, porte n_trades). On aligne l'objectif d'évolution sur l'admission :
+                 fitness = log(1 + CAGR) = trades_par_an * log1p(ret_mean_net)
+        avec trades_par_an = periods_per_year / avg_holding_period.
+        Porte dure : n_signals < min_trades (config.thresholds.n_trades.min_total)
+        -> fitness -inf (la même porte que l'admission). Retourne -inf sur échec.
+
+        Retourne une liste de floats (-inf si invalide).
         """
         train_ohlcv = train_ohlcv or getattr(self, "_search_train_ohlcv", None)
         train_features = train_features or getattr(self, "_search_train_features", None)
         val_ohlcv = val_ohlcv or getattr(self, "_search_val_ohlcv", None)
         val_features = val_features or getattr(self, "_search_val_features", None)
         if train_ohlcv is None or val_ohlcv is None:
-            return [float("nan")] * len(population)
+            return [float("-inf")] * len(population)
+        min_trades = int(
+            self.config.thresholds.get("n_trades", {}).get("min_total", 30) or 30
+        )
+        timeframe = getattr(val_ohlcv, "timeframe", "1h")
+        periods_per_year = periods_per_year_for_timeframe(timeframe)
         fitness: list[float] = []
         for h in population:
             try:
                 calibrated = self.engine.train_calibrate(h, train_ohlcv, train_features)
                 m = self.engine.test_on(h, val_ohlcv, val_features, calibrated, "val")
-                fitness.append(m.sharpe_net if m.sharpe_net == m.sharpe_net else float("nan"))
+                fitness.append(self._growth_fitness(m, periods_per_year, min_trades))
             except Exception:  # noqa: BLE001
-                fitness.append(float("nan"))
+                fitness.append(float("-inf"))
         return fitness
+
+
 
     # ------------------------------------------------------------------ #
     # Sélection par tournoi
@@ -987,7 +1073,12 @@ class GrammaticalEvolutionGenerator(BaseGenerator):
         self.config = config
         self.bnf_grammar = bnf_grammar
         self.chromosome_length = chromosome_length
-        self.relations_probability = relations_probability
+        # (fix) Le bloc relations OHLCV produit des expressions arithmetiques
+        # (high - low > q_range_p50) que ni le decodeur (BNFDecodeError sur
+        # "-") ni le moteur d'evaluation (pas d'operation '-' implementee) ne
+        # supportent : ~20% des iterations GE etaient skimpees en silence.
+        # Desactive jusqu'a ce que le moteur encode ces relations.
+        self.relations_probability = 0.0 if relations_probability > 0 else relations_probability
         # Import paresseux pour eviter cycle au chargement du module.
         from einherjar.research.generators.bnf import (
             FEATURE_GRAMMARS,
@@ -1064,7 +1155,9 @@ class GrammaticalEvolutionGenerator(BaseGenerator):
                 hypothesis, self._search_val_ohlcv, self._search_val_features,
                 calibrated, "ge_search_val",
             )
-            return measures.sharpe_net if measures.sharpe_net == measures.sharpe_net else float("-inf")
+            ppy = periods_per_year_for_timeframe(
+                getattr(self._search_val_ohlcv, "timeframe", "1h"))
+            return self._growth_fitness(measures, ppy)
         except Exception as exc:  # noqa: BLE001
             logger.debug("GE fitness failed for %s: %s", hypothesis.id, exc)
             return float("-inf")
@@ -1111,7 +1204,12 @@ class GrammaticalEvolutionGenerator(BaseGenerator):
                 raise ValueError("GE override source without grammar")
             return self.bnf_grammar
         if source == "__ohlcv_relations__":
-            return self._get_relations_grammar("ohlcv")
+            # (fix) relations OHLCV desactivees : le moteur n'implemente pas
+            # les expressions de type high - low. Garde pour compat API.
+            raise ValueError(
+                "__ohlcv_relations__ n'est plus generable : expressions "
+                "arithmetiques non supportees par le decodeur/le moteur"
+            )
         grammar = self._FEATURE_GRAMMARS.get(source)
         if grammar is not None:
             return grammar
@@ -1145,7 +1243,8 @@ class GrammaticalEvolutionGenerator(BaseGenerator):
                 if self.bnf_grammar is not None:
                     source_key = "__override__"
                     grammar_text = self.bnf_grammar
-                elif self._rng.random() < self.relations_probability:
+                elif False and self._rng.random() < self.relations_probability:
+                    # branche desactivee : voir __init__ (relations_probability=0)
                     source_key = "__ohlcv_relations__"
                     grammar_text = self._get_relations_grammar("ohlcv")
                 else:
@@ -1316,22 +1415,26 @@ class MemeticGenerator(BaseGenerator):
         Chaque hypothèse est gardée (même si pas améliorée).
         """
         results: list[tuple[Hypothesis, Hypothesis]] = []
-        # Besoin des données pour l'évaluation.
-        train_ohlcv = getattr(self, "_train_ohlcv", None)
-        train_features = getattr(self, "_train_features", None)
-        val_ohlcv = getattr(self, "_val_ohlcv", None)
-        val_features = getattr(self, "_val_features", None)
+        # (fix fuite search-split) La recherche locale optimise sur le sous-split
+        # INTERNE du train (`_search_*`, réservé à la recherche évolutionnaire),
+        # JAMAIS sur le val externe du comparator : l'ancien code évaluait le
+        # hill climbing sur `_val_ohlcv` — le même jeu qui sert à comparer les
+        # générateurs et à l'admission — créant une fuite d'information.
+        train_ohlcv = getattr(self, "_search_train_ohlcv", None) or getattr(self, "_train_ohlcv", None)
+        train_features = getattr(self, "_search_train_features", None) or getattr(self, "_train_features", None)
+        val_ohlcv = getattr(self, "_search_val_ohlcv", None) or getattr(self, "_val_ohlcv", None)
+        val_features = getattr(self, "_search_val_features", None) or getattr(self, "_val_features", None)
         if train_ohlcv is None or val_ohlcv is None:
             # Pas de données : on ne peut pas évaluer → on garde les hyp originales.
             return [(h, h) for h in hypotheses]
+        ppy = periods_per_year_for_timeframe(getattr(val_ohlcv, "timeframe", "1h"))
         for hyp in hypotheses:
             best_h = hyp
-            best_sharpe = float("-inf")
+            best_score = float("-inf")
             try:
                 calibrated = self.engine.train_calibrate(hyp, train_ohlcv, train_features)
                 m = self.engine.test_on(hyp, val_ohlcv, val_features, calibrated, "val")
-                if m.sharpe_net == m.sharpe_net:  # not NaN
-                    best_sharpe = m.sharpe_net
+                best_score = self._growth_fitness(m, ppy)
             except Exception:  # noqa: BLE001
                 results.append((hyp, hyp))
                 continue
@@ -1341,8 +1444,9 @@ class MemeticGenerator(BaseGenerator):
                     try:
                         cal = self.engine.train_calibrate(neighbor, train_ohlcv, train_features)
                         m2 = self.engine.test_on(neighbor, val_ohlcv, val_features, cal, "val")
-                        if m2.sharpe_net == m2.sharpe_net and m2.sharpe_net > best_sharpe:
-                            best_sharpe = m2.sharpe_net
+                        score2 = self._growth_fitness(m2, ppy)
+                        if score2 > best_score:
+                            best_score = score2
                             best_h = neighbor
                     except Exception:  # noqa: BLE001
                         continue
@@ -1731,14 +1835,19 @@ class NSGA2Generator(BaseGenerator):
                 median_sharpe = sharpes[len(sharpes) // 2]
                 c4 = median_sharpe > 0.0
             else:
-                # Aucune preuve cross-asset ne doit être remplacée par le Sharpe global.
-                c4 = False
+                # (fix c4) En SINGLE-asset, la contrainte « non concentrée sur un
+                # seul actif » est SANS OBJET : on ne peut pas la mesurer, on ne
+                # peut donc pas pénaliser l'individu. L'ANCIEN code mettait c4=False
+                # faute de preuve, ce qui forçait TOUS les individus en violation
+                # dès qu'on lançait NSGA-II sur un seul actif (le cas par défaut !)
+                # → population constamment vide → « NSGA-II mort ».
+                # La vérification réelle exige >= 2 actifs (_multi_assets peuplé).
+                c4 = True
             # 5. Coûts appliqués.
             c5 = bool(mesures.costs_applied)
             # 6. Absence de fuite temporelle : garanti par construction (test_on(val) post-calibration train).
             c6 = True
             # 7. Drawdown sous la limite de sécurité.
-            from einherjar.research.utils.stats import max_drawdown_from_returns
             worst_dd = max_drawdown_from_returns([t.ret_pct_net for t in mesures.trades])
             c7 = worst_dd <= self._max_dd
             # 8. Stabilité entre folds de validation : std(Sharpe par fold CPCV) < seuil.

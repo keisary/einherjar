@@ -1,0 +1,366 @@
+{
+  "started_at": "2026-08-05T20:06:27.730078",
+  "n_classes": 7,
+  "n_assets_total": 28,
+  "classes": {
+    "commodities": {
+      "timeframes": {
+        "15m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1d": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "4h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "5m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        }
+      },
+      "n_assets": 3,
+      "assets": [
+        "WTIUSD",
+        "BRENT",
+        "COPPER"
+      ]
+    },
+    "crypto": {
+      "timeframes": {
+        "15m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1d": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "4h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "5m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        }
+      },
+      "n_assets": 5,
+      "assets": [
+        "BTCUSD",
+        "ETHUSD",
+        "ADAUSD",
+        "BCHUSD",
+        "LTCUSD"
+      ]
+    },
+    "forex": {
+      "timeframes": {
+        "15m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1d": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "4h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "5m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        }
+      },
+      "n_assets": 8,
+      "assets": [
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "AUDUSD",
+        "USDCAD",
+        "USDCHF",
+        "EURGBP",
+        "XAUUSD"
+      ]
+    },
+    "indices": {
+      "timeframes": {
+        "15m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1d": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "4h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "5m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        }
+      },
+      "n_assets": 4,
+      "assets": [
+        "SP500",
+        "NASDAQ100",
+        "DOWJONES",
+        "DAX40"
+      ]
+    },
+    "stocks_growth": {
+      "timeframes": {
+        "15m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1d": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "4h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "5m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        }
+      },
+      "n_assets": 1,
+      "assets": [
+        "XOM"
+      ]
+    },
+    "stocks_tech": {
+      "timeframes": {
+        "15m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1d": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "4h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "5m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        }
+      },
+      "n_assets": 6,
+      "assets": [
+        "AAPL",
+        "MSFT",
+        "NVDA",
+        "AMZN",
+        "GOOGL",
+        "TSLA"
+      ]
+    },
+    "stocks_value": {
+      "timeframes": {
+        "15m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1d": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "1h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "4h": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        },
+        "5m": {
+          "rc": 2,
+          "step_rcs": {
+            "engine": 0,
+            "baselines": 2
+          },
+          "status": "error"
+        }
+      },
+      "n_assets": 1,
+      "assets": [
+        "JPM"
+      ]
+    }
+  },
+  "finished_at": "2026-08-05T20:09:34.628681",
+  "summary": "0/35 runs (classe x TF) OK, corpus = data/corpus.jsonl"
+}

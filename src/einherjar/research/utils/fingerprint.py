@@ -66,6 +66,11 @@ def fingerprint_structurel(
         "amplitude": hypothesis.amplitude.to_dict(),
         "sl_n_atr": round(float(sl_n_atr), 9),
         "tp_n_atr": round(float(tp_n_atr), 9),
+        # (fix) cooldown_k fait partie de la stratégie : deux Einhers identiques
+        # avec des cooldowns différents ont des comportements différents
+        # (fréquence de trading, trades déclenchés) — ils ne doivent PAS être
+        # considérés comme doublons structurels.
+        "cooldown_k": int(getattr(hypothesis, "cooldown_k", 5)),
     }
     return _hash_canonical(payload, algo=algo)
 

@@ -146,6 +146,7 @@ class AdmissionDecider:
         n_indep_trials: int = 1,
         mesures_train: MesuresBrutes | None = None,
         splits: dict[str, Any] | None = None,
+        corpus_fingerprints: list[tuple[str, str]] | None = None,
     ) -> AdmissionDecision:
         """Prend la décision d'admission complète.
 
@@ -163,6 +164,8 @@ class AdmissionDecider:
             corpus_ret_series: Liste des ret_series de chaque Einher du corpus.
             signal_indices: Indices des signaux retenus sur le val.
             n_indep_trials: Nombre d'essais indépendants pour le DSR.
+            corpus_fingerprints: [(fp_struct, fp_comport)] des Einhers déjà
+                admis (dédup contre le corpus, pas seulement l'archive).
 
         Returns:
             AdmissionDecision.
@@ -195,9 +198,15 @@ class AdmissionDecider:
             rounding_decimals=int(self.config.evaluation["fingerprint"]["behavioral"]["rounding_decimals"]),
         )
 
-        # 3. Déduplication contre l'Archive.
+        # 3. Déduplication contre l'Archive (rejets) ET le corpus (admis).
+        #    (fix) L'archive ne retient que les REJETÉS : un doublon d'un Einher
+        #    déjà ADMIS n'était jamais détecté. On vérifie maintenant les
+        #    fingerprints du corpus courant (passés par discovery).
         dedup_struct = has_fingerprint(fp_struct, self.data_version)
         dedup_comport = has_comportemental_fingerprint(fp_comport, self.data_version)
+        for fp_s, fp_c in (corpus_fingerprints or []):
+            dedup_struct = dedup_struct or (fp_s == fp_struct)
+            dedup_comport = dedup_comport or (fp_c == fp_comport)
         dedup_passed = (not dedup_struct) and (not dedup_comport)
 
         # 4. Diversité comportementale.

@@ -167,6 +167,23 @@ class TestBaselines(unittest.TestCase):
         self.assertIn("ShallowEnumeration", names)
         self.assertIn("RandomConstrained", names)
 
+    def test_runner_eval_budget_caps_hypotheses(self):
+        """Le budget P1-08 plafonne le nombre d'hypothèses évaluées par baseline."""
+        from unittest.mock import MagicMock
+        from einherjar.research.baselines.runner import BaselineRunner
+        # Engine factice (jamais utilisé car on teste la génération/plafond).
+        engine = MagicMock()
+        engine.config = self.config
+        engine.seed = 42
+        runner = BaselineRunner(engine=engine, eval_budget=30)
+        # 3 baselines → cap = 30 // 3 = 10 par baseline.
+        self.assertEqual(runner.eval_budget, 30)
+        cap = max(1, 30 // len(runner.baselines))
+        self.assertEqual(cap, 10)
+        # Sans budget → pas de plafond (rétrocompat).
+        runner_free = BaselineRunner(engine=engine)
+        self.assertIsNone(runner_free.eval_budget)
+
 
 # =========================================================================== #
 # Tests admission
@@ -203,7 +220,7 @@ class TestAdmissionCriteria(unittest.TestCase):
         returns = np.random.default_rng(42).normal(0.001, 0.01, 50).tolist()
         verdict = evaluate_all_criteria(mesures, returns, self.config, n_indep_trials=10)
         self.assertIsInstance(verdict.n_passed, int)
-        self.assertEqual(verdict.n_passed + verdict.n_failed, 7)
+        self.assertEqual(verdict.n_passed + verdict.n_failed, 8)
 
     def test_individual_criteria(self):
         m = _make_mesures_test(sharpe=1.5)
@@ -314,7 +331,7 @@ class TestAdmissionDecision(unittest.TestCase):
             n_indep_trials=10,
         )
         self.assertIsNotNone(decision.criteria_verdict)
-        self.assertEqual(decision.criteria_verdict.n_passed + decision.criteria_verdict.n_failed, 7)
+        self.assertEqual(decision.criteria_verdict.n_passed + decision.criteria_verdict.n_failed, 8)
 
 
 # =========================================================================== #
@@ -330,10 +347,14 @@ class TestGenerators(unittest.TestCase):
         cls.protocol = make_protocol(cls.config, data_version="v1", seed=42, n_eval_budget=200)
 
     def test_random_search_generates(self):
+        # (refactor) RandomSearch génère n_candidates (volume de génération),
+        # PAS n_eval_budget (mur de coût). Par défaut 100k hypothèses pour
+        # maximiser le volume ; l'évaluation/admission resserrent ensuite.
         g = RandomSearchGenerator(self.protocol, self.config)
         result = g.generate()
-        self.assertEqual(result.n_generated, 200)
+        self.assertEqual(result.n_generated, self.protocol.n_candidates)
         self.assertGreater(len(result.hypotheses), 0)
+        self.assertEqual(result.n_evaluated, 0)
 
     def test_beam_search_requires_engine(self):
         """BeamSearchGenerator REQUIERT un engine (P10 — pas de placeholder silencieux)."""

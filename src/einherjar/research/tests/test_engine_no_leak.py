@@ -56,7 +56,8 @@ class TestSplitConstruction(unittest.TestCase):
     def test_ratios_sum_to_one(self):
         from einherjar.research.utils.time import make_splits_ratio
         s = make_splits_ratio(n_total=1000, horizon_label=5, embargo_bougies=1)
-        self.assertAlmostEqual(s.train.length + s.val.length + s.holdout.length + s.horizon_label * 2 + s.embargo_bougies * 2, 1000, delta=0)
+        # 3 jeux purgés (train bord droit + val + holdout) : horizon*3.
+        self.assertAlmostEqual(s.train.length + s.val.length + s.holdout.length + s.horizon_label * 3 + s.embargo_bougies * 2, 1000, delta=0)
 
     def test_disjoint_splits(self):
         from einherjar.research.utils.time import make_splits_ratio

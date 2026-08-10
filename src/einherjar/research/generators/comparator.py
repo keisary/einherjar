@@ -80,6 +80,25 @@ class GeneratorRanking:
             "elapsed_s": round(self.elapsed_s, 3),
         }
 
+    @staticmethod
+    def from_dict(d: dict[str, Any]) -> "GeneratorRanking":
+        """Reconstruit un GeneratorRanking depuis to_dict()."""
+        return GeneratorRanking(
+            generator_name=d["generator_name"],
+            rank=int(d["rank"]),
+            score=float(d["score"]),
+            n_generated=int(d["n_generated"]),
+            n_evaluated=int(d["n_evaluated"]),
+            n_passed_admission=int(d["n_passed_admission"]),
+            admission_rate=float(d["admission_rate"]),
+            median_sharpe=float(d["median_sharpe"]),
+            median_sharpe_all=float(d["median_sharpe_all"]),
+            n_distinct_features=int(d["n_distinct_features"]),
+            semantic_coherence=float(d["semantic_coherence"]),
+            subscores=dict(d.get("subscores", {})),
+            elapsed_s=float(d.get("elapsed_s", 0.0)),
+        )
+
 
 @dataclass
 class ComparisonReport:
@@ -105,6 +124,40 @@ class ComparisonReport:
             "total_evaluations": self.total_evaluations,
             "budget": self.budget,
         }
+
+    @staticmethod
+    def from_dict(d: dict[str, Any]) -> "ComparisonReport":
+        """Reconstruit un ComparisonReport depuis to_dict().
+
+        Le protocol est reconstruit champ par champ (version figée), et les
+        rankings via GeneratorRanking.from_dict.
+        """
+        protocol_d = d["protocol"]
+        from einherjar.research.generators.protocol import GenerationProtocol
+        protocol = GenerationProtocol(
+            seed=int(protocol_d["seed"]),
+            data_version=str(protocol_d["data_version"]),
+            splits=dict(protocol_d.get("splits", {})),
+            n_candidates=int(protocol_d.get("n_candidates", 100_000)),
+            n_eval_budget=int(protocol_d.get("n_eval_budget", 2_000)),
+            max_conditions=int(protocol_d.get("max_conditions", 4)),
+            p_compound=float(protocol_d.get("p_compound", 0.3)),
+            assets=tuple(protocol_d.get("assets", ())),
+            timeframes=tuple(protocol_d.get("timeframes", ())),
+            amplitude_value=float(protocol_d.get("amplitude_value", 5.0)),
+            cooldown_k=int(protocol_d.get("cooldown_k", 5)),
+        )
+        return ComparisonReport(
+            protocol=protocol,
+            rankings=[GeneratorRanking.from_dict(r) for r in d.get("rankings", [])],
+            sharpe_distributions={
+                k: list(v) for k, v in d.get("sharpe_distributions", {}).items()
+            },
+            elapsed_s=float(d.get("elapsed_s", 0.0)),
+            winner_name=d.get("winner_name"),
+            total_evaluations=int(d.get("total_evaluations", 0)),
+            budget=int(d.get("budget", 0)),
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -205,11 +258,18 @@ class GeneratorComparator:
         """
         t0 = time.time()
         report = ComparisonReport(protocol=self.protocol)
-        # P1-08 : compteur global cumule d'evaluations (toutes phases confondues).
-        # On respecte le mur d'arret n_eval_budget : si on l'atteint, on
-        # raccourcit la liste d'hypotheses des generateurs suivants.
+        # (refactor budget/candidats) : n_eval_budget est un plafond de COÛT
+        # global, réparti ÉQUITABLEMENT entre les générateurs : chacun a droit
+        # à une part = budget // n_générateurs. L'ANCIEN code (P1-08) partageait
+        # un compteur global décrémenté par le premier générateur passé :
+        # comme RandomSearch venait en tête et évaluait 200 candidats, les
+        # 5 autres générateurs arrivaient avec budget épuisé (n_evaluated=0)
+        # et « Random gagnait toujours ». Désormais chaque moteur est évalué
+        # sur un volume égal, indépendamment des autres.
         global_eval_count: int = 0
-        budget_remaining: int = int(self.protocol.n_eval_budget)
+        per_gen_cap: int = max(1, int(self.protocol.n_eval_budget) // max(len(self.generators), 1))
+        logger.info("Budget évaluations : %d total → %d par générateur (%d générateurs)",
+                    int(self.protocol.n_eval_budget), per_gen_cap, len(self.generators))
         # P1-10 : peupler corpus_feature_sets sur NSGA-II (Jaccard vs corpus).
         # Le caller peut overrider via self.corpus_feature_sets_override.
         corpus_sets = self._build_corpus_feature_sets()
@@ -247,12 +307,10 @@ class GeneratorComparator:
             features_used: set[str] = set()
             coherence_match: int = 0
             coherence_total: int = 0
-            # External evaluation budget is a hard wall as well.
-            # P1-08 : le mur d'arret est global, pas par-generateur.
-            # On prend le min(hypotheses, budget_restant).
+            # Plafond d'évaluation PAR GÉNÉRATEUR (part égale, équitable).
             n_skipped_budget = 0
             for hyp in result.hypotheses:
-                if budget_remaining <= 0:
+                if n_eval >= per_gen_cap:
                     n_skipped_budget += 1
                     continue
                 # Track feature usage (pour diversity)
@@ -268,7 +326,6 @@ class GeneratorComparator:
                     )
                     n_eval += 1
                     global_eval_count += 1
-                    budget_remaining -= 1
                     if mesures.sharpe_net == mesures.sharpe_net:  # not NaN
                         sharpes_all.append(mesures.sharpe_net)
                     if admission_fn is not None and admission_fn(hyp, calibrated, mesures):
@@ -278,10 +335,10 @@ class GeneratorComparator:
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("Échec eval %s sur %s : %s", gen.name, hyp.id, exc)
             if n_skipped_budget > 0:
-                logger.warning(
-                    "P1-08 : %s : %d hypotheses non evaluees (budget global epuise : %d/%d)",
-                    gen.name, n_skipped_budget,
-                    global_eval_count, self.protocol.n_eval_budget,
+                logger.info(
+                    "comparator : %s : %d hypotheses au-delà de sa part (%d) non évaluées "
+                    "(volume généré >> plafond d'évaluation : normal avec n_candidates élevé)",
+                    gen.name, n_skipped_budget, per_gen_cap,
                 )
             elapsed = time.time() - t_gen
             # Mise à jour des résultats avec les vrais compteurs.

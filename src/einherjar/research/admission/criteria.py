@@ -115,25 +115,47 @@ def evaluate_dsr(
     """
     min_dsr = float(config.thresholds["dsr"]["min_value"])
     min_trials = int(config.thresholds["dsr"]["min_n_indep_trials"])
-    sharpe = mesures.sharpe_net
-    if math.isnan(sharpe) or n_indep_trials < min_trials:
+    # Le Sharps ratio de la formule DSR doit être PAR OBSERVATION (par trade),
+    # pas annualisé : on le relie aux rendements nets réels (ret_mean / ret_std).
+    # C'est l'unité cohérente avec le bootstrap CI (periods_per_year=1.0).
+    ret_std = mesures.ret_std_pct
+    ret_mean = mesures.ret_mean_pct_net
+    if ret_std and ret_std > 0:
+        sharpe = ret_mean / ret_std
+    else:
+        sharpe = float("nan")
+    n_observations = max(int(mesures.n_signals), 3)
+    if not math.isfinite(sharpe) or n_indep_trials < min_trials:
         return CriterionVerdict(
             name="DSR",
             passed=False,
             observed=float("nan"),
             threshold=min_dsr,
             reason=RejectionReason.DSR_FAIL,
-            meta={"sharpe": sharpe, "n_indep_trials": n_indep_trials},
+            meta={"sharpe_per_obs": sharpe, "n_indep_trials": n_indep_trials},
         )
-    # Approximation via la métrique de utils/metrics (Bailey & López de Prado).
-    p = dsr_metric(sharpe_observed=sharpe, n_trials=n_indep_trials)
+    # Déflation par le nombre d'essais indépendants RÉEL de la recherche
+    # (n_bruit dans discovery.py), pas par un compteur intra-run qui croît
+    # linéairement et rendait min_dsr=0.95 quasi infranchissable (e_max
+    # ~3.26 dès 200 essais sur des Sharpe par-période réalistes de 0.1-0.5).
+    # -> chaque op sauvegarde l'unité « par observation ».
+    p = dsr_metric(
+        sharpe_observed=sharpe,
+        n_trials=n_indep_trials,
+        n_observations=n_observations,
+    )
     return CriterionVerdict(
         name="DSR",
         passed=(p >= min_dsr),
         observed=p,
         threshold=min_dsr,
         reason=None if p >= min_dsr else RejectionReason.DSR_FAIL,
-        meta={"sharpe": sharpe, "n_indep_trials": n_indep_trials, "p_value": p},
+        meta={
+            "sharpe_per_obs": sharpe,
+            "n_indep_trials": n_indep_trials,
+            "n_observations": n_observations,
+            "p_value": p,
+        },
     )
 
 
@@ -318,6 +340,80 @@ def evaluate_n_trades(
 
 
 # --------------------------------------------------------------------------- #
+# Critère 5b : croissance composée annuelle (vision « 50 $ -> x10 »)
+# --------------------------------------------------------------------------- #
+
+
+def evaluate_croissance(
+    mesures: MesuresBrutes,
+    config: EinherjarConfig,
+) -> CriterionVerdict:
+    """Croissance géométrique annuelle équivalente (CAGR) de la stratégie.
+
+    Récompense le couple (edge par trade x fréquence) : un Sharpe modéré mais
+    TRÈS fréquent peut battre un Sharpe énorme mais rarissime. C'est le
+    critère « 50 $ -> x10 » : on cherche la croissance composée d'un compte.
+
+    CAGR estimé depuis les rets nets moyens par trade :
+        n_trades_par_an ~ periods_per_year / avg_holding_period
+        CAGR = (1 + ret_mean_net)^(n_trades_par_an) - 1
+
+    Args:
+        mesures: mesures d'évaluation (val).
+        config: configuration (seuil growth.min_cagr).
+
+    Returns:
+        Verdict. Pass si CAGR >= min_cagr (défaut 0.25 = +25 %/an composé).
+    """
+    min_cagr = float(config.thresholds["growth"]["min_cagr"])
+    ret_mean = mesures.ret_mean_pct_net
+    avg_hold = mesures.avg_holding_period
+    if ret_mean <= 0 or avg_hold <= 0 or mesures.n_signals < 1:
+        return CriterionVerdict(
+            name="CROISSANCE",
+            passed=False,
+            observed=0.0,
+            threshold=min_cagr,
+            reason=RejectionReason.CROISSANCE_FAIL,
+            meta={"ret_mean_pct_net": ret_mean, "avg_holding": avg_hold, "n": mesures.n_signals},
+        )
+    # Périodes par an : approx. 15m=35040, 1h=8760, 1d=365 — pris depuis
+    # l'évaluateur via costs_applied n'est pas dispo ici ; on utilise la
+    # cadence moyenne observée : trades_par_an ~= 252 * 24 * 60/tf_min.
+    periods_per_year = _periods_per_year_estimate(config)
+    n_trades_an = max(1.0, periods_per_year / max(avg_hold, 1.0))
+    cagr = (1.0 + ret_mean) ** n_trades_an - 1.0
+    return CriterionVerdict(
+        name="CROISSANCE",
+        passed=(cagr >= min_cagr),
+        observed=cagr,
+        threshold=min_cagr,
+        reason=None if cagr >= min_cagr else RejectionReason.CROISSANCE_FAIL,
+        meta={
+            "ret_mean_pct_net": ret_mean,
+            "avg_holding": avg_hold,
+            "n_trades_par_an": n_trades_an,
+            "cagr_est": cagr,
+        },
+    )
+
+
+def _periods_per_year_estimate(config: EinherjarConfig) -> float:
+    """Estime le nombre de périodes par an depuis la config (timeframe par défaut)."""
+    try:
+        n_win = config.evaluation.get("n_window", {})
+        k_map = n_win.get("k_atr_by_timeframe", {})
+        # Le timeframe par défaut du pipeline est 15m (k=1.0 présent) sinon 1h.
+        if "15m" in k_map:
+            return 4 * 24 * 365  # 35040
+        if "1h" in k_map:
+            return 24 * 365
+        return 365
+    except Exception:
+        return 365
+
+
+# --------------------------------------------------------------------------- #
 # Critère 6 : consistency_cross_asset
 # --------------------------------------------------------------------------- #
 
@@ -434,6 +530,7 @@ def evaluate_all_criteria(
     verdicts.append(evaluate_bootstrap_ci_sharpe(mesures))
     verdicts.append(evaluate_bootstrap_ci_ret(mesures))
     verdicts.append(evaluate_n_trades(mesures, config))
+    verdicts.append(evaluate_croissance(mesures, config))
     verdicts.append(evaluate_cross_asset(mesures, config))
     verdicts.append(evaluate_max_drawdown(mesures, config))
 

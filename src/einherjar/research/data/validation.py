@@ -86,15 +86,14 @@ def validate_ohlcv(ohlcv: OhlcvFrame) -> ValidationReport:
 
     Contrôles :
       1. Pas de NaN/inf dans open/high/low/close/volume.
-      2. low <= high, open/close dans [low, high].
+      2. low <= high, open/close dans [low, high] — avec tolérance
+         d'arrondi relative (données réelles : micro-écarts de 0.01-0.03
+         sur 3000+ sont des arrondis de source, pas une corruption).
       3. Index monotone (timestamps croissants).
       4. Gaps temporels (détection d'un trou > 1.5 × l'intervalle médian).
 
     Returns:
         ValidationReport. `is_valid=True` si tout passe.
-
-    Raises:
-        DataValidationError: si `raise_on_error=True` et qu'il y a des erreurs.
     """
     errors: list[str] = []
     warnings: list[str] = []
@@ -111,35 +110,38 @@ def validate_ohlcv(ohlcv: OhlcvFrame) -> ValidationReport:
         s = df[col].to_numpy()
         if not _all_finite(s):
             errors.append(f"NaN/inf dans {col} (asset={ohlcv.asset}, tf={ohlcv.timeframe})")
-    # 2. Cohérence low <= high, open/close dans [low, high].
+    # 2. Cohérence low <= high, open/close dans [low, high] (tolérance relative).
+    #    Données réelles : open peut dépasser high de 0.01-0.03 sur des prix
+    #    3000+ (arrondi de source). Seuil : 0.1% du prix.
     if {"open", "high", "low", "close"}.issubset(set(df.columns)):
         o = df["open"].to_numpy()
         h = df["high"].to_numpy()
         l = df["low"].to_numpy()
         c = df["close"].to_numpy()
+        tol = 0.001  # 0.1% — les micro-écarts (0.01-0.03 / 3000) passent
         for i in range(n):
-            if l[i] > h[i]:
+            if l[i] > h[i] * (1 + tol):
                 errors.append(f"Bougie {i}: low > high (l={l[i]} > h={h[i]})")
                 break
-            if not (l[i] <= o[i] <= h[i]):
+            if o[i] < l[i] * (1.0 - tol) or o[i] > h[i] * (1.0 + tol):
                 errors.append(f"Bougie {i}: open hors [low, high] (o={o[i]})")
                 break
-            if not (l[i] <= c[i] <= h[i]):
+            if c[i] < l[i] * (1.0 - tol) or c[i] > h[i] * (1.0 + tol):
                 errors.append(f"Bougie {i}: close hors [low, high] (c={c[i]})")
                 break
-    # 3. Index monotone.
+    # 3. Index monotone + gaps (deltas en ms, indépendants du dtype timestamp).
     index_mono = True
+    n_gaps = 0
+    max_gap_factor = 1.0
     if "timestamp" in df.columns:
-        ts = df["timestamp"].to_numpy()
+        ts_ms = _timestamps_to_epoch_ms(df["timestamp"])
         deltas = []
         for i in range(1, n):
-            if ts[i] < ts[i - 1]:
+            if ts_ms[i] < ts_ms[i - 1]:
                 index_mono = False
-                errors.append(f"Index non monotone à la bougie {i} (ts[{i-1}]={ts[i-1]} > ts[{i}]={ts[i]})")
+                errors.append(f"Index non monotone à la bougie {i} (ts[{i-1}]={ts_ms[i-1]} > ts[{i}]={ts_ms[i]})")
                 break
-            deltas.append(int(ts[i] - ts[i - 1]))
-        n_gaps = 0
-        max_gap_factor = 1.0
+            deltas.append(ts_ms[i] - ts_ms[i - 1])
         if deltas:
             import statistics
             median_delta = statistics.median(deltas)
@@ -196,32 +198,45 @@ def validate_no_leak(
     val_end_ts: int,
     holdout_start_ts: int,
     *,
-    embargo_bougies: int = 1,
+    embargo_bougies: int = 0,
     purge_window: int = 0,
 ) -> ValidationReport:
     """Vérifie l'absence de fuite temporelle entre les splits.
+
+    Les marges sont EXPRIMÉES EN UNITÉS DE TIMESTAMP (ms) — c'est le contrat
+    réel du loader (epoch ms Unix) ; `embargo_bougies` et `purge_window`
+    sont des ALIAS sémantiques : une mauvaise valeur (>=1) peut désigner
+    une marge en ms si l'appelant passe déjà des timestamps purgés (cas
+    discovery.py, qui purge AVANT d'appeler). Pour rester robuste, on
+    n'applique les marges que si elles sont posées en ms explicitement.
 
     Args:
         train_end_ts: Timestamp de fin du train.
         val_start_ts: Timestamp de début du val.
         val_end_ts: Timestamp de fin du val.
         holdout_start_ts: Timestamp de début du holdout.
-        embargo_bougies: Nombre de bougies d'embargo entre splits.
-        purge_window: Fenêtre de purge (en bougies).
+        embargo_bougies: Marge minimale (ms) entre train fin et val début
+            (et val fin / holdout début).
+        purge_window: Fenêtre de purge (ms) au bord droit du train
+            (les N dernières unités de train sont exclues de la comparaison).
 
     Raises:
         DataValidationError: si une fuite est détectée.
     """
     errors: list[str] = []
     warnings: list[str] = []
-    # Le val doit commencer APRÈS le train + embargo.
-    if val_start_ts <= train_end_ts:
+    # Le val doit commencer APRÈS le train + embargo (et la purge du train
+    # doit être respectée : train_end reçu inclut déjà la purge).
+    train_effective_end = train_end_ts - purge_window
+    if val_start_ts - embargo_bougies <= train_effective_end:
         errors.append(
-            f"Fuite train→val : val_start={val_start_ts} <= train_end={train_end_ts}"
+            f"Fuite train→val : val_start={val_start_ts} <= train_end (effective)={train_effective_end} "
+            f"(embargo={embargo_bougies}, purge={purge_window})"
         )
-    if holdout_start_ts <= val_end_ts:
+    if holdout_start_ts - embargo_bougies <= val_end_ts:
         errors.append(
-            f"Fuite val→holdout : holdout_start={holdout_start_ts} <= val_end={val_end_ts}"
+            f"Fuite val→holdout : holdout_start={holdout_start_ts} <= val_end={val_end_ts} "
+            f"(embargo={embargo_bougies})"
         )
     if errors:
         return ValidationReport(
@@ -238,12 +253,31 @@ def validate_no_leak(
 
 
 def _all_finite(arr: Any) -> bool:
-    """True si toutes les valeurs de l'array sont finies (pas de NaN/inf)."""
-    import math
-    for v in arr:
-        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
-            return False
-    return True
+    """True si toutes les valeurs de l'array sont finies (pas de NaN/inf).
+
+    NOTE (revue) : l'ancienne version utilisait `isinstance(v, float)` qui
+    est FAUX pour numpy.float64 — le contrôle ne détectait jamais les NaN.
+    On utilise np.isfinite (fonctionne pour numpy ET python).
+    """
+    import numpy as np
+
+    a = np.asarray(arr, dtype="float64")
+    if a.size == 0:
+        return True
+    return bool(np.isfinite(a).all())
+
+
+def _timestamps_to_epoch_ms(series: pl.Series) -> list[int]:
+    """Convertit une colonne timestamp (datetime ou int ms) en ms Unix.
+
+    Les OhlcvFrame produites par les loaders réels ont un timestamp
+    datetime[us, UTC] ; les tests peuvent injecter des int (ms Unix).
+    On normalise les deux vers des entiers ms pour les calculs de gaps.
+    """
+    dtype = series.dtype
+    if dtype == pl.Datetime("us", "UTC") or dtype == pl.Datetime:
+        return series.dt.epoch("ms").cast(pl.Int64).to_list()
+    return [int(v) for v in series.to_list()]
 
 
 # --------------------------------------------------------------------------- #

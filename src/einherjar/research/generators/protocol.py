@@ -36,11 +36,27 @@ class GenerationProtocol:
     Tout générateur qui tourne sous ce protocole utilise exactement les
     mêmes contraintes, ce qui rend les comparaisons valides.
 
+    NOTE (refactor budget/candidats, décision utilisateur) :
+      - `n_candidates` = nombre d'HYPOTHÈSES GÉNÉRÉES par un générateur.
+        Les moteurs produisent un MAXIMUM de candidats « au minimum pas
+        absurdes » (critères larges) ; c'est l'évaluation/admission qui
+        resserrent l'étau ensuite. Par défaut 100k.
+      - `n_eval_budget` = le mur de COÛT : nombre maximal d'évaluations
+        moteur (train_calibrate + test_on) que le comparator peut
+        consommer au total pour comparer équitablement les générateurs.
+        Les générateurs NON évolutionnaires (random, typedGP pur, BNF)
+        génèrent sans appeler le moteur ; les évolutionnaires (beam,
+        NSGA-II, memetic) consomment des évaluations pendant leur
+        recherche. Les deux notions sont INDÉPENDANTES.
+
     Attributes:
         seed: Graine RNG maître (propagation déterministe).
         data_version: Identifiant de version de données.
         splits: Bornes explicites (ou ratios si mode='ratio').
-        n_eval_budget: Nombre max d'évaluations autorisées (mur d'arrêt).
+        n_candidates: Nombre d'hypothèses à générer par moteur
+            (volume de génération, défaut 100k).
+        n_eval_budget: Nombre MAX d'appels moteur autorisés (mur d'arrêt de
+            COÛT, PAS un plafond de génération).
         max_conditions: Profondeur max des conditions générées.
         p_compound: Probabilité de générer une condition composée.
         assets: Assets du universe (tuple).
@@ -58,7 +74,8 @@ class GenerationProtocol:
     seed: int
     data_version: str
     splits: dict[str, Any] = field(default_factory=dict)
-    n_eval_budget: int = 10_000
+    n_candidates: int = 100_000
+    n_eval_budget: int = 2_000
     max_conditions: int = 3
     p_compound: float = 0.3
     assets: tuple[str, ...] = ("BTCUSD",)
@@ -71,6 +88,7 @@ class GenerationProtocol:
             "seed": self.seed,
             "data_version": self.data_version,
             "splits": self.splits,
+            "n_candidates": self.n_candidates,
             "n_eval_budget": self.n_eval_budget,
             "max_conditions": self.max_conditions,
             "p_compound": self.p_compound,
@@ -85,9 +103,11 @@ def make_protocol(
     config: EinherjarConfig,
     data_version: str,
     seed: int = 42,
-    n_eval_budget: int = 10_000,
+    n_eval_budget: int = 2_000,
+    n_candidates: int = 100_000,
     assets: tuple[str, ...] = ("BTCUSD",),
     timeframes: tuple[str, ...] = ("1h",),
+    max_conditions: int = 4,
 ) -> GenerationProtocol:
     """Construit un GenerationProtocol depuis la config + data_version + seed.
 
@@ -95,9 +115,11 @@ def make_protocol(
         config: Configuration chargée.
         data_version: Identifiant de version de données.
         seed: Graine RNG maître.
-        n_eval_budget: Budget max d'évaluations (mur d'arrêt commun à tous).
+        n_eval_budget: Mur de COÛT — nb max d'évaluations moteur (commun).
+        n_candidates: Volume de GÉNÉRATION — nb d'hypothèses par moteur.
         assets: Assets cibles.
         timeframes: Timeframes cibles.
+        max_conditions: Profondeur max des conditions générées (arbres).
 
     Returns:
         GenerationProtocol figé.
@@ -121,6 +143,8 @@ def make_protocol(
             "embargo_bougies": splits_cfg.get("embargo", {}).get("bougies", 1),
         },
         n_eval_budget=n_eval_budget,
+        n_candidates=n_candidates,
         assets=assets,
         timeframes=timeframes,
+        max_conditions=max_conditions,
     )

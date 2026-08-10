@@ -128,7 +128,8 @@ class HumanRules(BaseBaseline):
         Args:
             config: Configuration chargée.
             seed: Graine RNG.
-            amplitude_value: Valeur d'amplitude (prix absolu).
+            amplitude_value: Valeur d'amplitude (en multiples d'ATR,
+                alignée sur les générateurs pour la comparabilité step1/step2).
             cooldown_k: Cooldown d'observation K.
             assets: Assets cibles.
             timeframes: Timeframes cibles.
@@ -157,7 +158,7 @@ class HumanRules(BaseBaseline):
             cond = Condition(feature_ref=feat, operator=op, value=value, transformation=None)
             amp = Amplitude(
                 valeur=self.amplitude_value,
-                unité=AmplitudeUnit.PRICE_ABSOLU,
+                unité=AmplitudeUnit.MULTIPLE_ATR,
                 direction_implicite=direction,
             )
             h = Hypothesis(
@@ -251,7 +252,7 @@ class ShallowEnumeration(BaseBaseline):
                         cond = Condition(feature_ref=feat, operator=op, value=t, transformation=None)
                         amp = Amplitude(
                             valeur=self.amplitude_value,
-                            unité=AmplitudeUnit.PRICE_ABSOLU,
+                            unité=AmplitudeUnit.MULTIPLE_ATR,
                             direction_implicite=direction,
                         )
                         h = Hypothesis(
@@ -357,7 +358,7 @@ class RandomConstrained(BaseBaseline):
                 cond = ConditionNode(op=LogicalOp.AND, left=left, right=right)
             amp = Amplitude(
                 valeur=self.amplitude_value,
-                unité=AmplitudeUnit.PRICE_ABSOLU,
+                unité=AmplitudeUnit.MULTIPLE_ATR,
                 direction_implicite=direction,
             )
             h = Hypothesis(

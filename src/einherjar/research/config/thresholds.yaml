@@ -30,11 +30,22 @@ n_trades:
   min_total: 30                # nombre minimum de trades sur val pour admission
   min_per_asset: 5             # nombre minimum de trades par actif du universe
 
+# --- Croissance annuelle (vision « 50 $ -> x10 ») ---
+# CAGR minimum exigé sur la val : un edge moyen par trade x fréquence de
+# trading. 0.25 = +25 %/an composé (un compte 50 $ -> ~10x en ~8 ans).
+growth:
+  min_cagr: 0.25
+
 # --- Cohérence cross-asset ---
 cross_asset:
   min_frac_assets_positive: 0.70    # 70% des actifs du universe doivent être positifs
   min_n_assets: 2                   # au moins 2 actifs dans per_asset_stats (sinon FAIL)
-  allow_single_asset: false         # opt-in pour autoriser un seul actif (DÉCONSEILLÉ)
+  # (fix refactor) allow_single_asset:true — le pipeline V1 se lance sur un seul
+  # asset (ex. NASDAQ100/15m). En single-asset la cohérence cross-asset est
+  # SANS OBJET : la refuser systématiquement rendait l'admission = rejet
+  # permanent (« rejette TOUT »). Dès que n_assets >= 2, le test redevient
+  # strict (vraie vérification multi-actifs).
+  allow_single_asset: true
 
 # --- Max drawdown ---
 max_drawdown:

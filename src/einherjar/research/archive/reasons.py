@@ -16,6 +16,7 @@ OFFICIAL_REASONS: tuple[RejectionReason, ...] = (
     RejectionReason.PBO_FAIL,
     RejectionReason.BOOTSTRAP_CI_FAIL,
     RejectionReason.N_TRADES_FAIL,
+    RejectionReason.CROISSANCE_FAIL,
     RejectionReason.CROSS_ASSET_FAIL,
     RejectionReason.DD_FAIL,
     RejectionReason.DIVERSITY_FAIL,

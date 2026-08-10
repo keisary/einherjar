@@ -134,27 +134,45 @@ def dsr(
     n_trials: int,
     skewness: float = 0.0,
     kurtosis: float = 3.0,
+    n_observations: int | None = None,
 ) -> float:
-    """Deflated Sharpe Ratio (Bailey & López de Prado).
+    """Deflated Sharpe Ratio (Bailey & López de Prado, 2014).
 
-    Réduit le Sharpe en fonction du nombre d'essais et de la non-normalité.
-    Retourne une probabilité que le Sharpe observé soit > 0 sous H0.
+    Probabilité (approx. gaussienne) que le Sharpe vrai soit > 0, après :
+      1. correction de non-normalité des rendements (skew/kurtosis) ;
+      2. déflation par le nombre d'essais indépendants (n_trials).
 
-    Note : implémentation simplifiée. La version complète (avec backtest
-    overfitting) sera dans `admission/criteria.py` (Step 5).
+    Formule implémentée (Bailey & LP, "The Deflated Sharpe Ratio", 2014) :
+        PSR(SR*) = Phi( (SR - SR*) x sqrt(T-1) / sqrt(1 - g3*SR + (g4-1)/4*SR^2) )
+    avec SR* ~= sqrt(2 ln(n_trials))  (déflateur), T = n_observations.
+    Quand `n_observations` est fourni, le pur z-score du Sharpe est calculé
+    avec le facteur sqrt(T-1) ; sinon on retombe sur la forme courte.
+
+    Args:
+        sharpe_observed: Sharpe PAR OBSERVATION (p. ex. par trade), PAS annualisé.
+        n_trials: nombre d'essais indépendants (hypothèses testées).
+        skewness / kurtosis: moments des rendements (0.0 / 3.0 = normalité).
+        n_observations: nombre de rendements observés (T). None -> forme courte.
+
+    Returns:
+        Probabilité dans [0,1], NaN si entrées invalides.
     """
     if n_trials < 1:
         return float("nan")
-    if sharpe_observed is None or math.isnan(sharpe_observed):
+    if sharpe_observed is None or not math.isfinite(sharpe_observed):
         return float("nan")
-    # Approximation grossière : on retourne le p-value d'un test z
-    # ajusté par sqrt(n_trials) (correction de Bonferroni simplifiée).
-    e_max_sharpe = math.sqrt(2.0 * math.log(max(n_trials, 2)))
-    se = math.sqrt(1.0 + skewness * sharpe_observed + (kurtosis - 1.0) / 4.0 * sharpe_observed ** 2)
+    # Déflateur : espérance du max de n_trials gaussiennes i.i.d. (approx.)
+    e_max_sharpe = math.sqrt(2.0 * math.log(max(int(n_trials), 2)))
+    # Variance-type du Sharpe estimé (non-normalité)
+    se = math.sqrt(1.0 - skewness * sharpe_observed
+                   + (kurtosis - 1.0) / 4.0 * sharpe_observed ** 2)
     if se == 0:
         return float("nan")
-    z = (sharpe_observed - e_max_sharpe) / se
-    # p-value bilatéral : on veut P(Sharpe > 0) — conservateur, on retranche
+    if n_observations is not None and n_observations > 2:
+        # Correction du nombre d'observations : SR*sqrt(T-1)/se
+        z = (sharpe_observed * math.sqrt(max(1, n_observations - 1)) / se) - e_max_sharpe
+    else:
+        z = (sharpe_observed / se) - e_max_sharpe
     from math import erf, sqrt
     p = 0.5 * (1.0 + erf(z / sqrt(2.0)))
     return p

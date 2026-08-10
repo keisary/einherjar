@@ -1,67 +1,58 @@
-"""Interface OHLCV pour le moteur de découverte.
+"""data/ohlcv.py — Chargement des bougies OHLCV réelles depuis les CSV bruts.
 
-Wrap synchrone de `einherjar.data.store.DataStore` (DuckDB) en surface
-pure polars. Fournit un cache mémoire par (asset, timeframe, data_version)
-pour éviter de recharger la même série à chaque évaluation.
+Rôle SIMPLE (périmètre research) :
+  - fournir au moteur une série OHLCV en VRAIS prix (open/high/low/close/volume)
+    pour l'évaluation (ATR, SL/TP, simulation intrabar, MFE/MAE) ;
+  - rien d'autre. Pas de DuckDB, pas de DataStore, pas de brokers,
+    pas de calcul de features (ce rôle appartient aux features .npy).
 
-Responsabilités :
-  - Lecture synchrone des bougies OHLCV depuis le store persistant.
-  - Validation du schéma minimal (timestamp, open, high, low, close, volume).
-  - Tri ascendant par timestamp, déduplication, NaN handling.
-  - Cache en lecture, invalidation explicite par data_version.
+Source : technical_agent_dataset_brut/{asset_class}/{asset}/{timeframe}/*.csv
+Format CSV : timestamp,asset,timeframe,open,high,low,close,volume
+Les CSV sont étendus par année ; on les concatène, on trie et on dédoublonne.
 
-Hors périmètre :
-  - Calcul des features (voir data/features.py).
-  - Logique d'évaluation (voir engine/evaluator.py).
-  - Fetch broker distant (voir data/ohlcv_manager.py pour le live).
+NOTE IMPORTANTE (Q4) : les .npy compilés ne contiennent que des log-returns
+normalisés, JAMAIS des prix. C'est pourquoi l'OHLCV d'exécution doit venir
+des CSV bruts, et jamais des .npy. Le module data/npy_loader.py (stub zéros)
+n'est plus utilisé ici.
 """
 
 from __future__ import annotations
 
+import glob
 import logging
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import polars as pl
 
 logger = logging.getLogger(__name__)
 
-# Colonnes OHLCV minimales exigées par le moteur de découverte.
-OHLCV_REQUIRED_COLUMNS: tuple[str, ...] = (
-    "timestamp",
-    "open",
-    "high",
-    "low",
-    "close",
-    "volume",
-)
-
-
 # --------------------------------------------------------------------------- #
-# Exceptions
+# Erreurs
 # --------------------------------------------------------------------------- #
+
+OHLCV_REQUIRED_COLUMNS = ("timestamp", "open", "high", "low", "close", "volume")
 
 
 class OhlcvError(Exception):
-    """Erreur générique du loader OHLCV."""
+    """Erreur générique OHLCV."""
 
 
 class OhlcvSchemaError(OhlcvError):
-    """Schéma OHLCV invalide (colonnes manquantes ou types incorrects)."""
+    """Schéma invalide (colonnes manquantes ou inattendues)."""
 
 
 class OhlcvEmptyError(OhlcvError):
-    """Aucune bougie OHLCV disponible pour (asset, timeframe)."""
+    """Aucune bougie disponible pour (asset, timeframe)."""
 
 
 # --------------------------------------------------------------------------- #
-# Frame value object
+# Value object
 # --------------------------------------------------------------------------- #
 
 
-@dataclass(frozen=True)
 class OhlcvFrame:
     """Frame OHLCV alignée sur une série temporelle (asset × timeframe).
 
@@ -77,6 +68,18 @@ class OhlcvFrame:
     df: pl.DataFrame
     data_version: str
 
+    def __init__(
+        self,
+        asset: str,
+        timeframe: str,
+        df: pl.DataFrame,
+        data_version: str,
+    ) -> None:
+        self.asset = asset
+        self.timeframe = timeframe
+        self.df = df
+        self.data_version = data_version
+
     @property
     def n_bougies(self) -> int:
         """Nombre de bougies dans la frame."""
@@ -87,22 +90,21 @@ class OhlcvFrame:
         """Timestamp de la première bougie (None si frame vide)."""
         if self.df.is_empty():
             return None
-        ts = self.df["timestamp"][0]
-        return _to_datetime(ts)
+        return _to_datetime(self.df["timestamp"][0])
 
     @property
     def end_ts(self) -> datetime | None:
         """Timestamp de la dernière bougie (None si frame vide)."""
         if self.df.is_empty():
             return None
-        ts = self.df["timestamp"][-1]
-        return _to_datetime(ts)
+        return _to_datetime(self.df["timestamp"][-1])
 
     def to_arrays(self) -> dict[str, Any]:
         """Expose les colonnes OHLCV en arrays numpy (pour les calculs vectorisés).
 
         Returns:
-            Dict {open, high, low, close, volume} → np.ndarray[float64].
+            Dict {open, high, low, close, volume} → np.ndarray[float64],
+            plus timestamp (dtype source).
         """
         return {
             "open": self.df["open"].to_numpy().astype("float64"),
@@ -115,52 +117,12 @@ class OhlcvFrame:
 
 
 # --------------------------------------------------------------------------- #
-# Loader — privé
+# Backends
 # --------------------------------------------------------------------------- #
 
 
 class _OhlcvBackend:
-    """Interface abstraite de backend de données OHLCV.
-
-    Permet de substituer le backend par défaut (DataStore DuckDB) par un
-    backend de test (NpyLoader, DataFrame en mémoire) sans modifier
-    l'API publique.
-    """
-
-    def fetch(
-        self,
-        asset: str,
-        timeframe: str,
-        data_version: str,
-    ) -> pl.DataFrame:
-        """Charge les bougies OHLCV pour (asset, timeframe).
-
-        Args:
-            asset: Symbole.
-            timeframe: Granularité.
-            data_version: Identifiant de version (peut être ignoré par le backend).
-
-        Returns:
-            DataFrame polars [timestamp, open, high, low, close, volume] trié ASC.
-
-        Raises:
-            OhlcvError: en cas d'échec du backend.
-        """
-        raise NotImplementedError
-
-
-class _DataStoreBackend(_OhlcvBackend):
-    """Backend par défaut : DuckDB via DataStore."""
-
-    def __init__(self, db_path: str | Path | None = None) -> None:
-        try:
-            from einherjar.data.store import DataStore
-        except ImportError as exc:
-            raise OhlcvError(
-                "DataStore indisponible — vérifie que einherjar.data.store est importable"
-            ) from exc
-        self._store = DataStore(db_path=db_path)
-        logger.debug("DataStore ouvert : %s", self._store.db_path)
+    """Interface minimale de backend OHLCV."""
 
     def fetch(
         self,
@@ -168,41 +130,91 @@ class _DataStoreBackend(_OhlcvBackend):
         timeframe: str,
         data_version: str,
         *,
-        asset_class: str = "crypto",
+        asset_class: str = "indices",
     ) -> pl.DataFrame:
-        """Fetch OHLCV depuis le DataStore. Fallback npy_loader si vide.
+        """Retourne [timestamp, open, high, low, close, volume] trié ASC."""
+        raise NotImplementedError
 
-        P0-02 (contrat OHLC) : si le DataStore n'a pas l'asset, on tente
-        un fallback vers npy_loader.load_ohlcv_from_npy qui lit les
-        .npy MIDAS V3 directement. Le store est la voie principale (live),
-        les .npy sont la voie bootstrap.
-        """
-        df = self._store.query_ohlcv(asset=asset, timeframe=timeframe, since=None, limit=10_000_000)
-        if df.is_empty():
-            # Fallback : lecture directe des .npy MIDAS V3.
-            try:
-                from einherjar.data.npy_loader import load_ohlcv_from_npy
-                fallback = load_ohlcv_from_npy(
-                    asset=asset, asset_class=asset_class, timeframe=timeframe,
-                )
-                if fallback is not None and not fallback.is_empty():
-                    logger.info(
-                        "OHLCV fallback via npy_loader : %s x %s, %d bougies",
-                        asset, timeframe, fallback.height,
-                    )
-                    return fallback
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("npy_loader fallback echoue (%s)", exc)
+
+# NOTE sur le nom "raw": dans cette couche, "brut" = CSV de prix historiques
+# (technical_agent_dataset_brut), pas d'abstraction de source. On oublie le
+# naming "DataStore/DuckDB" de la version précédente.
+
+
+class _CsvRawBackend(_OhlcvBackend):
+    """Backend par défaut : lit les CSV de prix bruts (vrais prix).
+
+    Chemin attendu :
+        <raw_root>/<asset_class>/<asset>/<timeframe>/<asset>_<year>_<timeframe>.csv
+
+    Les CSV contiennent : timestamp,asset,timeframe,open,high,low,close,volume.
+    Deux pièges gérés :
+      - le volume est parfois Int64, parfois Float64 selon l'année → on force
+        le schéma (Float64) à la lecture pour pouvoir concaténer.
+      - les CSV annuels sont concaténés, triés par timestamp et dédoublonnés.
+    """
+
+    def __init__(self, raw_root: str | Path | None = None) -> None:
+        # NOTE: chemin réel des données téléchargées (scripts downloaders
+        # de midasV3). Ajustable via make_default_provider(raw_root=...).
+        self.raw_root = Path(raw_root) if raw_root else Path(
+            r"D:/midas_v2/technical_agent_dataset_brut"
+        )
+
+    def fetch(
+        self,
+        asset: str,
+        timeframe: str,
+        data_version: str,
+        *,
+        asset_class: str = "indices",
+    ) -> pl.DataFrame:
+        root = self.raw_root / asset_class / asset / timeframe
+        if not root.is_dir():
             raise OhlcvEmptyError(
-                f"Aucune bougie OHLCV pour ({asset}, {timeframe}) — "
-                f"DataStore vide et fallback npy_loader indisponible. "
-                f"Verifie --data-root ({asset_class}/{timeframe}/{asset}_*.npy)."
+                f"Données brutes absentes : {root}. "
+                f"Réassure-toi de (re)télécharger la classe '{asset_class}' "
+                f"(scripts downloaders) — pas de prix CSV = pas d'exécution."
             )
-        return df
+        # Pattern fichier annuel : <asset>_<year>_<tf>.csv
+        pattern = str(root / f"{asset}_*_{timeframe}.csv")
+        csv_files = sorted(glob.glob(pattern))
+        if not csv_files:
+            raise OhlcvEmptyError(
+                f"Aucun CSV {asset} × {timeframe} dans {root} "
+                "(pattern: <asset>_<year>_<tf>.csv)"
+            )
+        # Forcer le schéma du volume (Int64 ↔ Float64 selon l'année).
+        frame_list: list[pl.DataFrame] = []
+        for f in csv_files:
+            df = pl.read_csv(
+                f,
+                try_parse_dates=True,
+                schema_overrides={"volume": pl.Float64},
+            )
+            df = df.select(
+                [c for c in OHLCV_REQUIRED_COLUMNS if c in df.columns]
+            )
+            if len(df.columns) != len(OHLCV_REQUIRED_COLUMNS):
+                missing = [c for c in OHLCV_REQUIRED_COLUMNS if c not in df.columns]
+                raise OhlcvSchemaError(f"{Path(f).name}: colonnes manquantes {missing}")
+            frame_list.append(df)
+        if not frame_list:
+            raise OhlcvEmptyError(f"Aucune bougie lue depuis {root}")
+        concat = pl.concat(frame_list)
+        # Le CSV contient timestamp ISO avec timezone ; on normalise en
+        # datetime[us, UTC] (même format que les FeaturesFrame).
+        concat = concat.sort("timestamp")
+        return concat
+
+
+# --------------------------------------------------------------------------- #
+# Backend mémoire (tests uniquement)
+# --------------------------------------------------------------------------- #
 
 
 class _InMemoryBackend(_OhlcvBackend):
-    """Backend de test : dictionnaire {(asset, tf): DataFrame} injecté manuellement."""
+    """Backend de test : dictionnaire {(asset, tf): DataFrame}."""
 
     def __init__(self, frames: dict[tuple[str, str], pl.DataFrame] | None = None) -> None:
         self._frames: dict[tuple[str, str], pl.DataFrame] = dict(frames or {})
@@ -210,7 +222,14 @@ class _InMemoryBackend(_OhlcvBackend):
     def register(self, asset: str, timeframe: str, df: pl.DataFrame) -> None:
         self._frames[(asset, timeframe)] = df
 
-    def fetch(self, asset: str, timeframe: str, data_version: str) -> pl.DataFrame:
+    def fetch(
+        self,
+        asset: str,
+        timeframe: str,
+        data_version: str,
+        *,
+        asset_class: str = "indices",
+    ) -> pl.DataFrame:
         key = (asset, timeframe)
         if key not in self._frames:
             raise OhlcvEmptyError(f"Aucune bougie en mémoire pour ({asset}, {timeframe})")
@@ -223,22 +242,14 @@ class _InMemoryBackend(_OhlcvBackend):
 
 
 class OhlcvProvider:
-    """Loader OHLCV synchrone pour le moteur de découverte.
-
-    Encapsule un backend de données (DataStore par défaut) et un cache
-    mémoire indexé par (asset, timeframe, data_version).
+    """Loader OHLCV simple : un backend (CSV bruts) + cache mémoire.
 
     Attributes:
-        backend: Backend de données (DataStore, InMemory, custom).
+        backend: Backend de données (CSV bruts par défaut).
     """
 
     def __init__(self, backend: _OhlcvBackend | None = None) -> None:
-        """Initialise le provider OHLCV.
-
-        Args:
-            backend: Backend de données (DataStore DuckDB par défaut).
-        """
-        self._backend: _OhlcvBackend = backend or _DataStoreBackend()
+        self._backend: _OhlcvBackend = backend or _CsvRawBackend()
         self._cache: dict[tuple[str, str, str], OhlcvFrame] = {}
         logger.info("OhlcvProvider instancié (backend=%s)", type(self._backend).__name__)
 
@@ -253,16 +264,18 @@ class OhlcvProvider:
         data_version: str,
         *,
         use_cache: bool = True,
-        asset_class: str = "crypto",
+        asset_class: str = "indices",
     ) -> OhlcvFrame:
-        """Charge (ou récupère du cache) la série OHLCV.
+        """Charge (ou récupère du cache) la série OHLCV réelle.
 
         Args:
-            asset: Symbole.
-            timeframe: Granularité.
-            data_version: Identifiant de version (utilisé comme clé de cache).
+            asset: Symbole (ex: 'NASDAQ100').
+            timeframe: Granularité (15m/5m/1h/4h/1d).
+            data_version: Identifiant de version (clé de cache).
             use_cache: Si True (défaut), renvoie le cache si disponible.
-            asset_class: Classe d'actifs (pour le fallback npy_loader).
+            asset_class: Classe d'actifs — dossier de la donnée brute
+                ('indices', 'crypto', 'forex', 'commodities',
+                 'stocks_growth', 'stocks_tech', 'stocks_value').
 
         Returns:
             OhlcvFrame validée et triée ASC par timestamp.
@@ -273,7 +286,6 @@ class OhlcvProvider:
         """
         cache_key = (asset, timeframe, data_version)
         if use_cache and cache_key in self._cache:
-            logger.debug("OHLCV cache hit : %s", cache_key)
             return self._cache[cache_key]
 
         raw = self._backend.fetch(
@@ -290,31 +302,17 @@ class OhlcvProvider:
         return frame
 
     def invalidate(self, asset: str | None = None, timeframe: str | None = None) -> int:
-        """Invalide le cache. Retourne le nombre d'entrées supprimées.
-
-        Args:
-            asset: Si fourni, ne supprime que les frames de cet asset.
-            timeframe: Si fourni, ne supprime que les frames de ce timeframe.
-
-        Returns:
-            Nombre d'entrées de cache supprimées.
-        """
+        """Invalide le cache. Retourne le nombre d'entrées supprimées."""
         to_drop = [
             k for k in self._cache
             if (asset is None or k[0] == asset) and (timeframe is None or k[1] == timeframe)
         ]
         for k in to_drop:
             del self._cache[k]
-        if to_drop:
-            logger.debug("Cache OHLCV invalidé : %d entrées", len(to_drop))
         return len(to_drop)
 
     def list_assets(self) -> list[tuple[str, str]]:
-        """Liste les couples (asset, timeframe) déjà chargés en cache.
-
-        Returns:
-            Liste triée de tuples (asset, timeframe).
-        """
+        """Liste les couples (asset, timeframe) déjà chargés en cache."""
         return sorted({(k[0], k[1]) for k in self._cache})
 
     # ------------------------------------------------------------------ #
@@ -328,27 +326,18 @@ class OhlcvProvider:
         timeframe: str,
         data_version: str,
     ) -> OhlcvFrame:
-        """Valide le schema, normalise le timestamp, dedoublonne, trie, drop les NaN critiques.
-
-        P0-02 + fix npy_loader : on normalise le timestamp en datetime[us, UTC]
-        (le format des FeaturesFrame) pour que les join OHLCV x features
-        fonctionnent sans cast manuel. Le backend peut renvoyer int64 (ms Unix)
-        ou datetime ; on normalise vers datetime[us, UTC].
-        """
+        """Valide le schema, normalise le timestamp, dédoublonne, trie, drop NaN critiques."""
         _validate_schema(df)
         # Normalisation du timestamp vers datetime[us, UTC].
         ts_dtype = df.schema["timestamp"]
         if ts_dtype == pl.Datetime("us", "UTC"):
-            pass  # deja normalise
+            pass  # déjà normalisé
         elif ts_dtype == pl.Datetime:
-            # autre timezone ou precision : on cast en us + UTC
             df = df.with_columns(
                 pl.col("timestamp").dt.replace_time_zone("UTC").dt.cast_time_unit("us")
             )
-        elif ts_dtype == pl.Int64 or ts_dtype == pl.Int32:
+        elif ts_dtype in (pl.Int64, pl.Int32):
             # int = ms Unix (convention npy_loader)
-            # from_epoch cree un Datetime sans timezone ; on l'attache UTC,
-            # puis on convertit en us.
             df = df.with_columns(
                 pl.from_epoch("timestamp", time_unit="ms")
                 .dt.replace_time_zone("UTC")
@@ -356,7 +345,6 @@ class OhlcvProvider:
                 .alias("timestamp")
             )
         else:
-            # Autres types (string, etc.) : on tente un cast datetime direct.
             try:
                 df = df.with_columns(
                     pl.col("timestamp").str.to_datetime(time_unit="us").alias("timestamp")
@@ -393,11 +381,7 @@ def _validate_schema(df: pl.DataFrame) -> None:
 
 def _dedupe_and_sort(df: pl.DataFrame) -> pl.DataFrame:
     """Trie ASC par timestamp, dédoublonne sur (timestamp) en gardant la première ligne."""
-    return (
-        df
-        .sort("timestamp")
-        .unique(subset=["timestamp"], keep="first")
-    )
+    return df.sort("timestamp").unique(subset=["timestamp"], keep="first")
 
 
 def _drop_critical_nans(df: pl.DataFrame) -> pl.DataFrame:
@@ -424,29 +408,18 @@ def _to_datetime(value: Any) -> datetime | None:
 # --------------------------------------------------------------------------- #
 
 
-def make_default_provider(db_path: str | Path | None = None) -> OhlcvProvider:
-    """Construit un OhlcvProvider avec le backend DataStore par défaut.
+def make_default_provider(raw_root: str | Path | None = None) -> OhlcvProvider:
+    """Construit un OhlcvProvider avec le backend CSV bruts (vrais prix).
 
     Args:
-        db_path: Chemin optionnel vers la base DuckDB. Si None, utilise
-            le chemin par défaut du DataStore.
-
-    Returns:
-        OhlcvProvider prêt à l'emploi.
+        raw_root: Racine des CSV bruts. Défaut :
+            D:/midas_v2/technical_agent_dataset_brut
     """
-    backend = _DataStoreBackend(db_path=db_path)
-    return OhlcvProvider(backend=backend)
+    return OhlcvProvider(backend=_CsvRawBackend(raw_root=raw_root))
 
 
 def make_test_provider(
     frames: dict[tuple[str, str], pl.DataFrame] | None = None,
 ) -> OhlcvProvider:
-    """Construit un OhlcvProvider avec un backend en mémoire (pour les tests).
-
-    Args:
-        frames: Dict {(asset, timeframe): DataFrame polars OHLCV}.
-
-    Returns:
-        OhlcvProvider avec backend InMemory.
-    """
+    """Construit un OhlcvProvider avec un backend en mémoire (pour les tests)."""
     return OhlcvProvider(backend=_InMemoryBackend(frames=frames))

@@ -94,15 +94,19 @@ def make_splits_ratio(
     purge = max(0, horizon_label)
     emb = max(0, embargo_bougies)
 
-    # Train : [0, t1) — pas de purge côté gauche
-    # On purge le bord droit du train (pour qu'aucun trade ouvert à t1-1 ne déborde dans val)
-    # MAIS l'embargo s'applique au début du JEU SUIVANT (val), pas à la fin du train.
+    # Train : [0, t1) — purge du bord droit.
+    # (fix fuite train→val) Un calibrage basé sur la bougie t1-1 utilise des
+    # trades dont le label déborde dans le val (fenêtre [t1, t1+horizon)) :
+    # le label « vu » par le train est informé par des bougies du val, ce qui
+    # est une fuite. On purge `purge` bougies à droite du train exactement
+    # comme on purge la gauche du val. L'embargo, lui, ne s'applique qu'au
+    # début du jeu suivant (val), pas à la fin du train.
     train = Split(
         name="train",
         start=0,
         end=t1,
         purge_start=0,
-        purge_end=t1,   # pas de purge côté train (le train peut être utilisé jusqu'au bout)
+        purge_end=t1 - purge,
         embargo_applied=0,
     )
 

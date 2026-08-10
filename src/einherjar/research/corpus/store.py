@@ -23,7 +23,13 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_CORPUS_PATH: Path = Path("outputs") / "corpus.jsonl"
+# Ancrage absolu : indépendant du CWD de lancement.
+# Path(__file__) = .../src/einherjar/research/corpus/store.py
+# parents[4] = racine du repo (D:\midas_v2\einherjar) — même convention que
+# le holdout ledger, corrigée en parents[4] pour la vraie racine.
+DEFAULT_CORPUS_PATH: Path = (
+    Path(__file__).resolve().parents[4] / "outputs" / "corpus.jsonl"
+)
 
 
 # --------------------------------------------------------------------------- #

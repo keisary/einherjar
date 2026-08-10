@@ -1,0 +1,175 @@
+{
+  "meta": {
+    "asset": "BTCUSD",
+    "timeframe": "4h",
+    "seed": 42,
+    "n_eval": 64
+  },
+  "report": {
+    "protocol": {
+      "seed": 42,
+      "data_version": "hash:465d90a9af13",
+      "splits": {
+        "mode": "ratio",
+        "train_ratio": 0.6,
+        "val_ratio": 0.2,
+        "holdout_ratio": 0.2,
+        "purge_window": 50,
+        "embargo_bougies": 1
+      },
+      "n_candidates": 2000,
+      "n_eval_budget": 64,
+      "max_conditions": 4,
+      "p_compound": 0.3,
+      "assets": [
+        "BTCUSD"
+      ],
+      "timeframes": [
+        "4h"
+      ],
+      "amplitude_value": 5.0,
+      "cooldown_k": 5
+    },
+    "rankings": [
+      {
+        "generator_name": "BeamSearchGenerator",
+        "rank": 1,
+        "score": 0.5882352941176471,
+        "n_generated": 16,
+        "n_evaluated": 16,
+        "n_passed_admission": 0,
+        "admission_rate": 0.0,
+        "median_sharpe": 0.0,
+        "median_sharpe_all": -2.3959897240990577,
+        "n_distinct_features": 7,
+        "semantic_coherence": 0.0,
+        "subscores": {
+          "sharpe": 0.0,
+          "admission_rate": 0.0,
+          "diversity": 7.0,
+          "coherence": 0.0,
+          "norm_sharpe": 0.5,
+          "norm_admission_rate": 0.5,
+          "norm_diversity": 1.0,
+          "norm_coherence": 0.5,
+          "composite": 0.5882
+        },
+        "elapsed_s": 37.621
+      },
+      {
+        "generator_name": "TypedGPGenerator",
+        "rank": 2,
+        "score": 0.5882352941176471,
+        "n_generated": 5,
+        "n_evaluated": 5,
+        "n_passed_admission": 0,
+        "admission_rate": 0.0,
+        "median_sharpe": 0.0,
+        "median_sharpe_all": -1.504794443391696,
+        "n_distinct_features": 7,
+        "semantic_coherence": 0.0,
+        "subscores": {
+          "sharpe": 0.0,
+          "admission_rate": 0.0,
+          "diversity": 7.0,
+          "coherence": 0.0,
+          "norm_sharpe": 0.5,
+          "norm_admission_rate": 0.5,
+          "norm_diversity": 1.0,
+          "norm_coherence": 0.5,
+          "composite": 0.5882
+        },
+        "elapsed_s": 25.836
+      },
+      {
+        "generator_name": "MemeticGenerator",
+        "rank": 3,
+        "score": 0.5882352941176471,
+        "n_generated": 5,
+        "n_evaluated": 5,
+        "n_passed_admission": 0,
+        "admission_rate": 0.0,
+        "median_sharpe": 0.0,
+        "median_sharpe_all": -1.504794443391696,
+        "n_distinct_features": 7,
+        "semantic_coherence": 0.0,
+        "subscores": {
+          "sharpe": 0.0,
+          "admission_rate": 0.0,
+          "diversity": 7.0,
+          "coherence": 0.0,
+          "norm_sharpe": 0.5,
+          "norm_admission_rate": 0.5,
+          "norm_diversity": 1.0,
+          "norm_coherence": 0.5,
+          "composite": 0.5882
+        },
+        "elapsed_s": 31.766
+      },
+      {
+        "generator_name": "NSGA2Generator",
+        "rank": 4,
+        "score": 0.425,
+        "n_generated": 3,
+        "n_evaluated": 0,
+        "n_passed_admission": 0,
+        "admission_rate": 0.0,
+        "median_sharpe": 0.0,
+        "median_sharpe_all": 0.0,
+        "n_distinct_features": 0,
+        "semantic_coherence": 0.0,
+        "subscores": {
+          "sharpe": 0.0,
+          "admission_rate": 0.0,
+          "diversity": 0.0,
+          "coherence": 0.0,
+          "norm_sharpe": 0.5,
+          "norm_admission_rate": 0.5,
+          "norm_diversity": 0.0,
+          "norm_coherence": 0.5,
+          "composite": 0.425
+        },
+        "elapsed_s": 24.381
+      }
+    ],
+    "sharpe_distributions": {
+      "BeamSearchGenerator": [
+        -5.653713510487726,
+        -4.585980371512937,
+        -3.469021760396823,
+        -3.4680850821936096,
+        -3.2584978632072055,
+        -2.7789643645368396,
+        -2.4943344232917917,
+        -2.4142512428968463,
+        -2.377728205301269,
+        -2.3704992428199962,
+        -2.3362877878773016,
+        -2.2853320734457965,
+        -2.1690555096103004,
+        -1.8259294437483462,
+        -1.604589720694631,
+        6.28237814410356
+      ],
+      "TypedGPGenerator": [
+        -1.504794443391696,
+        -1.504794443391696,
+        -1.504794443391696,
+        -1.504794443391696,
+        -1.504794443391696
+      ],
+      "MemeticGenerator": [
+        -1.504794443391696,
+        -1.504794443391696,
+        -1.504794443391696,
+        -1.504794443391696,
+        -1.504794443391696
+      ],
+      "NSGA2Generator": []
+    },
+    "elapsed_s": 119.609,
+    "winner_name": "BeamSearchGenerator",
+    "total_evaluations": 26,
+    "budget": 64
+  }
+}

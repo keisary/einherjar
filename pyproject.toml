@@ -48,3 +48,7 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["src/einherjar/research/tests"]
+norecursedirs = ["scripts", "diagnostics", "outputs", "data", ".git", "__pycache__"]

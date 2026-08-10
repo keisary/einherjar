@@ -97,16 +97,19 @@ class BaselineRunner:
         baselines: Liste des baselines à exécuter.
     """
 
-    def __init__(self, engine: EvaluationEngine, baselines: list[BaseBaseline] | None = None) -> None:
+    def __init__(self, engine: EvaluationEngine, baselines: list[BaseBaseline] | None = None, eval_budget: int | None = None) -> None:
         self.engine = engine
         self.baselines: list[BaseBaseline] = baselines or [
             HumanRules(config=engine.config, seed=engine.seed),
             ShallowEnumeration(config=engine.config, seed=engine.seed),
             RandomConstrained(config=engine.config, seed=engine.seed),
         ]
+        # Budget moteur P1-08 : si fourni, chaque baseline reçoit une part égale.
+        self.eval_budget = eval_budget
         logger.info(
-            "BaselineRunner instancié : %d baselines, engine=%s",
+            "BaselineRunner instancié : %d baselines, engine=%s, eval_budget=%s",
             len(self.baselines), type(engine).__name__,
+            eval_budget if eval_budget is not None else "illimité",
         )
 
     def run(
@@ -132,17 +135,28 @@ class BaselineRunner:
         """
         t0 = time.time()
         report = BaselineReport()
+        # Part égale du budget par baseline (au moins 1) — philosophie P1-08.
+        per_baseline_cap: int | None = None
+        if self.eval_budget is not None:
+            per_baseline_cap = max(1, self.eval_budget // max(len(self.baselines), 1))
         for baseline in self.baselines:
             logger.info("=" * 60)
             logger.info("Baseline : %s", baseline.name)
             logger.info("=" * 60)
             result = baseline.generate()
+            hypotheses = result.hypotheses
+            if per_baseline_cap is not None and len(hypotheses) > per_baseline_cap:
+                logger.warning(
+                    "Budget atteint : %d/%d hypothèses évaluées pour %s (cap=%d)",
+                    per_baseline_cap, len(hypotheses), baseline.name, per_baseline_cap,
+                )
+                hypotheses = hypotheses[:per_baseline_cap]
             logger.info(
-                "Génération OK : %d hypothèses en %.2fs",
-                result.n_generated, result.generation_time_s,
+                "Génération OK : %d/%d hypothèses en %.2fs",
+                len(hypotheses), result.n_generated, result.generation_time_s,
             )
             report.sharpe_distribution[baseline.name] = []
-            for hyp in result.hypotheses:
+            for hyp in hypotheses:
                 row = self._eval_one(
                     hyp, baseline.name,
                     train_ohlcv, train_features,

@@ -163,12 +163,17 @@ class DataVersionStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def append(self, dv: DataVersion) -> None:
-        """Append une DataVersion au store (avec fsync)."""
+        """Append une DataVersion au store (journal d'audit append-only).
+
+        (fix) Pas de fsync par écriture : c'est un journal d'audit (non
+        critique), et un fsync syscall par version rendait les runs
+        inutilement lents. Un flush() suffit — une ligne perdue en cas de
+        crash serait simplement re-produite au run suivant (idempotent via
+        verify_data_version_locked).
+        """
         with self.path.open("a", encoding="utf-8") as fp:
             fp.write(json.dumps(dv.to_dict()) + "\n")
             fp.flush()
-            import os
-            os.fsync(fp.fileno())
 
     def find_by_tag(self, tag: str) -> Optional[DataVersion]:
         """Cherche une DataVersion par tag. Retourne None si absent."""
