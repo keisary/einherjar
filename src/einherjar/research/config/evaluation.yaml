@@ -51,6 +51,7 @@ simulation:
 
 # --- Block bootstrap (engine/bootstrap.py) ---
 bootstrap:
+  mode: iid                  # iid (default) : resampling simple des trades (LdP) — adapté aux stratégies séquentielles ; block : réordonne par blocs (conservateur)
   block_length: auto            # auto = 1.5 * N_max
   n_resamples: 2000
   ci_level: 0.95

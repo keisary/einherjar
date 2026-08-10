@@ -105,6 +105,49 @@ def block_bootstrap_ci(
     return boot_stats[lo_idx], boot_stats[hi_idx], observed
 
 
+def iid_bootstrap_ci(
+    values: Sequence[float],
+    statistic,
+    n_resamples: int = 2000,
+    ci_level: float = 0.95,
+    rng_seed: int = 42,
+) -> tuple[float, float, float]:
+    """Bootstrap i.i.d. (resampling simple avec remise) : IC et valeur observée.
+
+    Adapté aux rets de trades de stratégies séquentielles (momentum / mean-reversion) :
+    contrairement au block bootstrap, il ne réordonne pas l'histoire et ne détruit donc
+    pas la corrélation inter-blocs qui porte une partie du signal. C'est la pratique
+    standard pour les IC de Sharpe de stratégies (López de Prado).
+
+    Returns:
+        (ci_low, ci_high, observed)
+    """
+    if not values:
+        return float("nan"), float("nan"), float("nan")
+    if n_resamples < 1:
+        raise ValueError(f"n_resamples doit être >= 1, got {n_resamples}")
+    if not (0.0 < ci_level < 1.0):
+        raise ValueError(f"ci_level doit être dans ]0,1[, got {ci_level}")
+
+    import random
+    rng = random.Random(rng_seed)
+    n = len(values)
+    observed = float(statistic(values))
+
+    boot_stats: list[float] = []
+    for _ in range(n_resamples):
+        sample = [rng.choice(values) for _ in range(n)]
+        boot_stats.append(float(statistic(sample)))
+
+    boot_stats.sort()
+    alpha = 1.0 - ci_level
+    lo_idx = int(math.floor((alpha / 2.0) * n_resamples))
+    hi_idx = int(math.ceil((1.0 - alpha / 2.0) * n_resamples)) - 1
+    lo_idx = max(0, min(lo_idx, n_resamples - 1))
+    hi_idx = max(0, min(hi_idx, n_resamples - 1))
+    return boot_stats[lo_idx], boot_stats[hi_idx], observed
+
+
 # --------------------------------------------------------------------------- #
 # ATR(14) — Average True Range
 # --------------------------------------------------------------------------- #
