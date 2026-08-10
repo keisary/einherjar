@@ -966,7 +966,11 @@ def handle_admit(args: argparse.Namespace) -> int:
         assets=tuple(loaded.keys()),
         timeframes=(train_ohlcv.timeframe,),
         max_conditions=getattr(args, "max_conditions", 4) or 4,
-        n_samples=getattr(args, "taste_samples", 0) or 0,
+        # ADMISSION : generation sur la val COMPLETE (n_samples=0 force). Le
+        # tasting est un accelerateur de RECHERCHE (compare/select/refine) ;
+        # l'evolution d'admission sur 400 bougies sur-apprend (candidats a
+        # sharpe negatif sur la val complete, observes 2026-08-10).
+        n_samples=0,
     )
     engine = EvaluationEngine(
         config=config, data_version=args.data_version or train_ohlcv.data_version, seed=args.seed,

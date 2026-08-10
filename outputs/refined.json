@@ -1,52 +1,52 @@
 {
   "refined": [
     {
-      "original_id": "TypedGPGenerator_000045_x1465_x9012_x3909_x2735_x8021_x5279_x7898_x2461_x7749_x9303_x5424",
-      "original_sharpe_val": 14.81898093941903,
+      "original_id": "TypedGPGenerator_000026",
+      "original_sharpe_val": -0.9701799878837768,
       "improved": false,
-      "best_sharpe_val": 14.81898093941903,
+      "best_sharpe_val": -0.9701799878837768,
       "n_evaluated": 0,
       "n_iterations": 0,
       "best_hypothesis": null
     },
     {
-      "original_id": "TypedGPGenerator_000045_x1465_x9012_x3909_x2735_x8021_x5279_x7898_x2461_x7749_x9303",
-      "original_sharpe_val": 14.761204562017827,
+      "original_id": "TypedGPGenerator_000026_x5234_x7483",
+      "original_sharpe_val": -0.9701799878837768,
       "improved": false,
-      "best_sharpe_val": 14.761204562017827,
+      "best_sharpe_val": -0.9701799878837768,
       "n_evaluated": 0,
       "n_iterations": 0,
       "best_hypothesis": null
     },
     {
-      "original_id": "TypedGPGenerator_000045_x1465_x3921_x1207_x2071_x3541_x5572",
-      "original_sharpe_val": 14.604496116036453,
+      "original_id": "TypedGPGenerator_000026_x9885",
+      "original_sharpe_val": -0.9701799878837768,
       "improved": false,
-      "best_sharpe_val": 14.604496116036453,
+      "best_sharpe_val": -0.9701799878837768,
       "n_evaluated": 0,
       "n_iterations": 0,
       "best_hypothesis": null
     },
     {
-      "original_id": "TypedGPGenerator_000045_x1465_x3899_x9937_x1091",
-      "original_sharpe_val": 11.14863079397365,
+      "original_id": "TypedGPGenerator_000026_x1879",
+      "original_sharpe_val": -0.9701799878837768,
       "improved": false,
-      "best_sharpe_val": 11.14863079397365,
+      "best_sharpe_val": -0.9701799878837768,
       "n_evaluated": 0,
       "n_iterations": 0,
       "best_hypothesis": null
     },
     {
-      "original_id": "TypedGPGenerator_000045_x1465_x3921_x1207_x7296_x8767",
-      "original_sharpe_val": 11.084460219430646,
+      "original_id": "TypedGPGenerator_000026_x9219_x4850_x1898_x1127",
+      "original_sharpe_val": -0.9701799878837768,
       "improved": false,
-      "best_sharpe_val": 11.084460219430646,
+      "best_sharpe_val": -0.9701799878837768,
       "n_evaluated": 0,
       "n_iterations": 0,
       "best_hypothesis": null
     }
   ],
-  "n_input": 39,
-  "n_viable": 39,
+  "n_input": 16,
+  "n_viable": 16,
   "n_refined": 5
 }

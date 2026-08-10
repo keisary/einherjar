@@ -56,7 +56,7 @@
           "norm_coherence": 0.5,
           "composite": 0.5
         },
-        "elapsed_s": 242.485
+        "elapsed_s": 268.864
       }
     ],
     "sharpe_distributions": {
@@ -99,7 +99,7 @@
         -23.027793102323127
       ]
     },
-    "elapsed_s": 242.485,
+    "elapsed_s": 268.872,
     "winner_name": "TypedGPGenerator",
     "total_evaluations": 36,
     "budget": 1200
