@@ -349,11 +349,15 @@ def evaluate_quotas(
     future_type_fracs = _increment(current_type_fracs, new_type)
     future_dir_fracs = _increment(current_direction_fracs, new_direction)
 
-    # (fix 2026-08-10) Corpus vide : aucune concentration existante a violer —
-    # le premier Einher ne peut pas creer une concentration abusive (1/1 = 100 %
-    # > family_max ferait echouer TOUTE premiere admission).
-    corpus_vide = not current_family_fracs and not current_type_fracs and not current_direction_fracs
-    if corpus_vide:
+    # (fix 2026-08-10) Corpus de démarrage : les quotas d'anti-concentration ne
+    # s'appliquent qu'à partir du plus petit corpus où ils sont mathématiquement
+    # satisfiables. family_max=0.40 est infaisable pour le 2e Einher (corpus de
+    # 1 famille : l'ajout donne 1/2 = 50 % > 40 %, seul mélange possible de 2
+    # familles) : appliqué dès le départ, il bloquerait la croissance du corpus
+    # pour toujours. A partir de 2 Einhers, l'ajout d'une 3e famille donne
+    # 1/3 <= 40 % — le quota y est satisfiable et protecteur : on l'applique.
+    total_exist = float(sum(current_family_fracs.values()))
+    if total_exist <= 1.0:
         family_ok = type_ok = direction_ok = True
     else:
         family_ok = all(frac <= family_max for frac in future_family_fracs.values())

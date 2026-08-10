@@ -82,6 +82,24 @@ class TestEvaluateQuotas(unittest.TestCase):
         self.assertTrue(r.direction_ok)
         self.assertTrue(r.passed)
 
+    def test_corpus_demarrage_one_einher_passes_quotas(self):
+        # (fix 2026-08-10) Corpus = 1 seul Einher : le 2e Einher (autre famille)
+        # donnerait 1/2 = 50 % > family_max 40 % — le seul mélange possible de
+        # 2 familles. Le quota est mathématiquement infaisable : il ne bloque
+        # pas la croissance du corpus au démarrage.
+        config = self._config()
+        r = evaluate_quotas(
+            new_family="trend", new_type="composite", new_direction="short",
+            current_family_fracs={"momentum": 1.0},
+            current_type_fracs={"atomic": 1.0},
+            current_direction_fracs={"long": 1.0},
+            config=config,
+        )
+        self.assertTrue(r.family_ok)
+        self.assertTrue(r.type_ok)
+        self.assertTrue(r.direction_ok)
+        self.assertTrue(r.passed)
+
     def test_over_family_quota_fails(self):
         # Si 39% momentum, ajout d'un 5e momentum -> ~44% > 40% → FAIL.
         config = self._config()
