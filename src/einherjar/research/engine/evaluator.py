@@ -572,11 +572,18 @@ class _MesuresAggregator:
         held = [t.n_bougies_held for t in trades]
 
         # Block bootstrap CI (optionnel : coûteux, lu uniquement par l'admission).
-        # Trade returns have variable holding periods. Annualising them as if
-        # each trade were a bar is invalid, so this is a per-trade Sharpe.
+        # Fix 2026-08-10 : le CI doit être à la MÊME échelle que sharpe_net
+        # (annualisé par la fréquence effective des trades ppy/avg_held) et le
+        # DSR annualisé ; l'ancien periods_per_year=1.0 (CI par-trade) rendait
+        # le critère ci_low > 0 quasi infranchissable (incohérence d'unité).
+        avg_held = float(np.mean(held)) if held else 0.0
+        if avg_held > 0 and self._periods_per_year > 0:
+            bs_ppy = self._periods_per_year / avg_held
+        else:
+            bs_ppy = 1.0
         if with_bootstrap:
             bs_sharpe = bootstrap_sharpe(
-                returns_net, self._config, periods_per_year=1.0, rng_seed=self._seed,
+                returns_net, self._config, periods_per_year=bs_ppy, rng_seed=self._seed,
             )
             bs_ret = bootstrap_ret_total(returns_net, self._config, rng_seed=self._seed + 1)
             bs_sharpe_ci_low, bs_sharpe_ci_high = bs_sharpe.ci_low, bs_sharpe.ci_high
@@ -591,7 +598,6 @@ class _MesuresAggregator:
         # revient à ramener la fréquence des trades à une base annuelle.
         ret_mean = float(np.mean(returns_net)) if n else float("nan")
         ret_std = float(np.std(returns_net, ddof=1)) if n > 1 else float("nan")
-        avg_held = float(np.mean(held)) if held else 0.0
         if ret_std and not math.isnan(ret_std) and ret_std > 0:
             sharpe_per_trade = ret_mean / ret_std
             if avg_held > 0 and self._periods_per_year > 0:
