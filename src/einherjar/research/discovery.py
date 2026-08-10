@@ -715,6 +715,7 @@ def handle_compare(args: argparse.Namespace) -> int:
                 "timeframe": args.data_timeframe,
                 "seed": args.seed,
                 "n_eval": args.n_eval,
+                "max_conditions": getattr(args, "max_conditions", None),
             },
             "report": report.to_dict(),
         }, indent=2, ensure_ascii=False),
