@@ -166,6 +166,11 @@ class BaseGenerator(ABC):
         L'échantillon est IDENTIQUE pour toute la population (construit une
         seule fois avant la boucle d'évolution) → fitness comparables entre
         individus. L'admission finale évalue TOUJOURS sur le val complet.
+
+        NB : le résultat peut DÉPASSER n_samples — chaque bloc fait au
+        minimum 200 bougies (seuil de significativité TP/SL). Le dépassement
+        est systématique et identique pour tous les individus → comparabilité
+        conservée.
         """
         n_samples = int(getattr(self.protocol, "n_samples", 0) or 0)
         if n_samples <= 0:
