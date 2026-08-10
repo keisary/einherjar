@@ -44,6 +44,14 @@ from einherjar.research.utils.types import (
 logger = logging.getLogger(__name__)
 
 
+def _value_type_of(config, name: str) -> str | None:
+    """value_type ('float'|'boolean'|None) d'une feature via la taxonomie."""
+    info = config.features_taxonomy.get("features", {}).get(name, {})
+    vt = info.get("value_type")
+    return vt if vt in ("float", "boolean") else None
+
+
+
 # --------------------------------------------------------------------------- #
 # Sortie commune
 # --------------------------------------------------------------------------- #
@@ -634,17 +642,20 @@ class TypedGPGenerator(BaseGenerator):
         self.mutation_prob = mutation_prob
         self.tournament_size = tournament_size
         self.elitism = elitism
-        # Pool de features continues pour les feuilles atomiques.
+        # Pool de features continues (valeur float) pour les feuilles à seuil.
+        # Critère value_type (ET non feature_type) : couvre ATOMIC/QUANTITATIVE/
+        # FACTOR + les composite_derived float (*_signal) — les 9 *_signal
+        # (sma_20_signal, ema_12_signal, macd_trend_signal, ...) étaient perdus
+        # car classés composite_derived. Vérifié : 106 floats / 218 usable.
         self._continuous_features: list[str] = [
             f for f in config.usable_feature_names
-            if self._feature_type(f) in (FeatureType.ATOMIC, FeatureType.QUANTITATIVE, FeatureType.FACTOR)
+            if _value_type_of(config, f) == "float"
         ]
-        # P2-02 : features booléennes (patterns candlestick 0/1) — jusque-là
-        # jamais échantillonnées par les arbres (pool tronqué à 114/246).
-        # Elles sont comparées par EQ/NE/IN, pas par seuil continu.
+        # P2-02 : features booléennes 0/1 (patterns candlestick + *_signal).
+        # Comparées par EQ/NE/IN, jamais par seuil continu.
         self._pattern_features: list[str] = [
             f for f in config.usable_feature_names
-            if self._feature_type(f) is FeatureType.PATTERN
+            if _value_type_of(config, f) == "boolean"
         ]
         if not self._continuous_features and not self._pattern_features:
             raise ValueError("Aucune feature exploitable pour TypedGP")
