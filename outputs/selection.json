@@ -1,0 +1,58 @@
+{
+  "generator_name": "TypedGPGenerator",
+  "generator_class": "TypedGPGenerator",
+  "selection_timestamp": "2026-08-10T16:58:09.998081+00:00",
+  "protocol": {
+    "seed": 42,
+    "data_version": "hash:311f829a4d57",
+    "splits": {
+      "mode": "ratio",
+      "train_ratio": 0.6,
+      "val_ratio": 0.2,
+      "holdout_ratio": 0.2,
+      "purge_window": 50,
+      "embargo_bougies": 1
+    },
+    "n_candidates": 100000,
+    "n_eval_budget": 1200,
+    "max_conditions": 4,
+    "p_compound": 0.3,
+    "assets": [
+      "BTCUSD"
+    ],
+    "timeframes": [
+      "5m"
+    ],
+    "amplitude_value": 5.0,
+    "cooldown_k": 5,
+    "n_samples": 0
+  },
+  "ranking_snapshot": {
+    "generator_name": "TypedGPGenerator",
+    "rank": 1,
+    "score": 0.5,
+    "n_generated": 50,
+    "n_evaluated": 34,
+    "n_passed_admission": 0,
+    "admission_rate": 0.0,
+    "median_sharpe": 0.0,
+    "median_sharpe_all": -142.0688498159889,
+    "n_distinct_features": 23,
+    "semantic_coherence": 0.0,
+    "subscores": {
+      "sharpe": 0.0,
+      "admission_rate": 0.0,
+      "diversity": 23.0,
+      "coherence": 0.0,
+      "norm_sharpe": 0.5,
+      "norm_admission_rate": 0.5,
+      "norm_diversity": 0.5,
+      "norm_coherence": 0.5,
+      "composite": 0.5
+    },
+    "elapsed_s": 875.933
+  },
+  "score": 0.5,
+  "rank": 1,
+  "reason": "Sélectionné sur score=0.5000 (rank=1, admission_rate=0.0000, median_sharpe=0.0000)"
+}

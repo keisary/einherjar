@@ -16,6 +16,16 @@
   - Mesures : 15m bootstrap OFF → ~0,11 s/test_on au lieu de ~0,64 s ; run BTCUSD 3 TF estimé ~10 min au lieu de ~10 h.
 - **Fichiers** : `src/einherjar/research/generators/protocol.py`, `algorithms.py`, `engine/evaluator.py`, `generators/comparator.py`, `research/discovery.py`
 
+### 2026-08-10 (run réel BTCUSD 4 TF — campagne `/d/midas_v2/campaign_btc_20260810.sh`)
+- **Bugs découverts en conditions réelles (fixés et poussés)** :
+  - `discovery.py` (`1dbd46b`) : `handle_compare` ne persistait pas `max_conditions` dans la meta du rapport → `_load_compare_report` le déclarait toujours stale → select re-comparait à chaque fois (~540 évals perdues/TF). Fix : persister `max_conditions`.
+  - `selection/selector.py` (`7e38437`) : `instantiate` créait `TypedGPGenerator(protocol, config)` SANS `engine` → ValueError systématique à refine/admit. Fix : `engine=engine`.
+- **Résultats campagne** (mono TypedGP, n_eval=1200, --taste-samples 400, 4 TF, durée ~1h10) :
+  - 15m : 0/33 admis (30 DSR_FAIL, 3 DIVERSITY_FAIL) ; 1h : 0/28 ; 4h : 0/16 ; 5m : 0/39 (tous DSR_FAIL).
+  - Total : **0 Einher admis / 116 hypothèses évaluées en admission** (114 DSR_FAIL, 3 DIVERSITY_FAIL; 1 ligne d'écart archive vs run.log — double comptage d'une hyp réévaluée).
+  - Lecture : aucune stratégie BTCUSD ne passe la porte statistique (DSR) après coûts avec les features actuelles — verdict honnête, cohérent avec 2026-08-09.
+  - Pipeline validé de bout en bout : ~17 min/TF (contre ~10 h avant optimisation), tasting + bootstrap OFF effectifs, sélection sans re-comparaison, admission bootstrap ON.
+
 ### 2026-07-20
 - **Cahier des charges** : mise a jour complete v0.3
   - Limites globales relachees (expo 60%, 15 positions, etc.)

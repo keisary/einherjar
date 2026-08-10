@@ -1,187 +1,52 @@
 {
   "refined": [
     {
-      "original_id": "BeamSearchGenerator_000002",
-      "original_sharpe_val": -0.4264286716760739,
-      "improved": true,
-      "best_sharpe_val": -0.004517618758362174,
-      "n_evaluated": 23,
-      "n_iterations": 3,
-      "best_hypothesis": {
-        "id": "refined_refined_BeamSearchGenerator_000002_k6_a5.5",
-        "condition_tree": {
-          "feature_ref": "macd_signal",
-          "operator": "<",
-          "value": 5.0,
-          "transformation": null
-        },
-        "amplitude": {
-          "valeur": 5.5,
-          "unité": "multiple_ATR",
-          "direction_implicite": "long"
-        },
-        "direction": "long",
-        "universe": {
-          "assets": [
-            "BTCUSD"
-          ],
-          "timeframes": [
-            "4h"
-          ]
-        },
-        "cooldown_k": 6,
-        "meta": {
-          "parent_id": "refined_BeamSearchGenerator_000002_k6",
-          "mutation": "amp_0.5"
-        }
-      }
+      "original_id": "TypedGPGenerator_000045_x1465_x9012_x3909_x2735_x8021_x5279_x7898_x2461_x7749_x9303_x5424",
+      "original_sharpe_val": 14.81898093941903,
+      "improved": false,
+      "best_sharpe_val": 14.81898093941903,
+      "n_evaluated": 0,
+      "n_iterations": 0,
+      "best_hypothesis": null
     },
     {
-      "original_id": "BeamSearchGenerator_000001",
-      "original_sharpe_val": -1.1256699666924121,
-      "improved": true,
-      "best_sharpe_val": 3.6894870933583594,
-      "n_evaluated": 16,
-      "n_iterations": 2,
-      "best_hypothesis": {
-        "id": "refined_BeamSearchGenerator_000001_0000",
-        "condition_tree": {
-          "feature_ref": "di_minus",
-          "operator": "<",
-          "value": 0.45502007007598877,
-          "transformation": null
-        },
-        "amplitude": {
-          "valeur": 5.0,
-          "unité": "multiple_ATR",
-          "direction_implicite": "long"
-        },
-        "direction": "long",
-        "universe": {
-          "assets": [
-            "BTCUSD"
-          ],
-          "timeframes": [
-            "4h"
-          ]
-        },
-        "cooldown_k": 5,
-        "meta": {
-          "parent_id": "BeamSearchGenerator_000001",
-          "mutation": "feature_or_op_or_threshold"
-        }
-      }
+      "original_id": "TypedGPGenerator_000045_x1465_x9012_x3909_x2735_x8021_x5279_x7898_x2461_x7749_x9303",
+      "original_sharpe_val": 14.761204562017827,
+      "improved": false,
+      "best_sharpe_val": 14.761204562017827,
+      "n_evaluated": 0,
+      "n_iterations": 0,
+      "best_hypothesis": null
     },
     {
-      "original_id": "BeamSearchGenerator_000003",
-      "original_sharpe_val": -1.1362532698706724,
-      "improved": true,
-      "best_sharpe_val": 1.0052940604916318,
-      "n_evaluated": 31,
-      "n_iterations": 4,
-      "best_hypothesis": {
-        "id": "refined_refined_refined_BeamSearchGenerator_000003_k7_a5.5_k9",
-        "condition_tree": {
-          "feature_ref": "macd_signal",
-          "operator": ">",
-          "value": -5.0,
-          "transformation": null
-        },
-        "amplitude": {
-          "valeur": 5.5,
-          "unité": "multiple_ATR",
-          "direction_implicite": "long"
-        },
-        "direction": "long",
-        "universe": {
-          "assets": [
-            "BTCUSD"
-          ],
-          "timeframes": [
-            "4h"
-          ]
-        },
-        "cooldown_k": 9,
-        "meta": {
-          "parent_id": "refined_refined_BeamSearchGenerator_000003_k7_a5.5",
-          "mutation": "cooldown_2"
-        }
-      }
+      "original_id": "TypedGPGenerator_000045_x1465_x3921_x1207_x2071_x3541_x5572",
+      "original_sharpe_val": 14.604496116036453,
+      "improved": false,
+      "best_sharpe_val": 14.604496116036453,
+      "n_evaluated": 0,
+      "n_iterations": 0,
+      "best_hypothesis": null
     },
     {
-      "original_id": "BeamSearchGenerator_000004",
-      "original_sharpe_val": -1.8510985023200588,
-      "improved": true,
-      "best_sharpe_val": 0.12648047064847012,
-      "n_evaluated": 16,
-      "n_iterations": 2,
-      "best_hypothesis": {
-        "id": "refined_BeamSearchGenerator_000004_0000",
-        "condition_tree": {
-          "feature_ref": "aroon_down",
-          "operator": ">",
-          "value": 0.45502007007598877,
-          "transformation": null
-        },
-        "amplitude": {
-          "valeur": 5.0,
-          "unité": "multiple_ATR",
-          "direction_implicite": "long"
-        },
-        "direction": "long",
-        "universe": {
-          "assets": [
-            "BTCUSD"
-          ],
-          "timeframes": [
-            "4h"
-          ]
-        },
-        "cooldown_k": 5,
-        "meta": {
-          "parent_id": "BeamSearchGenerator_000004",
-          "mutation": "feature_or_op_or_threshold"
-        }
-      }
+      "original_id": "TypedGPGenerator_000045_x1465_x3899_x9937_x1091",
+      "original_sharpe_val": 11.14863079397365,
+      "improved": false,
+      "best_sharpe_val": 11.14863079397365,
+      "n_evaluated": 0,
+      "n_iterations": 0,
+      "best_hypothesis": null
     },
     {
-      "original_id": "BeamSearchGenerator_000009",
-      "original_sharpe_val": -2.1690555096103004,
-      "improved": true,
-      "best_sharpe_val": -1.7506235064354327,
-      "n_evaluated": 32,
-      "n_iterations": 4,
-      "best_hypothesis": {
-        "id": "refined_refined_refined_BeamSearchGenerator_000009_k6_a5.5_k4",
-        "condition_tree": {
-          "feature_ref": "macd_signal",
-          "operator": ">",
-          "value": -5.0,
-          "transformation": null
-        },
-        "amplitude": {
-          "valeur": 5.5,
-          "unité": "multiple_ATR",
-          "direction_implicite": "short"
-        },
-        "direction": "short",
-        "universe": {
-          "assets": [
-            "BTCUSD"
-          ],
-          "timeframes": [
-            "4h"
-          ]
-        },
-        "cooldown_k": 4,
-        "meta": {
-          "parent_id": "refined_refined_BeamSearchGenerator_000009_k6_a5.5",
-          "mutation": "cooldown_-2"
-        }
-      }
+      "original_id": "TypedGPGenerator_000045_x1465_x3921_x1207_x7296_x8767",
+      "original_sharpe_val": 11.084460219430646,
+      "improved": false,
+      "best_sharpe_val": 11.084460219430646,
+      "n_evaluated": 0,
+      "n_iterations": 0,
+      "best_hypothesis": null
     }
   ],
-  "n_input": 16,
-  "n_viable": 8,
+  "n_input": 39,
+  "n_viable": 39,
   "n_refined": 5
 }

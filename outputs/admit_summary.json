@@ -1,9 +1,9 @@
 {
-  "n_generated": 100000,
+  "n_generated": 39,
   "n_admitted": 0,
-  "n_rejected": 199,
+  "n_rejected": 39,
   "rejection_breakdown": {
-    "DSR_FAIL": 199
+    "DSR_FAIL": 39
   },
-  "generator": "RandomSearchGenerator"
+  "generator": "TypedGPGenerator"
 }
