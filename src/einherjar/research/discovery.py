@@ -1006,6 +1006,19 @@ def handle_admit(args: argparse.Namespace) -> int:
         tuple((trade.entry_idx, trade.exit_idx, trade.ret_pct_net) for trade in measures.trades)
         for _, measures in evaluated_candidates.values()
     ]
+    # DSR (décision 2026-08-10) : l'unité du critère est le Sharpe ANNUALISÉ
+    # (sharpe_net de test_on) avec T = années de la fenêtre ; et la déflation
+    # s'applique au nombre de finalistes RÉELLEMENT testés sur ce val complet
+    # (len(hyps_a_evaluer)), pas à un compteur intra-run (l'index de boucle
+    # rendait le seuil 0.95 quasi infranchissable : e_max ~3.26 dès 200 essais).
+    from einherjar.research.utils.stats import periods_per_year_for_timeframe
+    ppy = periods_per_year_for_timeframe(val_ohlcv.timeframe)
+    n_val_years = max(len(val_ohlcv.df) / ppy, 0.05) if ppy and ppy > 0 else 1.0
+    n_trials_admission = max(1, len(hyps_a_evaluer))
+    logger.info(
+        "DSR : %d finalistes evalues sur ce val -> n_indep_trials=%d, n_val_years=%.2f",
+        len(hyps_a_evaluer), n_trials_admission, n_val_years,
+    )
     n_admitted = 0
     n_rejected = 0
     reasons: dict[str, int] = {}
@@ -1036,7 +1049,8 @@ def handle_admit(args: argparse.Namespace) -> int:
             pbo_candidate_paths=pbo_candidate_paths,
             current_corpus_fracs=current_fracs,
             cooldown_k=hyp.cooldown_k,
-            n_indep_trials=i,
+            n_indep_trials=n_trials_admission,
+            n_val_years=n_val_years,
             corpus_fingerprints=[
                 (e.fingerprint_structurel, e.fingerprint_comportemental)
                 for e in corpus_entries

@@ -135,6 +135,8 @@ def dsr(
     skewness: float = 0.0,
     kurtosis: float = 3.0,
     n_observations: int | None = None,
+    sqrt_factor: float | None = None,
+    correct_non_normality: bool = True,
 ) -> float:
     """Deflated Sharpe Ratio (Bailey & López de Prado, 2014).
 
@@ -163,12 +165,22 @@ def dsr(
         return float("nan")
     # Déflateur : espérance du max de n_trials gaussiennes i.i.d. (approx.)
     e_max_sharpe = math.sqrt(2.0 * math.log(max(int(n_trials), 2)))
-    # Variance-type du Sharpe estimé (non-normalité)
-    se = math.sqrt(1.0 - skewness * sharpe_observed
-                   + (kurtosis - 1.0) / 4.0 * sharpe_observed ** 2)
-    if se == 0:
+    # Variance-type du Sharpe estimé (non-normalité). La correction exige les
+    # moments des rendements PAR OBSERVATION de la fréquence du Sharpe ; quand
+    # on annualise (sqrt_factor = sqrt(Y)), ces moments par barre ne sont pas
+    # disponibles : correct_non_normality=False pose SE=1 (hypothèse normale,
+    # approximation standard — l'effet est du 2e ordre face au facteur sqrt(Y)).
+    if correct_non_normality:
+        se = math.sqrt(1.0 - skewness * sharpe_observed
+                       + (kurtosis - 1.0) / 4.0 * sharpe_observed ** 2)
+    else:
+        se = 1.0
+    if se == 0 or not math.isfinite(se):
         return float("nan")
-    if n_observations is not None and n_observations > 2:
+    if sqrt_factor is not None and sqrt_factor > 0:
+        # Sharpe annualisé : t-stat ~= SR*sqrt(Y) (Y = années d'observation).
+        z = (sharpe_observed * sqrt_factor / se) - e_max_sharpe
+    elif n_observations is not None and n_observations > 2:
         # Correction du nombre d'observations : SR*sqrt(T-1)/se
         z = (sharpe_observed * math.sqrt(max(1, n_observations - 1)) / se) - e_max_sharpe
     else:

@@ -103,6 +103,7 @@ def evaluate_dsr(
     mesures: MesuresBrutes,
     config: EinherjarConfig,
     n_indep_trials: int = 1,
+    n_val_years: float | None = None,
 ) -> CriterionVerdict:
     """DSR (Deflated Sharpe Ratio) — corrige pour le nombre d'essais indépendants.
 
@@ -110,39 +111,57 @@ def evaluate_dsr(
       - le nombre d'essais indépendants (corrige le multiple-testing),
       - la non-normalité des rendements (skew, kurtosis).
 
+    Unité (correction 2026-08-10) :
+      - Mode ANNUALISÉ (n_val_years fourni) : la PSR exige SR et T dans la
+        même unité. Le Sharpe par-trade avec T=n_trades est mathématiquement
+        incorrect (les trades ont des durées hétérogènes, pas d'observations
+        iid de même fréquence). test_on fournit déjà le Sharpe annuel
+        (mesures.sharpe_net, annualisé par la durée de détention moyenne) ;
+        le t-stat du Sharpe annuel ~ SR*sqrt(Y) avec Y = années de fenêtre.
+      - Mode historique (n_val_years=None, conservé pour compat tests) :
+        Sharpe par observation (ret_mean/ret_std) avec T = n_signals.
+
     Returns:
         Verdict. Pass si DSR >= seuil (défaut 0.95).
     """
     min_dsr = float(config.thresholds["dsr"]["min_value"])
     min_trials = int(config.thresholds["dsr"]["min_n_indep_trials"])
-    # Le Sharps ratio de la formule DSR doit être PAR OBSERVATION (par trade),
-    # pas annualisé : on le relie aux rendements nets réels (ret_mean / ret_std).
-    # C'est l'unité cohérente avec le bootstrap CI (periods_per_year=1.0).
-    ret_std = mesures.ret_std_pct
-    ret_mean = mesures.ret_mean_pct_net
-    if ret_std and ret_std > 0:
-        sharpe = ret_mean / ret_std
+    if n_val_years is not None and n_val_years > 0:
+        sharpe = mesures.sharpe_net
+        n_observations = None
+        if math.isfinite(sharpe):
+            sharpe_eff = sharpe
+        else:
+            sharpe_eff = float("nan")
     else:
-        sharpe = float("nan")
-    n_observations = max(int(mesures.n_signals), 3)
-    if not math.isfinite(sharpe) or n_indep_trials < min_trials:
+        sharpe = mesures.ret_mean_pct_net
+        ret_std = mesures.ret_std_pct
+        if ret_std and ret_std > 0 and math.isfinite(sharpe):
+            sharpe_eff = sharpe / ret_std
+        else:
+            sharpe_eff = float("nan")
+        n_observations = max(int(mesures.n_signals), 3)
+    if not math.isfinite(sharpe_eff) or n_indep_trials < min_trials:
         return CriterionVerdict(
             name="DSR",
             passed=False,
             observed=float("nan"),
             threshold=min_dsr,
             reason=RejectionReason.DSR_FAIL,
-            meta={"sharpe_per_obs": sharpe, "n_indep_trials": n_indep_trials},
+            meta={"sharpe_eff": sharpe_eff, "n_indep_trials": n_indep_trials},
         )
-    # Déflation par le nombre d'essais indépendants RÉEL de la recherche
-    # (n_bruit dans discovery.py), pas par un compteur intra-run qui croît
-    # linéairement et rendait min_dsr=0.95 quasi infranchissable (e_max
-    # ~3.26 dès 200 essais sur des Sharpe par-période réalistes de 0.1-0.5).
-    # -> chaque op sauvegarde l'unité « par observation ».
+    # La déflation (e_max = sqrt(2*ln(n_trials))) s'applique au nombre
+    # d'essais réellement testés sur CETTE validation finale
+    # (len(hyps_a_evaluer) dans handle_admit, cf. decision 2026-08-10) — pas
+    # à un compteur intra-run qui croît linéairement et rendait min_dsr=0.95
+    # quasi infranchissable (e_max ~3.26 dès 200 essais).
+    annualised = n_val_years is not None and n_val_years > 0
     p = dsr_metric(
-        sharpe_observed=sharpe,
+        sharpe_observed=sharpe_eff,
         n_trials=n_indep_trials,
         n_observations=n_observations,
+        sqrt_factor=(math.sqrt(max(n_val_years, 0.05)) if annualised else None),
+        correct_non_normality=(not annualised),
     )
     return CriterionVerdict(
         name="DSR",
@@ -151,9 +170,10 @@ def evaluate_dsr(
         threshold=min_dsr,
         reason=None if p >= min_dsr else RejectionReason.DSR_FAIL,
         meta={
-            "sharpe_per_obs": sharpe,
+            "sharpe_eff": sharpe_eff,
+            "sharpe_annualise": mesures.sharpe_net,
+            "n_val_years": n_val_years,
             "n_indep_trials": n_indep_trials,
-            "n_observations": n_observations,
             "p_value": p,
         },
     )
@@ -517,6 +537,7 @@ def evaluate_all_criteria(
     n_indep_trials: int = 1,
     pbo_candidate_paths: Sequence[Sequence[tuple[int, int, float]]] | None = None,
     include_pbo: bool = True,
+    n_val_years: float | None = None,
 ) -> AdmissionVerdict:
     """Évalue TOUS les critères d'admission sur une hypothèse.
 
@@ -524,7 +545,7 @@ def evaluate_all_criteria(
         AdmissionVerdict avec le détail de chaque critère.
     """
     verdicts: list[CriterionVerdict] = []
-    verdicts.append(evaluate_dsr(mesures, config, n_indep_trials=n_indep_trials))
+    verdicts.append(evaluate_dsr(mesures, config, n_indep_trials=n_indep_trials, n_val_years=n_val_years))
     if include_pbo:
         verdicts.append(evaluate_pbo(returns, config, candidate_paths=pbo_candidate_paths))
     verdicts.append(evaluate_bootstrap_ci_sharpe(mesures))

@@ -144,6 +144,7 @@ class AdmissionDecider:
         pbo_candidate_paths: list[tuple[tuple[int, int, float], ...]] | None = None,
         cooldown_k: int = 5,
         n_indep_trials: int = 1,
+        n_val_years: float | None = None,
         mesures_train: MesuresBrutes | None = None,
         splits: dict[str, Any] | None = None,
         corpus_fingerprints: list[tuple[str, str]] | None = None,
@@ -177,6 +178,7 @@ class AdmissionDecider:
             config=self.config,
             n_indep_trials=n_indep_trials,
             pbo_candidate_paths=pbo_candidate_paths,
+            n_val_years=n_val_years,
         )
 
         # 2. Fingerprints (structurel + comportemental).

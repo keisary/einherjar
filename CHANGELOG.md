@@ -16,6 +16,30 @@
   - Mesures : 15m bootstrap OFF → ~0,11 s/test_on au lieu de ~0,64 s ; run BTCUSD 3 TF estimé ~10 min au lieu de ~10 h.
 - **Fichiers** : `src/einherjar/research/generators/protocol.py`, `algorithms.py`, `engine/evaluator.py`, `generators/comparator.py`, `research/discovery.py`
 
+### 2026-08-10 (fix DSR — unité annualisée + déflation par finalistes)
+
+**Problème** : 0/116 Einher admis sur BTCUSD 4 TF (run réel). Diagnostic :
+le DSR recevait le Sharpe **par trade** (`ret_mean_pct_net/ret_std_pct`)
+avec `n_observations = n_trades` : appliquer `sqrt(T-1)` sur des trades de
+durées hétérogènes est incorrect, et la déflation `n_indep_trials=i`
+(compteur de boucle d'admission) croissait linéairement — même la meilleure
+hypothèse (Sharpe annuel loggé ~4-6) ne pouvait pas passer.
+
+**Correction** :
+- `criteria.evaluate_dsr(mesures, config, n_indep_trials, n_val_years=None)` :
+  mode annualisé (par défaut en admission) — Sharpe = `mesures.sharpe_net`
+  (annualisé par durée de détention, déjà loggé par test_on), z =
+  `SR·sqrt(Y)` avec Y = années de la fenêtre val ; SE=1 (hypothèse normale,
+  les moments par barre ne sont pas disponibles). Mode historique (par
+  trade) conservé quand `n_val_years=None` (compat tests/appelants).
+- `utils/metrics.dsr(...)` : nouveaux paramètres optionnels `sqrt_factor`
+  (remplace `sqrt(n-1)`) et `correct_non_normality=False` (SE=1).
+- `discovery.handle_admit` : `n_indep_trials = len(hyps_a_evaluer)` (nombre
+  réel de finalistes testés sur CE val) au lieu de l'index de boucle ;
+  `n_val_years = len(val)/periods_per_year(timeframe)` transmis au décideur.
+- Tests : `tests/test_dsr_correction.py` (6 cas : passe/échoue par unité,
+  sensibilité à la déflation, NaN, mode historique).
+
 ### 2026-08-10 (run réel BTCUSD 4 TF — campagne `/d/midas_v2/campaign_btc_20260810.sh`)
 - **Bugs découverts en conditions réelles (fixés et poussés)** :
   - `discovery.py` (`1dbd46b`) : `handle_compare` ne persistait pas `max_conditions` dans la meta du rapport → `_load_compare_report` le déclarait toujours stale → select re-comparait à chaque fois (~540 évals perdues/TF). Fix : persister `max_conditions`.
