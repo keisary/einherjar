@@ -102,7 +102,7 @@ def bootstrap_ret_total(
     if mode == "block":
         ci_low, ci_high, observed = block_bootstrap_ci(
             values=returns,
-            statistic=lambda v: float(np.sum(v)) if len(v) else 0.0,
+            statistic=lambda v: float(sum(v)) if v else 0.0,
             n_resamples=int(bs.get("n_resamples", 2000)),
             block_length=block_length,
             ci_level=float(bs.get("ci_level", 0.95)),
@@ -111,7 +111,7 @@ def bootstrap_ret_total(
     else:
         ci_low, ci_high, observed = iid_bootstrap_ci(
             values=returns,
-            statistic=lambda v: float(np.sum(v)) if len(v) else 0.0,
+            statistic=lambda v: float(sum(v)) if v else 0.0,
             n_resamples=int(bs.get("n_resamples", 2000)),
             ci_level=float(bs.get("ci_level", 0.95)),
             rng_seed=int(bs.get("seed", 42)) if rng_seed is None else rng_seed,
