@@ -966,11 +966,13 @@ def handle_admit(args: argparse.Namespace) -> int:
         assets=tuple(loaded.keys()),
         timeframes=(train_ohlcv.timeframe,),
         max_conditions=getattr(args, "max_conditions", 4) or 4,
-        # ADMISSION : generation sur la val COMPLETE (n_samples=0 force). Le
-        # tasting est un accelerateur de RECHERCHE (compare/select/refine) ;
-        # l'evolution d'admission sur 400 bougies sur-apprend (candidats a
-        # sharpe negatif sur la val complete, observes 2026-08-10).
-        n_samples=0,
+        # ADMISSION : l'EVOLUTION (recherche) reste sur tasting pour la duree
+        # (val complete par generation = ~2-3h/TF sur machine lente, timeout
+        # 1h atteint le 2026-08-12 sur BTCUSD 5m). Les FINALISTES sont eux
+        # evalues sur la val COMPLETE (test_on final + DSR/PBO/CI val) : le
+        # sur-apprentissage du tasting (candidats a sharpe negatif observes
+        # 2026-08-10) est filtre par le DSR de la val finale.
+        n_samples=getattr(args, "taste_samples", 400) or 400,
     )
     engine = EvaluationEngine(
         config=config, data_version=args.data_version or train_ohlcv.data_version, seed=args.seed,
