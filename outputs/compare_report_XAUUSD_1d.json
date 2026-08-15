@@ -1,0 +1,106 @@
+{
+  "meta": {
+    "asset": "XAUUSD",
+    "timeframe": "1d",
+    "seed": 42,
+    "n_eval": 1200,
+    "max_conditions": 4
+  },
+  "report": {
+    "protocol": {
+      "seed": 42,
+      "data_version": "hash:f70eb081dfdf",
+      "splits": {
+        "mode": "ratio",
+        "train_ratio": 0.6,
+        "val_ratio": 0.2,
+        "holdout_ratio": 0.2,
+        "purge_window": 50,
+        "embargo_bougies": 1
+      },
+      "n_candidates": 100000,
+      "n_eval_budget": 1200,
+      "max_conditions": 4,
+      "p_compound": 0.3,
+      "assets": [
+        "XAUUSD"
+      ],
+      "timeframes": [
+        "1d"
+      ],
+      "amplitude_value": 5.0,
+      "cooldown_k": 5,
+      "n_samples": 400
+    },
+    "rankings": [
+      {
+        "generator_name": "TypedGPGenerator",
+        "rank": 1,
+        "score": 0.5,
+        "n_generated": 50,
+        "n_evaluated": 35,
+        "n_passed_admission": 0,
+        "admission_rate": 0.0,
+        "median_sharpe": 0.0,
+        "median_sharpe_all": -2.0799060020067643,
+        "n_distinct_features": 40,
+        "semantic_coherence": 0.0,
+        "subscores": {
+          "sharpe": 0.0,
+          "admission_rate": 0.0,
+          "diversity": 40.0,
+          "coherence": 0.0,
+          "norm_sharpe": 0.5,
+          "norm_admission_rate": 0.5,
+          "norm_diversity": 0.5,
+          "norm_coherence": 0.5,
+          "composite": 0.5
+        },
+        "elapsed_s": 7.88
+      }
+    ],
+    "sharpe_distributions": {
+      "TypedGPGenerator": [
+        -2.580121006487383,
+        -2.580121006487383,
+        -2.580121006487383,
+        -2.580121006487383,
+        -2.580121006487383,
+        -2.519262747903617,
+        -2.519262747903617,
+        -2.519262747903617,
+        -2.245173828779831,
+        -2.2303654090435683,
+        -2.212635219697515,
+        -2.212635219697515,
+        -2.212635219697515,
+        -2.1316706603352054,
+        -2.1129264884347925,
+        -2.1129264884347925,
+        -2.1129264884347925,
+        -2.0799060020067643,
+        -2.0782239685983024,
+        -2.0782239685983024,
+        -2.0782239685983024,
+        -2.019321420623721,
+        -2.019321420623721,
+        -2.019321420623721,
+        -2.019321420623721,
+        -1.9972875002548929,
+        -1.9972875002548929,
+        -1.9625680190250867,
+        -1.8604626409751672,
+        -0.6504184180489928,
+        -0.6504184180489928,
+        -0.6389028484699798,
+        -0.6389028484699798,
+        -0.6389028484699798,
+        -0.6389028484699798
+      ]
+    },
+    "elapsed_s": 7.886,
+    "winner_name": "TypedGPGenerator",
+    "total_evaluations": 35,
+    "budget": 1200
+  }
+}

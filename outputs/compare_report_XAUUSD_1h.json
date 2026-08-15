@@ -1,0 +1,78 @@
+{
+  "meta": {
+    "asset": "XAUUSD",
+    "timeframe": "1h",
+    "seed": 42,
+    "n_eval": 1200,
+    "max_conditions": 4
+  },
+  "report": {
+    "protocol": {
+      "seed": 42,
+      "data_version": "hash:649cbea70c07",
+      "splits": {
+        "mode": "ratio",
+        "train_ratio": 0.6,
+        "val_ratio": 0.2,
+        "holdout_ratio": 0.2,
+        "purge_window": 50,
+        "embargo_bougies": 1
+      },
+      "n_candidates": 100000,
+      "n_eval_budget": 1200,
+      "max_conditions": 4,
+      "p_compound": 0.3,
+      "assets": [
+        "XAUUSD"
+      ],
+      "timeframes": [
+        "1h"
+      ],
+      "amplitude_value": 5.0,
+      "cooldown_k": 5,
+      "n_samples": 400
+    },
+    "rankings": [
+      {
+        "generator_name": "TypedGPGenerator",
+        "rank": 1,
+        "score": 0.5,
+        "n_generated": 50,
+        "n_evaluated": 7,
+        "n_passed_admission": 0,
+        "admission_rate": 0.0,
+        "median_sharpe": 0.0,
+        "median_sharpe_all": -9.515711150416251,
+        "n_distinct_features": 6,
+        "semantic_coherence": 0.0,
+        "subscores": {
+          "sharpe": 0.0,
+          "admission_rate": 0.0,
+          "diversity": 6.0,
+          "coherence": 0.0,
+          "norm_sharpe": 0.5,
+          "norm_admission_rate": 0.5,
+          "norm_diversity": 0.5,
+          "norm_coherence": 0.5,
+          "composite": 0.5
+        },
+        "elapsed_s": 80.238
+      }
+    ],
+    "sharpe_distributions": {
+      "TypedGPGenerator": [
+        -9.765469476480144,
+        -9.765469476480144,
+        -9.515711150416251,
+        -9.515711150416251,
+        -9.515711150416251,
+        -9.515711150416251,
+        -9.515711150416251
+      ]
+    },
+    "elapsed_s": 80.238,
+    "winner_name": "TypedGPGenerator",
+    "total_evaluations": 7,
+    "budget": 1200
+  }
+}
