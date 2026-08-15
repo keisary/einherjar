@@ -567,7 +567,8 @@ class TypedGPGenerator(BaseGenerator):
                     with_bootstrap=False,
                 )
                 fitness.append(self._growth_fitness(m, periods_per_year, min_trades))
-            except Exception:
+            except Exception as exc:
+                logger.warning("  Fitness -inf pour %s : %s", h.id, exc)
                 fitness.append(float("-inf"))
         return fitness
 

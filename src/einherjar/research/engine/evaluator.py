@@ -793,6 +793,7 @@ class EvaluationEngine:
         atr_p50 = self._atr_estimator.p50(train_ohlcv)
         if atr_p50 <= 0:
             raise CalibrationError(f"ATR_p50 non positif : {atr_p50}")
+        logger.info("  ATR_p50=%.4f", atr_p50)
 
         # 2. N.
         amplitude = hypothesis.amplitude
@@ -834,21 +835,23 @@ class EvaluationEngine:
                 f"Aucun signal sur le train pour {hypothesis.id} — calibration impossible"
             )
 
-        # 4. Calcule MFE_p50 et MAE_p75 (en %) sur le train.
+        # 4. Calcule MFE_p50 et MAE_p50 (en %) sur le train.
         mfe_p50 = percentile([t.mfe_pct for t in train_trades], 50)
-        mae_p75 = percentile([t.mae_pct for t in train_trades], 75)
+        mae_p50 = percentile([t.mae_pct for t in train_trades], 50)
 
         # 5. Convertit en distances ATR.
-        # MFE_p50 est en % du prix. Pour convertir en multiple d'ATR :
-        #   mfe_p50_atr = (mfe_p50 * entry_median) / atr_p50
-        # On utilise l'entry médian pour la conversion.
+        # On utilise le MAX des deux excursions pour calibrer SL ET TP
+        # symétriquement. Ainsi TP = SL : le risque par trade est symétrique,
+        # et l'espérance ne dépend que du taux de réussite TP/SL, pas d'une
+        # asymétrie artificielle de calibration.
+        # Si MFE >> MAE (bon signal) → TP = SL = grand → win rate décide.
+        # Si MFE ≈ MAE (bruit) → TP = SL = moyen → ≈ break-even avant frais.
+        # Si MFE << MAE (contre-signal) → TP = SL = grand → lose rate décide.
         entry_median = float(np.median([t.entry_price for t in train_trades]))
-        if atr_p50 > 0 and entry_median > 0:
-            tp_n_atr = (mfe_p50 * entry_median) / atr_p50
-            sl_n_atr = (mae_p75 * entry_median) / atr_p50
-        else:
-            tp_n_atr = provisional_n_atr
-            sl_n_atr = provisional_n_atr
+        fair_atr = max(mfe_p50, mae_p50) * entry_median / atr_p50 if (atr_p50 > 0 and entry_median > 0) else provisional_n_atr
+        fair_atr = max(0.1, min(50.0, fair_atr))
+        tp_n_atr = fair_atr
+        sl_n_atr = fair_atr
 
         # Bornes de sécurité : SL et TP doivent être positifs et bornés.
         sl_n_atr = max(0.1, min(20.0, sl_n_atr))
@@ -893,7 +896,7 @@ class EvaluationEngine:
             atr_p50=atr_p50,
             n_observations=train_ohlcv.n_bougies,
             mfe_p50=mfe_p50,
-            mae_p75=mae_p75,
+            mae_p75=mae_p50,
         )
         logger.info(
             "Calibration OK : N=%d, sl_n_atr=%.3f (dist=%.3f%%), "
