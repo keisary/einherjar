@@ -104,7 +104,7 @@ def _load_real_data(
     """
     from einherjar.research.data.features import FeaturesFrame
     from einherjar.research.data.npy_real_loader import load_features_from_npy
-    from einherjar.research.data.ohlcv import OhlcvProvider
+    from einherjar.research.data.ohlcv import OhlcvFrame, OhlcvProvider
     from einherjar.research.data.validation import validate_or_raise
     from einherjar.research.data.versioning import make_frame_data_version, make_splits_hash
 
@@ -397,7 +397,7 @@ def handle_admit(args: argparse.Namespace) -> int:
             logger.info("ADMIS : %s (sharpe=%.4f)", hyp.id, m_val.sharpe_net)
         else:
             n_rejected += 1
-            reasons[decision.reason or "UNKNOWN"] = reasons.get(decision.reason or "UNKNOWN", 0) + 1
+            reasons[decision.primary_reason or "UNKNOWN"] = reasons.get(decision.primary_reason or "UNKNOWN", 0) + 1
 
     logger.info(
         "Admission : %d admis, %d rejetés (%s)",
