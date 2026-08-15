@@ -148,6 +148,7 @@ class AdmissionDecider:
         mesures_train: MesuresBrutes | None = None,
         splits: dict[str, Any] | None = None,
         corpus_fingerprints: list[tuple[str, str]] | None = None,
+        horizon_index: int | None = None,
     ) -> AdmissionDecision:
         """Prend la décision d'admission complète.
 
