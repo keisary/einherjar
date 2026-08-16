@@ -371,31 +371,55 @@ def handle_admit(args: argparse.Namespace) -> int:
             cooldown_k=hyp.cooldown_k,
             n_indep_trials=n_trials_admission,
             n_val_years=n_val_years,
-            corpus_fingerprints=[e.fingerprint for e in corpus_entries],
+            corpus_fingerprints=[(e.fingerprint_structurel, e.fingerprint_comportemental) for e in corpus_entries],
             horizon_index=stgp_config.horizon_index,
         )
         if decision.admitted:
             from einherjar.research.corpus.store import CorpusEntry
+            # Extrait DSR/PBO depuis les verdicts de critères (S-3.4).
+            dsr_val = 0.0
+            pbo_val = 0.0
+            for v in decision.criteria_verdict.verdicts:
+                if v.name == "DSR" and v.observed == v.observed:
+                    dsr_val = float(v.observed)
+                elif v.name == "PBO" and v.observed == v.observed:
+                    pbo_val = float(v.observed)
+            fp_struct = decision.meta.get("fp_struct", "")
+            fp_comport = decision.meta.get("fp_comport", "")
             entry = CorpusEntry(
-                hypothesis_id=hyp.id,
-                condition_tree=hyp.condition_tree,
-                direction=hyp.direction,
-                universe=hyp.universe,
-                amplitude=hyp.amplitude,
-                calibrated=calibrated,
-                measures=m_val,
+                id=f"einh_{hyp.id}",
+                hypothesis=hyp.to_dict(),
+                direction=hyp.direction.value,
+                universe=hyp.universe.to_dict(),
+                amplitude=hyp.amplitude.to_dict(),
+                sl_n_atr=float(getattr(calibrated, "sl_n_atr", 0.0)),
+                tp_n_atr=float(getattr(calibrated, "tp_n_atr", 0.0)),
+                sl_distance=float(getattr(calibrated, "sl_distance", 0.0)),
+                tp_distance=float(getattr(calibrated, "tp_distance", 0.0)),
+                n_window=int(getattr(calibrated, "n_window", 0)),
+                fingerprint_structurel=fp_struct,
+                fingerprint_comportemental=fp_comport,
+                metrics_val=m_val.to_dict(),
+                sharpe_val=float(m_val.sharpe_net) if m_val.sharpe_net == m_val.sharpe_net else 0.0,
+                bootstrap_sharpe_ci_low_val=float(m_val.bootstrap_sharpe_ci_low),
+                bootstrap_sharpe_ci_high_val=float(m_val.bootstrap_sharpe_ci_high),
+                deflated_sharpe_ratio=dsr_val,
+                probability_of_backtest_overfitting=pbo_val,
                 ret_series=tuple(t.ret_pct_net for t in m_val.trades),
+                data_version=data_version,
+                seed=int(args.seed),
+                splits_hash=splits_hash,
+                admission_timestamp=CorpusEntry.now_utc(),
+                statut="validé",
                 meta={
-                    "seed": args.seed,
-                    "data_version": data_version,
-                    "timeframe": args.data_timeframe,
                     "asset": args.data_asset,
                     "data_class": args.data_class,
-                    "splits_key": splits_hash,
+                    "timeframe": args.data_timeframe,
                     "horizon_index": stgp_config.horizon_index,
                     "max_depth": stgp_config.max_depth,
                     "signal_indices": [t.entry_idx - 1 for t in m_val.trades],
-                    "decision": decision.to_dict() if hasattr(decision, "to_dict") else {},
+                    "exit_mode": getattr(engine, "exit_mode", "sltp"),
+                    "decision": decision.to_dict(),
                 },
             )
             corpus.append(entry)

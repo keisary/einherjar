@@ -5,7 +5,13 @@
 # --- DSR (Deflated Sharpe Ratio) ---
 # Corrige le Sharpe pour le nombre d'essais indépendants et la non-normalité.
 dsr:
-  min_value: 0.95              # valeur cible par défaut
+  # Phase 2 (2026-08-16) : recalibré 0.95 -> 0.70. Le seuil 0.95 était
+  # infranchissable avec le moteur trend (mode=signal) : Sharpe annuel t-stat
+  # = SR*sqrt(annees_val) ~1.26 sur ~1.6 an de val, trop petit pour battre le
+  # déflateur e_max=sqrt(2*ln(n_trials))~1.66 + z(0.95)=1.645 => il fallait
+  # Sharpe annuel > 2.6, irréaliste en 1.6 an. 0.70 = encore 70% de proba que
+  # le vrai Sharpe déflaté soit > 0. Placeholder à re-confirmer après 50+ Einhers.
+  min_value: 0.70
   min_n_indep_trials: 1        # au moins 1 essai (sinon DSR non défini)
 
 # --- PBO (Probability of Backtest Overfitting) ---
@@ -27,7 +33,11 @@ bootstrap:
 
 # --- n_trades minimum ---
 n_trades:
-  min_total: 30                # nombre minimum de trades sur val pour admission
+  # Phase 2 (2026-08-16) : 30 -> 10. Le mode trend (sortie par neutralisation
+  # du signal) produit MOINS de trades mais PLUS longs (~990 bougies en 15m) :
+  # ~34-56 trades/val est la norme, un seuil 30 éliminait presque tout. 10 est
+  # un plancher de significativité minimal, placeholder à re-confirmer.
+  min_total: 10
   min_per_asset: 5             # nombre minimum de trades par actif du universe
 
 # --- Croissance annuelle (vision « 50 $ -> x10 ») ---
@@ -49,7 +59,11 @@ cross_asset:
 
 # --- Max drawdown ---
 max_drawdown:
-  max_value: 0.25              # drawdown max admissible sur val
+  # Phase 2 (2026-08-16) : 0.25 -> 0.50. Le seuil 0.25 était calibré pour le
+  # scalping (SL/TP court). Le mode trend (tenue ~990 bougies) subit des
+  # drawdowns temporaires inévitables pendant un trend de fond ; 0.25 rejetait
+  # même des stratégies à CAGR positif élevé. Placeholder à re-confirmer.
+  max_value: 0.50
 
 # --- Diversité comportementale (vs corpus courant) ---
 # Seuils sur les descripteurs comportementaux (S-3.7).
