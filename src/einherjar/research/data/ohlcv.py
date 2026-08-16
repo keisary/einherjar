@@ -169,7 +169,20 @@ class _CsvRawBackend(_OhlcvBackend):
         *,
         asset_class: str = "indices",
     ) -> pl.DataFrame:
-        root = self.raw_root / asset_class / asset / timeframe
+        # Mapping brut↔npy : les classes .npy 'stocks_tech'/'stocks_growth'/
+        # 'stocks_value' partagent un SEUL dossier CSV brut 'stocks' (les
+        # downloaders MIDAS V3 n'ont pas séparé les actions par style). Sans
+        # ce mapping, la recherche sur les actions US échoue (OhlcvEmptyError).
+        _RAW_CLASS_MAP = {
+            "stocks_tech": "stocks",
+            "stocks_growth": "stocks",
+            "stocks_value": "stocks",
+            "stock_tech": "stocks",
+            "stock_growth": "stocks",
+            "stock_value": "stocks",
+        }
+        raw_class = _RAW_CLASS_MAP.get(asset_class, asset_class)
+        root = self.raw_root / raw_class / asset / timeframe
         if not root.is_dir():
             raise OhlcvEmptyError(
                 f"Données brutes absentes : {root}. "
