@@ -78,6 +78,11 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Nombre de générations (défaut: 5).")
     parser.add_argument("--n-eval", type=int, default=50,
                         help="Budget d'évaluations admission (défaut: 50).")
+    parser.add_argument("--selection", type=str, default="tournament",
+                        choices=("tournament", "lexicase"),
+                        help="Méthode de sélection génétique (défaut: tournament).")
+    parser.add_argument("--no-map-elites", action="store_true",
+                        help="Désactive l'archive MAP-Elites (diversité).")
 
     parser.add_argument("--log-level", type=str, default="INFO",
                         choices=("DEBUG", "INFO", "WARNING", "ERROR"))
@@ -287,6 +292,8 @@ def handle_admit(args: argparse.Namespace) -> int:
         engine=engine,
         population_size=stgp_config.population_size,
         n_generations=stgp_config.n_generations,
+        selection_method=args.selection,
+        use_map_elites=not args.no_map_elites,
     )
     generator.bind_data(train_ohlcv, train_features, val_ohlcv, val_features)
     result = generator.generate()

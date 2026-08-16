@@ -284,6 +284,10 @@ class TypedGPGenerator(BaseGenerator):
         mutation_prob: float = 0.2,
         tournament_size: int = 3,
         elitism: int = 2,
+        selection_method: str = "tournament",
+        lexicase_epsilon: float = 0.1,
+        lexicase_n_cases: int = 8,
+        use_map_elites: bool = True,
     ) -> None:
         """Initialise TypedGP.
 
@@ -294,8 +298,12 @@ class TypedGPGenerator(BaseGenerator):
             n_generations: Nombre de générations.
             crossover_prob: Probabilité de crossover par paire.
             mutation_prob: Probabilité de mutation par enfant.
-            tournament_size: Taille du tournoi.
+            tournament_size: Taille du tournoi (si selection_method='tournament').
             elitism: Nombre de meilleurs individus préservés.
+            selection_method: 'tournament' (classique) | 'lexicase' (Phase 2, Étape 1).
+            lexicase_epsilon: Seuil relatif epsilon-lexicase (fraction de l'écart).
+            lexicase_n_cases: Nombre de cas de test temporels (blocs) pour lexicase.
+            use_map_elites: Activer l'archive qualité-diversité (Phase 2, Étape 3).
         """
         super().__init__(config, engine=engine)
         if engine is None:
@@ -308,6 +316,13 @@ class TypedGPGenerator(BaseGenerator):
         self.mutation_prob = mutation_prob
         self.tournament_size = tournament_size
         self.elitism = elitism
+        if selection_method not in ("tournament", "lexicase"):
+            raise ValueError(f"selection_method invalide : {selection_method}")
+        self.selection_method = selection_method
+        self.lexicase_epsilon = lexicase_epsilon
+        self.lexicase_n_cases = max(2, lexicase_n_cases)
+        self.use_map_elites = use_map_elites
+        self._archive = None  # MAP-Elites archive (initialisée au 1er generate)
 
         # Pools de features
         self._continuous_features: list[str] = [
@@ -324,11 +339,12 @@ class TypedGPGenerator(BaseGenerator):
         logger.info(
             "TypedGPGenerator : pop=%d, gen=%d, %d float + %d bool, "
             "crossover=%.2f, mutation=%.2f, tournament=%d, elitism=%d, "
-            "horizon_index=%s",
+            "horizon_index=%s, selection=%s, map_elites=%s",
             population_size, n_generations,
             len(self._continuous_features), len(self._pattern_features),
             crossover_prob, mutation_prob, tournament_size, elitism,
             getattr(config, "horizon_index", "N/A"),
+            self.selection_method, self.use_map_elites,
         )
 
     def generate(self) -> GeneratorResult:
@@ -363,60 +379,89 @@ class TypedGPGenerator(BaseGenerator):
             sum(depths) / max(1, len(depths)), max(depths),
         )
 
-        # 2. Évaluation initiale
-        fitness = self._evaluate_population(population)
+        # 2. Évaluation initiale (fitness + mesures pour lexicase/MAP-Elites)
+        evaluations = self._evaluate_population_full(population)
+        fitness = [f for f, _ in evaluations]
         logger.info(
             "Fitness initiale : validés=%d, -inf=%d",
-            sum(1 for f in fitness if f != float("-inf")),
-            sum(1 for f in fitness if f == float("-inf")),
+            sum(1 for f in fitness if f == f and f != float("-inf")),
+            sum(1 for f in fitness if f == float("-inf") or f != f),
         )
+
+        # 2bis. Initialise l'archive MAP-Elites et l'alimente à chaque génération.
+        if self.use_map_elites:
+            self._init_archive()
+            self._update_archive(population, evaluations)
 
         # 3. Boucle évolutionnaire
         for gen in range(self.n_generations):
-            parents = self._tournament_selection(population, fitness, n=self.population_size)
+            parents = self._select_parents(population, evaluations, n=self.population_size)
             offspring: list[Hypothesis] = []
             for i in range(0, len(parents) - 1, 2):
                 p1, p2 = parents[i], parents[i + 1]
                 if self._rng.random() < self.crossover_prob:
-                    c1, c2 = self._subtree_crossover(p1, p2)
+                    c1, c2 = self._bounded_crossover(p1, p2)
                 else:
                     c1, c2 = p1, p2
-                c1 = self._subtree_mutation(c1)
-                c2 = self._subtree_mutation(c2)
+                c1 = self._bounded_mutation(c1)
+                c2 = self._bounded_mutation(c2)
                 offspring.append(c1)
                 offspring.append(c2)
             if len(offspring) < self.population_size:
-                offspring.append(self._subtree_mutation(parents[-1]))
+                offspring.append(self._bounded_mutation(parents[-1]))
             offspring = offspring[: self.population_size]
 
             train_ohlcv = getattr(self, "_search_train_ohlcv", None)
             train_features = getattr(self, "_search_train_features", None)
             val_ohlcv = getattr(self, "_search_val_ohlcv", None)
             val_features = getattr(self, "_search_val_features", None)
-            offspring_fitness = self._evaluate_population(
+            offspring_eval = self._evaluate_population_full(
                 offspring, train_ohlcv, train_features, val_ohlcv, val_features,
             )
+            offspring_fitness = [f for f, _ in offspring_eval]
 
             union_pop = population + offspring
+            union_eval = evaluations + offspring_eval
             union_fit = fitness + offspring_fitness
             order = sorted(range(len(union_pop)), key=lambda i: union_fit[i], reverse=True)
             order = order[: self.population_size]
+            # Reconstruit population + evaluations cohérentes (pas seulement fitness)
             population = [union_pop[i] for i in order]
+            merged_eval = [union_eval[i] for i in order]
+            evaluations = merged_eval  # cohérent pour la sélection de la génération suivante
             fitness = [union_fit[i] for i in order]
 
-            n_valid = sum(1 for f in fitness if f != float("-inf"))
+            # MAP-Elites : mets à jour l'archive avec la population + offspring
+            if self.use_map_elites:
+                self._update_archive(union_pop, union_eval)
+
+            n_valid = sum(1 for f in fitness if f == f and f != float("-inf"))
+            archive_info = ""
+            if self._archive is not None:
+                st = self._archive.stats()
+                archive_info = f", niches_occupees={st['n_occupied']}"
             logger.info(
-                "Gen %d/%d : best=%.4f, mean=%.4f, valides=%d/%d",
+                "Gen %d/%d : best=%.4f, mean=%.4f, valides=%d/%d%s",
                 gen + 1, self.n_generations,
                 fitness[0] if fitness else -1,
-                sum(f for f in fitness if f != float("-inf")) / max(1, n_valid),
+                (sum(f for f in fitness if f == f and f != float("-inf")) / max(1, n_valid))
+                if n_valid else -1,
                 n_valid, len(fitness),
+                archive_info,
             )
 
-        # 4. Déduplication
+        # 4. Population finale : archive MAP-Elites (diversifiée) OU population dédupliquée
+        # Si MAP-Elites actif, on retourne les meilleurs représentants des niches
+        # (qualité-diversité) plutôt que la top-N élitiste qui converge.
+        if self.use_map_elites and self._archive is not None and self._archive.size > 0:
+            candidate_pool = self._archive.individuals()
+            mode_label = "MAP-Elites"
+        else:
+            candidate_pool = population
+            mode_label = "elitiste"
         seen: set[tuple] = set()
         unique: list[Hypothesis] = []
-        for h in population:
+        for h in candidate_pool:
             sig = (h.condition_tree, h.direction, h.cooldown_k)
             if sig not in seen:
                 seen.add(sig)
@@ -433,9 +478,9 @@ class TypedGPGenerator(BaseGenerator):
                 feature_usage[f] = feature_usage.get(f, 0) + 1
         top_features = sorted(feature_usage.items(), key=lambda x: -x[1])[:10]
         logger.info(
-            "Génération terminée : %d uniques (Long=%d, Short=%d), "
+            "Génération terminée (%s) : %d uniques (Long=%d, Short=%d), "
             "profondeur moy=%.2f, max=%d, top features: %s",
-            len(unique), n_long_final, n_short_final,
+            mode_label, len(unique), n_long_final, n_short_final,
             sum(depths_final) / max(1, len(depths_final)),
             max(depths_final) if depths_final else 0,
             top_features,
@@ -445,6 +490,8 @@ class TypedGPGenerator(BaseGenerator):
             getattr(self.config, "horizon_index", "N/A"),
             getattr(self, "_search_timeframe", "?"),
         )
+        if self._archive is not None:
+            logger.info("MAP-Elites final : %s", self._archive.stats())
 
         return GeneratorResult(
             generator_name=self.name,
@@ -460,7 +507,11 @@ class TypedGPGenerator(BaseGenerator):
                 "init_methods": ("grow", "full"),
                 "crossover": "subtree_type_preserving",
                 "mutation": "subtree_regrow",
-                "selection": f"tournament_k={self.tournament_size}",
+                "selection": f"{self.selection_method}"
+                + (f"_k={self.tournament_size}" if self.selection_method == "tournament" else ""),
+                "map_elites": bool(self.use_map_elites),
+                "max_depth": int(getattr(self.config, "max_depth", 6)),
+                "antiblout": "depth_bound_post_operator",
                 "horizon_index": str(getattr(self.config, "horizon_index", "N/A")),
                 "timeframe": getattr(self, "_search_timeframe", "?"),
             },
@@ -538,16 +589,35 @@ class TypedGPGenerator(BaseGenerator):
         val_ohlcv: Any | None = None,
         val_features: Any | None = None,
     ) -> list[float]:
-        """Évalue la fitness CROISSANCE de chaque individu via engine.
+        """Évalue la fitness CROISSANCE de chaque individu (retourne floats).
 
-        Retourne une liste de floats (-inf si invalide).
+        Wrapper de `_evaluate_population_full` qui ne garde que la fitness.
+        """
+        return [f for f, _ in self._evaluate_population_full(
+            population, train_ohlcv, train_features, val_ohlcv, val_features,
+        )]
+
+    def _evaluate_population_full(
+        self,
+        population: list[Hypothesis],
+        train_ohlcv: Any | None = None,
+        train_features: Any | None = None,
+        val_ohlcv: Any | None = None,
+        val_features: Any | None = None,
+    ) -> list[tuple[float, Any]]:
+        """Évalue fitness + MesuresBrutes pour chaque individu.
+
+        Retourne une liste de (fitness, measures). La fitness est -inf et
+        measures=None si l'individu est invalide (calibration échouée).
+        Les mesures exposent `.trades` (pour lexicase) et les champs de
+        comportement (n_signals, avg_holding_period, tp_hit_rate) pour MAP-Elites.
         """
         train_ohlcv = train_ohlcv or getattr(self, "_search_train_ohlcv", None)
         train_features = train_features or getattr(self, "_search_train_features", None)
         val_ohlcv = val_ohlcv or getattr(self, "_search_val_ohlcv", None)
         val_features = val_features or getattr(self, "_search_val_features", None)
         if train_ohlcv is None or val_ohlcv is None:
-            return [float("-inf")] * len(population)
+            return [(float("-inf"), None) for _ in population]
         n_samples = getattr(self.config, "taste_samples", 0) or 0
         if n_samples > 0:
             val_ohlcv, val_features = self._taste_frames(val_ohlcv, val_features, n_samples)
@@ -558,7 +628,7 @@ class TypedGPGenerator(BaseGenerator):
         )
         timeframe = getattr(val_ohlcv, "timeframe", "1h")
         periods_per_year = periods_per_year_for_timeframe(timeframe)
-        fitness: list[float] = []
+        results: list[tuple[float, Any]] = []
         for h in population:
             try:
                 calibrated = self.engine.train_calibrate(h, train_ohlcv, train_features)
@@ -566,15 +636,33 @@ class TypedGPGenerator(BaseGenerator):
                     h, val_ohlcv, val_features, calibrated, "val",
                     with_bootstrap=False,
                 )
-                fitness.append(self._growth_fitness(m, periods_per_year, min_trades))
+                fitness = self._growth_fitness(m, periods_per_year, min_trades)
+                results.append((fitness, m))
             except Exception as exc:
                 logger.warning("  Fitness -inf pour %s : %s", h.id, exc)
-                fitness.append(float("-inf"))
-        return fitness
+                results.append((float("-inf"), None))
+        return results
 
     # ------------------------------------------------------------------ #
-    # Sélection par tournoi
+    # Sélection (tournoi OU lexicase)
     # ------------------------------------------------------------------ #
+
+    def _select_parents(
+        self,
+        population: list[Hypothesis],
+        evaluations: list[tuple[float, Any]],
+        n: int,
+    ) -> list[Hypothesis]:
+        """Sélectionne `n` parents selon selection_method.
+
+        - 'tournament' : tournoi classique (taille tournament_size).
+        - 'lexicase'   : epsilon-lexicase sur les retours par blocs temporels.
+        """
+        if self.selection_method == "lexicase":
+            return self._lexicase_selection(population, evaluations, n)
+        return self._tournament_selection(
+            population, [f for f, _ in evaluations], n,
+        )
 
     def _tournament_selection(
         self, population: list[Hypothesis], fitness: list[float], n: int,
@@ -592,6 +680,118 @@ class TypedGPGenerator(BaseGenerator):
             )
             selected.append(population[best_i])
         return selected
+
+    def _lexicase_selection(
+        self,
+        population: list[Hypothesis],
+        evaluations: list[tuple[float, Any]],
+        n: int,
+    ) -> list[Hypothesis]:
+        """Epsilon-lexicase sur des cas de test = blocs temporels.
+
+        Chaque candidat valide produit un vecteur de rendements par bloc
+        temporel (cas). On mélange l'ordre des cas, puis on filtre les
+        candidats qui restent dans un epsilon de la meilleure performance
+        sur chaque cas successif, jusqu'à n parents sélectionnés.
+
+        Les candidats invalides (measures None) sont écartés des cas mais
+        peuvent être tirés en secours si la filtration échoue.
+        """
+        if not population:
+            return []
+        valid_idx = [i for i, (f, m) in enumerate(evaluations)
+                     if m is not None and f == f]  # f not NaN
+        if not valid_idx:
+            # Tout invalide : secours par tournoi.
+            return self._tournament_selection(
+                population, [f for f, _ in evaluations], n,
+            )
+        valid_pop = [population[i] for i in valid_idx]
+        cases = self._build_case_vectors(
+            [evaluations[i][1] for i in valid_idx],
+        )
+        selected: list[Hypothesis] = []
+        pop_for_cases = list(valid_pop)
+        for _ in range(n):
+            if not pop_for_cases:
+                break
+            order = list(range(len(pop_for_cases)))
+            self._rng.shuffle(order)
+            # Réordonne les individus selon l'ordre des cas
+            # (epsilon-lexicase : filtre par cas).
+            candidates = list(range(len(pop_for_cases)))
+            for case_idx in order:
+                if len(candidates) <= 1:
+                    break
+                values = [cases[i][case_idx] for i in candidates]
+                best = max(values)
+                eps = self.lexicase_epsilon * (max(values) - min(values) + 1e-12)
+                threshold = best - eps
+                candidates = [i for i in candidates if values[i] >= threshold]
+            pick = self._rng.choice(candidates) if candidates else 0
+            selected.append(pop_for_cases[pick])
+            # Retire l'individu pioché (sélection sans remise).
+            del pop_for_cases[pick]
+            del cases[pick]
+        return selected
+
+    def _build_case_vectors(
+        self, measures_list: list[Any], n_cases: int | None = None,
+    ) -> list[list[float]]:
+        """Construit, pour chaque individu, un vecteur de rendement par bloc.
+
+        Les blocs sont définis sur l'axe temporel (entry_idx des trades).
+        Chaque case = la somme des ret_pct_net des trades dont l'entrée
+        tombe dans le bloc correspondant.
+
+        Returns:
+            list[i_individu] = list[float] de longueur n_cases.
+        """
+        n_cases = n_cases or self.lexicase_n_cases
+        # Détermine la fenêtre temporelle commune (min/max entry_idx).
+        all_entries = [t.entry_idx for m in measures_list if m is not None
+                       for t in getattr(m, "trades", ())]
+        if not all_entries:
+            n = len(measures_list)
+            return [[float("-inf")] * n_cases for _ in range(n)]
+        min_e, max_e = min(all_entries), max(all_entries)
+        span = max(1, max_e - min_e)
+        vectors: list[list[float]] = []
+        for m in measures_list:
+            vec = [0.0] * n_cases
+            if m is None:
+                vectors.append([float("-inf")] * n_cases)
+                continue
+            for t in getattr(m, "trades", ()):
+                block = min(n_cases - 1, int((t.entry_idx - min_e) * n_cases / span))
+                vec[block] += t.ret_pct_net
+            vectors.append(vec)
+        return vectors
+
+    # ------------------------------------------------------------------ #
+    # MAP-Elites (archive qualité-diversité)
+    # ------------------------------------------------------------------ #
+
+    def _init_archive(self) -> None:
+        if self._archive is None:
+            from einherjar.research.generators.archive import MAPElitesArchive
+            self._archive = MAPElitesArchive()
+            logger.info("Archive MAP-Elites initialisée.")
+
+    def _update_archive(
+        self, population: list[Hypothesis], evaluations: list[tuple[float, Any]],
+    ) -> None:
+        """Mets à jour l'archive avec les diversité des individus évalués."""
+        if self._archive is None:
+            return
+        updated = 0
+        for h, (fitness, measures) in zip(population, evaluations):
+            if measures is None or not (fitness == fitness):
+                continue
+            if self._archive.update(h, fitness, measures):
+                updated += 1
+        if updated:
+            logger.debug("MAP-Elites : %d niche(s) nouvelles/améliorées.", updated)
 
     # ------------------------------------------------------------------ #
     # Crossover sous-arbre (type-preserving)
@@ -701,3 +901,41 @@ class TypedGPGenerator(BaseGenerator):
             universe=h.universe,
             cooldown_k=h.cooldown_k,
         )
+
+    # ------------------------------------------------------------------ #
+    # Opérateurs génétiques bornés (anti-bloat) — Phase 2, Étape 2
+    # ------------------------------------------------------------------ #
+
+    def _bounded_crossover(
+        self, p1: Hypothesis, p2: Hypothesis,
+    ) -> tuple[Hypothesis, Hypothesis]:
+        """Crossover sous-arbre type-preserving, avec bornes de profondeur.
+
+        Réalise le crossover classique puis rejette tout enfant dont la
+        profondeur dépasse `max_depth` (repli sur les parents intacts).
+        Empêche le bloat : un enfant trop profond ne survit pas.
+        """
+        import copy
+        max_depth = self.config.max_depth
+        c1, c2 = self._subtree_crossover(p1, p2)
+        c1_ok = c1 is p1 or self._tree_depth(c1.condition_tree) <= max_depth
+        c2_ok = c2 is p2 or self._tree_depth(c2.condition_tree) <= max_depth
+        if not c1_ok:
+            c1 = p1  # repli sur le parent intact
+        if not c2_ok:
+            c2 = p2 if c2 is p2 else (copy.deepcopy(p2))
+        return c1, c2
+
+    def _bounded_mutation(self, h: Hypothesis) -> Hypothesis:
+        """Mutation sous-arbre avec bornes de profondeur.
+
+        Applique la mutation standard puis vérifie la profondeur : si
+        l'enfant dépasse `max_depth`, on retourne l'individu parent intact
+        (mutation rejetée) plutôt que le mutant démesuré.
+        """
+        mutated = self._subtree_mutation(h)
+        if mutated is h:
+            return h
+        if self._tree_depth(mutated.condition_tree) <= self.config.max_depth:
+            return mutated
+        return h
