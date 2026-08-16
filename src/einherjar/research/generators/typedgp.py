@@ -712,22 +712,27 @@ class TypedGPGenerator(BaseGenerator):
         )
         selected: list[Hypothesis] = []
         pop_for_cases = list(valid_pop)
+        n_cases = len(cases[0]) if cases else 0
         for _ in range(n):
-            if not pop_for_cases:
+            if not pop_for_cases or n_cases == 0:
                 break
-            order = list(range(len(pop_for_cases)))
+            # Epsilon-lexicase : on mélange l'ordre des CAS (blocs temporels),
+            # pas des individus. Chaque case_idx ∈ [0, n_cases).
+            order = list(range(n_cases))
             self._rng.shuffle(order)
-            # Réordonne les individus selon l'ordre des cas
-            # (epsilon-lexicase : filtre par cas).
             candidates = list(range(len(pop_for_cases)))
             for case_idx in order:
                 if len(candidates) <= 1:
                     break
-                values = [cases[i][case_idx] for i in candidates]
-                best = max(values)
-                eps = self.lexicase_epsilon * (max(values) - min(values) + 1e-12)
+                # Garde les paires (individu, valeur) ensemble : `values` doit
+                # rester aligné sur les indices ORIGINAUX de candidates, sinon
+                # values[i] avec i=indice-d'individu sort de bounds après un
+                # filtrage (IndexError). Zip évite le décalage.
+                pairs = [(i, cases[i][case_idx]) for i in candidates]
+                best = max(v for _, v in pairs)
+                eps = self.lexicase_epsilon * (max(v for _, v in pairs) - min(v for _, v in pairs) + 1e-12)
                 threshold = best - eps
-                candidates = [i for i in candidates if values[i] >= threshold]
+                candidates = [i for i, v in pairs if v >= threshold]
             pick = self._rng.choice(candidates) if candidates else 0
             selected.append(pop_for_cases[pick])
             # Retire l'individu pioché (sélection sans remise).
