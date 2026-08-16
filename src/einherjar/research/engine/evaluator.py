@@ -551,6 +551,7 @@ class _MesuresAggregator:
         per_asset_trades: dict[str, list[TradeMesure]],
         *,
         with_bootstrap: bool = True,
+        window_bars: int | None = None,
     ) -> MesuresBrutes:
         """Construit MesuresBrutes à partir de la liste de trades.
 
@@ -558,6 +559,12 @@ class _MesuresAggregator:
         est coûteux (~90% du temps de test_on) et n'est lu QUE par l'admission
         (criteria.py). Pendant l'évolution / la comparaison, personne ne lit les
         CI : on les économise. (Décision 2026-08-10, optimisation run-time.)
+
+        window_bars : nombre de bougies de la fenêtre évaluée. Permet de
+        calculer la fréquence effective de trades (n_trades/an) pour
+        l'annualisation du Sharpe, indépendamment de avg_held (Phase 2 —
+        réparation de l'annualisation incohérente quand les trades sont tenus
+        longtemps).
         """
         n = len(trades)
         if n == 0:
@@ -600,10 +607,19 @@ class _MesuresAggregator:
         ret_std = float(np.std(returns_net, ddof=1)) if n > 1 else float("nan")
         if ret_std and not math.isnan(ret_std) and ret_std > 0:
             sharpe_per_trade = ret_mean / ret_std
-            if avg_held > 0 and self._periods_per_year > 0:
-                sharpe = sharpe_per_trade * math.sqrt(
-                    self._periods_per_year / avg_held
-                )
+            # Annualisation de la fréquence effective de trades.
+            # Phase 2 : si window_bars est connu, on utilise n_trades × ppy /
+            # window_bars (fréquence RÉELLE), ce qui est robuste quand les trades
+            # sont tenus longtemps (avg_held grand → ppy/avg_held sous-estimait).
+            # Sinon on tombe sur l'ancienne approximation ppy/avg_held.
+            if self._periods_per_year > 0:
+                if window_bars and window_bars > 0:
+                    trades_per_year = n * self._periods_per_year / window_bars
+                elif avg_held > 0:
+                    trades_per_year = self._periods_per_year / avg_held
+                else:
+                    trades_per_year = 1.0
+                sharpe = sharpe_per_trade * math.sqrt(max(trades_per_year, 1e-3))
             else:
                 sharpe = sharpe_per_trade
         else:
@@ -753,11 +769,20 @@ class EvaluationEngine:
         self._min_n = int(ev_cfg["n_window"]["min_n"])
         self._max_n = int(ev_cfg["n_window"]["max_n"])
         self._condition_evaluator = _ConditionEvaluator()
+        # Mode de sortie : "sltp" (SL/TP calibré, historique) OU "signal"
+        # (sortie par neutralisation du signal = trend-following pur, Phase 2).
+        # Le mode "signal" est symétrique Long/Short : on entre quand la
+        # condition devient vraie, on tient tant qu'elle reste vraie, on sort
+        # quand elle se neutralise (masque repasse False). AUCUN biais de
+        # direction : le même arbre booléen pilote les deux directions.
+        self.exit_mode = str(ev_cfg.get("simulation", {}).get("exit_mode", "sltp")).lower()
+        sim_cfg = ev_cfg.get("simulation", {})
+        self._signal_max_hold = int(sim_cfg.get("max_bars_in_window", 1000))
 
         logger.info(
-            "EvaluationEngine instancié : data_version=%s, seed=%d, ATR period=%d p=%.0f, N=[%d, %d]",
+            "EvaluationEngine instancié : data_version=%s, seed=%d, ATR period=%d p=%.0f, N=[%d, %d], exit_mode=%s",
             data_version, seed, self._atr_estimator.period, self._atr_estimator.percentile_p,
-            self._min_n, self._max_n,
+            self._min_n, self._max_n, self.exit_mode,
         )
 
     # ------------------------------------------------------------------ #
@@ -955,25 +980,42 @@ class EvaluationEngine:
         # Évalue la condition → masque → indices de signaux (après cooldown).
         mask = self._condition_evaluator.evaluate(hypothesis.condition_tree, features)
         signal_filter = _SignalFilter(cooldown_k=hypothesis.cooldown_k)
-        signal_indices = signal_filter.filter(mask)
 
-        # Pré-calcule la série ATR pour récupérer l'ATR local à chaque entrée.
-        atr_series = _ATRSeries(ohlcv, period=self._atr_estimator.period)
-        atr_fallback = calibrated.atr_p50
-
-        # Simule les trades.
-        ohlcv_arrays = ohlcv.to_arrays()
-        trades: list[TradeMesure] = []
-        for idx in signal_indices:
-            atr_at_entry = atr_series.at_index(idx + 1, atr_fallback)
-            trade = runner.run(
-                entry_idx=idx,
-                ohlcv_arrays=ohlcv_arrays,
-                calibrated=calibrated,
-                atr_at_entry=atr_at_entry,
+        # Mode de sortie : si "signal" → trend-following symétrique (neutralisation
+        # du signal : entrée quand le masque devient vrai, tenue tant qu'il reste
+        # vrai, sortie à sa neutralisation). Sinon SL/TP historique.
+        if self.exit_mode == "signal":
+            trades, signal_indices = self._run_all_trades_signal(
+                hypothesis, ohlcv, mask, costs,
             )
-            if trade is not None:
-                trades.append(trade)
+            logger.info(
+                "test_on(%s) [mode=signal] : %s × %s, %d bougies, %d trades",
+                split_name, ohlcv.asset, ohlcv.timeframe, ohlcv.n_bougies, len(trades),
+            )
+        else:
+            signal_indices = signal_filter.filter(mask)
+            # Pré-calcule la série ATR pour récupérer l'ATR local à chaque entrée.
+            atr_series = _ATRSeries(ohlcv, period=self._atr_estimator.period)
+            atr_fallback = calibrated.atr_p50
+
+            # Simule les trades.
+            ohlcv_arrays = ohlcv.to_arrays()
+            trades_: list[TradeMesure] = []
+            for idx in signal_indices:
+                atr_at_entry = atr_series.at_index(idx + 1, atr_fallback)
+                trade = runner.run(
+                    entry_idx=idx,
+                    ohlcv_arrays=ohlcv_arrays,
+                    calibrated=calibrated,
+                    atr_at_entry=atr_at_entry,
+                )
+                if trade is not None:
+                    trades_.append(trade)
+            trades = trades_
+            logger.info(
+                "test_on(%s) : %s × %s, %d bougies, %d features",
+                split_name, ohlcv.asset, ohlcv.timeframe, ohlcv.n_bougies, features.n_features,
+            )
 
         # Agrège.
         aggregator = _MesuresAggregator(
@@ -985,6 +1027,7 @@ class EvaluationEngine:
             trades=trades,
             per_asset_trades=per_asset,
             with_bootstrap=with_bootstrap,
+            window_bars=ohlcv.n_bougies,
         )
 
         logger.info(
@@ -1061,6 +1104,118 @@ class EvaluationEngine:
             if t is not None:
                 trades.append(t)
         return trades
+
+    # ------------------------------------------------------------------ #
+    # Moteur trend-following (Phase 2) : sortie par neutralisation du signal
+    # ------------------------------------------------------------------ #
+
+    def _run_all_trades_signal(
+        self,
+        hypothesis: Hypothesis,
+        ohlcv: OhlcvFrame,
+        mask: pl.Series,
+        costs: TradingCosts,
+    ) -> tuple[list[TradeMesure], list[int]]:
+        """Simule des trades trend-following (sortie par neutralisation du signal).
+
+        SYMÉTRIQUE LONG/SHORT — AUCUN biais de direction :
+        - Entrée : à l'OPEN de t+1, quand le masque passe à VRAI (le signal
+          s'active) OU quand le masque est déjà VRAI et qu'on n'est pas en
+          position (début de série).
+        - Tenue : tant que le masque reste VRAI.
+        - Sortie : au CLOSE de la bougie où le masque se neutralise (redevient
+          FAUX), ou à `max_hold` bougies (garde-fou anti-boucle infinie).
+
+        La direction (long/short) n'influence que le signe du rendement ;
+        la logique d'entrée/tenue/sortie est identique pour les deux.
+
+        Args:
+            hypothesis: Hypothèse (pilote la direction du rendement).
+            ohlcv: Frame OHLCV du split.
+            mask: masque booléen polars de la condition (True = signal actif).
+            costs: Coûts de transaction (appliqués au rendement net).
+
+        Returns:
+            (trades, signal_indices) — trades simulés + indices d'entrée.
+        """
+        arr = ohlcv.to_arrays()
+        opens, highs = arr["open"], arr["high"]
+        lows, closes = arr["low"], arr["close"]
+        n = ohlcv.n_bougies
+        bool_mask = mask.to_numpy().astype(bool)
+        max_hold = self._signal_max_hold
+        direction = hypothesis.direction
+        is_long = direction == Direction.LONG
+        round_trip = costs.total_round_trip_pct
+
+        trades: list[TradeMesure] = []
+        entry_indices: list[int] = []
+        i = 0
+        while i < n:
+            # Cherche la prochaine activation du signal (masque True).
+            # On entre à l'OPEN de t+1 (pas au close de la bougie de signal).
+            if not bool_mask[i]:
+                i += 1
+                continue
+            entry_open_idx = i + 1
+            if entry_open_idx >= n:
+                break
+            entry_price = float(opens[entry_open_idx])
+            if entry_price <= 0:
+                i += 1
+                continue
+            # Tient tant que le masque reste vrai.
+            exit_open_idx = entry_open_idx  # sortie au close de la bougie de sortie
+            j = entry_open_idx
+            bars_held = 1
+            exit_reason = ExitReason.TIMEOUT
+            while j < n and bool_mask[j]:
+                bars_held += 1
+                if bars_held > max_hold:
+                    exit_reason = ExitReason.TIMEOUT
+                    break
+                j += 1
+            if j >= n:
+                # Fin de série : sortie au dernier close disponible.
+                exit_reason = ExitReason.TIMEOUT
+                exit_close_idx = n - 1
+            else:
+                # Le masque se neutralise à la bougie j → sortie au close de j.
+                exit_reason = ExitReason.TIMEOUT
+                exit_close_idx = j
+                if exit_close_idx < n:
+                    pass
+            exit_price = float(closes[min(exit_close_idx, n - 1)])
+            exit_idx = min(exit_close_idx, n - 1)
+            n_held = max(1, exit_idx - entry_open_idx + 1)
+
+            if is_long:
+                ret_brut = (exit_price - entry_price) / entry_price
+            else:
+                ret_brut = (entry_price - exit_price) / entry_price
+            ret_net = ret_brut - round_trip
+
+            window_highs = highs[entry_open_idx:exit_idx + 1]
+            window_lows = lows[entry_open_idx:exit_idx + 1]
+            mfe = (float(window_highs.max()) - entry_price) if is_long else (entry_price - float(window_lows.min()))
+            mae = (entry_price - float(window_lows.min())) if is_long else (float(window_highs.max()) - entry_price)
+
+            trades.append(TradeMesure(
+                entry_idx=entry_open_idx,
+                exit_idx=exit_idx,
+                entry_price=entry_price,
+                exit_price=exit_price,
+                exit_reason=exit_reason,
+                mfe_pct=mfe / entry_price,
+                mae_pct=mae / entry_price,
+                ret_pct_brut=ret_brut,
+                ret_pct_net=ret_net,
+                n_bougies_held=n_held,
+            ))
+            entry_indices.append(entry_open_idx)
+            # Avance au-delà de la position tenue (pas de chevauchement).
+            i = exit_idx + 1
+        return trades, entry_indices
 
 
 # --------------------------------------------------------------------------- #

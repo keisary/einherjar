@@ -48,6 +48,13 @@ simulation:
   sl_before_tp_on_same_bar: true  # convention conservative
   exit_at_session_end: false    # sinon, on attend TP/SL/timeout dans la fenêtre
   max_bars_in_window: 1000      # garde-fou anti-boucle infinie
+  # Mode de sortie du moteur :
+  #   "sltp"   = SL/TP calibré (historique) — sortie anticipée par stop/target
+  #   "signal" = trend-following : entrée quand le signal s'active, tenue tant
+  #              qu'il reste vrai, sortie quand il se neutralise (masque False).
+  #              Symétrique Long/Short. Diminution de la destruction du signal
+  #              de fond observée en Phase 2 (voir scripts/signal_baseline_test.py).
+  exit_mode: signal
 
 # --- Block bootstrap (engine/bootstrap.py) ---
 bootstrap:
