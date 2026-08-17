@@ -52,9 +52,11 @@ simulation:
   #   "sltp"   = SL/TP calibré (historique) — sortie anticipée par stop/target
   #   "signal" = trend-following : entrée quand le signal s'active, tenue tant
   #              qu'il reste vrai, sortie quand il se neutralise (masque False).
-  #              Symétrique Long/Short. Diminution de la destruction du signal
-  #              de fond observée en Phase 2 (voir scripts/signal_baseline_test.py).
-  exit_mode: signal
+  #              Symétrique Long/Short.
+  #   "hold"   = buy-and-hold pur : entrée à l'OPEN de t+1, sortie au close de
+  #              t+N. Aucun SL/TP, pas de calibration MFE/MAE.
+  #              Mode par défaut depuis la refonte (retrait SL/TP).
+  exit_mode: hold
 
 # --- Block bootstrap (engine/bootstrap.py) ---
 bootstrap:

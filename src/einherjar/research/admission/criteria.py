@@ -367,6 +367,8 @@ def evaluate_n_trades(
 def evaluate_croissance(
     mesures: MesuresBrutes,
     config: EinherjarConfig,
+    returns: Sequence[float] | None = None,
+    n_val_years: float | None = None,
 ) -> CriterionVerdict:
     """Croissance géométrique annuelle équivalente (CAGR) de la stratégie.
 
@@ -374,63 +376,70 @@ def evaluate_croissance(
     TRÈS fréquent peut battre un Sharpe énorme mais rarissime. C'est le
     critère « 50 $ -> x10 » : on cherche la croissance composée d'un compte.
 
-    CAGR estimé depuis les rets nets moyens par trade :
-        n_trades_par_an ~ periods_per_year / avg_holding_period
-        CAGR = (1 + ret_mean_net)^(n_trades_par_an) - 1
+    CAGR calculé DEPUIS L'EQUITY CURVE réelle (produit des (1+r_i)) :
+        equity_finale = Π (1 + r_i)   pour tous les trades
+        CAGR = equity_finale^(1/n_val_years) - 1
+
+    C'est la VRAIE croissance composée, pas une approximation par la moyenne
+    arithmétique (qui surestime la croissance en présence de variance).
 
     Args:
         mesures: mesures d'évaluation (val).
         config: configuration (seuil growth.min_cagr).
+        returns: rendements nets par trade (si None, utilise mesures.trades).
+        n_val_years: nombre d'années de la fenêtre val (pour annualiser).
 
     Returns:
         Verdict. Pass si CAGR >= min_cagr (défaut 0.25 = +25 %/an composé).
     """
     min_cagr = float(config.thresholds["growth"]["min_cagr"])
-    ret_mean = mesures.ret_mean_pct_net
-    avg_hold = mesures.avg_holding_period
-    if ret_mean <= 0 or avg_hold <= 0 or mesures.n_signals < 1:
+
+    # Récupère les rendements : priorité au paramètre returns, sinon depuis trades.
+    if returns is not None:
+        rets = list(returns)
+    else:
+        rets = [t.ret_pct_net for t in mesures.trades]
+
+    if not rets:
         return CriterionVerdict(
-            name="CROISSANCE",
-            passed=False,
-            observed=0.0,
-            threshold=min_cagr,
+            name="CROISSANCE", passed=False, observed=0.0, threshold=min_cagr,
             reason=RejectionReason.CROISSANCE_FAIL,
-            meta={"ret_mean_pct_net": ret_mean, "avg_holding": avg_hold, "n": mesures.n_signals},
+            meta={"n_trades": 0, "note": "aucun trade"},
         )
-    # Périodes par an : approx. 15m=35040, 1h=8760, 1d=365 — pris depuis
-    # l'évaluateur via costs_applied n'est pas dispo ici ; on utilise la
-    # cadence moyenne observée : trades_par_an ~= 252 * 24 * 60/tf_min.
-    periods_per_year = _periods_per_year_estimate(config)
-    n_trades_an = max(1.0, periods_per_year / max(avg_hold, 1.0))
-    cagr = (1.0 + ret_mean) ** n_trades_an - 1.0
+
+    # CAGR depuis l'equity curve : equity_finale = Π (1 + r_i)
+    equity = 1.0
+    for r in rets:
+        if math.isfinite(r):
+            equity *= (1.0 + r)
+
+    if equity <= 0:
+        return CriterionVerdict(
+            name="CROISSANCE", passed=False, observed=-1.0, threshold=min_cagr,
+            reason=RejectionReason.CROISSANCE_FAIL,
+            meta={"equity_finale": equity, "n_trades": len(rets)},
+        )
+
+    # Annualisation
+    years = n_val_years if (n_val_years is not None and n_val_years > 0) else 1.0
+    cagr_value = equity ** (1.0 / years) - 1.0
+
     return CriterionVerdict(
         name="CROISSANCE",
-        passed=(cagr >= min_cagr),
-        observed=cagr,
+        passed=(cagr_value >= min_cagr),
+        observed=cagr_value,
         threshold=min_cagr,
-        reason=None if cagr >= min_cagr else RejectionReason.CROISSANCE_FAIL,
+        reason=None if cagr_value >= min_cagr else RejectionReason.CROISSANCE_FAIL,
         meta={
-            "ret_mean_pct_net": ret_mean,
-            "avg_holding": avg_hold,
-            "n_trades_par_an": n_trades_an,
-            "cagr_est": cagr,
+            "equity_finale": equity,
+            "n_trades": len(rets),
+            "n_val_years": years,
+            "cagr_reel": cagr_value,
         },
     )
 
 
-def _periods_per_year_estimate(config: EinherjarConfig) -> float:
-    """Estime le nombre de périodes par an depuis la config (timeframe par défaut)."""
-    try:
-        n_win = config.evaluation.get("n_window", {})
-        k_map = n_win.get("k_atr_by_timeframe", {})
-        # Le timeframe par défaut du pipeline est 15m (k=1.0 présent) sinon 1h.
-        if "15m" in k_map:
-            return 4 * 24 * 365  # 35040
-        if "1h" in k_map:
-            return 24 * 365
-        return 365
-    except Exception:
-        return 365
+
 
 
 # --------------------------------------------------------------------------- #
@@ -551,7 +560,7 @@ def evaluate_all_criteria(
     verdicts.append(evaluate_bootstrap_ci_sharpe(mesures))
     verdicts.append(evaluate_bootstrap_ci_ret(mesures))
     verdicts.append(evaluate_n_trades(mesures, config))
-    verdicts.append(evaluate_croissance(mesures, config))
+    verdicts.append(evaluate_croissance(mesures, config, returns=returns, n_val_years=n_val_years))
     verdicts.append(evaluate_cross_asset(mesures, config))
     verdicts.append(evaluate_max_drawdown(mesures, config))
 

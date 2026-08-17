@@ -54,7 +54,7 @@ class CorpusEntry:
         bootstrap_sharpe_ci_low/high_val: IC bootstrap val.
         deflated_sharpe_ratio: DSR.
         probability_of_backtest_overfitting: PBO.
-        ret_series: tuple de rendements nets par trade (pour corrélation P1 #5).
+        (Les rendements individuels sont dans metrics_val si besoin.)
         data_version: version de données.
         seed: seed RNG.
         splits_hash: hash des bornes train/val/holdout.
@@ -68,20 +68,15 @@ class CorpusEntry:
     direction: str
     universe: dict[str, tuple[str, ...]]
     amplitude: dict[str, Any]
-    sl_n_atr: float
-    tp_n_atr: float
-    sl_distance: float
-    tp_distance: float
-    n_window: int
-    fingerprint_structurel: str
-    fingerprint_comportemental: str
+    n_window: int = 0
+    fingerprint_structurel: str = ""
+    fingerprint_comportemental: str = ""
     metrics_val: dict[str, Any] = field(default_factory=dict)
     sharpe_val: float = 0.0
     bootstrap_sharpe_ci_low_val: float = 0.0
     bootstrap_sharpe_ci_high_val: float = 0.0
     deflated_sharpe_ratio: float = 0.0
     probability_of_backtest_overfitting: float = 0.0
-    ret_series: tuple[float, ...] = ()
     data_version: str = ""
     seed: int = 42
     splits_hash: str = ""
@@ -100,10 +95,6 @@ class CorpusEntry:
             "direction": self.direction,
             "universe": {k: list(v) for k, v in self.universe.items()},
             "amplitude": self.amplitude,
-            "sl_n_atr": self.sl_n_atr,
-            "tp_n_atr": self.tp_n_atr,
-            "sl_distance": self.sl_distance,
-            "tp_distance": self.tp_distance,
             "n_window": self.n_window,
             "fingerprint_structurel": self.fingerprint_structurel,
             "fingerprint_comportemental": self.fingerprint_comportemental,
@@ -113,7 +104,6 @@ class CorpusEntry:
             "bootstrap_sharpe_ci_high_val": self.bootstrap_sharpe_ci_high_val,
             "deflated_sharpe_ratio": self.deflated_sharpe_ratio,
             "probability_of_backtest_overfitting": self.probability_of_backtest_overfitting,
-            "ret_series": list(self.ret_series),
             "data_version": self.data_version,
             "seed": self.seed,
             "splits_hash": self.splits_hash,
@@ -130,10 +120,6 @@ class CorpusEntry:
             direction=d["direction"],
             universe={k: tuple(v) for k, v in d.get("universe", {}).items()},
             amplitude=d.get("amplitude", {}),
-            sl_n_atr=float(d.get("sl_n_atr", 0.0)),
-            tp_n_atr=float(d.get("tp_n_atr", 0.0)),
-            sl_distance=float(d.get("sl_distance", 0.0)),
-            tp_distance=float(d.get("tp_distance", 0.0)),
             n_window=int(d.get("n_window", 0)),
             fingerprint_structurel=d.get("fingerprint_structurel", ""),
             fingerprint_comportemental=d.get("fingerprint_comportemental", ""),
@@ -143,7 +129,6 @@ class CorpusEntry:
             bootstrap_sharpe_ci_high_val=float(d.get("bootstrap_sharpe_ci_high_val", 0.0)),
             deflated_sharpe_ratio=float(d.get("deflated_sharpe_ratio", 0.0)),
             probability_of_backtest_overfitting=float(d.get("probability_of_backtest_overfitting", 0.0)),
-            ret_series=tuple(d.get("ret_series", ())),
             data_version=d.get("data_version", ""),
             seed=int(d.get("seed", 42)),
             splits_hash=d.get("splits_hash", ""),

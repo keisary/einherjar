@@ -61,6 +61,8 @@ def run_one(asset: str, asset_class: str, tf: str, args: argparse.Namespace) -> 
         "--selection", "lexicase",
         "--log-level", "INFO",
     ]
+    if args.use_sltp:
+        cmd.append("--use-sltp")
     t0 = time.time()
     import os
     env = dict(os.environ)
@@ -72,19 +74,15 @@ def run_one(asset: str, asset_class: str, tf: str, args: argparse.Namespace) -> 
     elapsed = round(time.time() - t0, 1)
     stdout = proc.stdout or ""
     stderr = proc.stderr or ""
-    # Parse la ligne "Admission : N admis, M rejetés".
+    # Les logs (logger Python) sortent sur STDERR ; on parse les deux flux.
+    combined = stdout + "\n" + stderr
     n_admitted = n_rejected = 0
-    reasons = {}
-    for line in stdout.splitlines():
+    for line in combined.splitlines():
         if "Admission :" in line:
-            # Format : "Admission : %d admis, %d rejetés (%s)"
             import re
             m = re.search(r"Admission : (\d+) admis, (\d+) rejetés", line)
             if m:
                 n_admitted, n_rejected = int(m.group(1)), int(m.group(2))
-        if "ADMIS :" in line:
-            # compte aussi chaque admission individuelle (dédup)
-            pass
     return {
         "asset": asset, "class": asset_class, "timeframe": tf,
         "n_admitted": n_admitted, "n_rejected": n_rejected,
@@ -97,10 +95,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Batch search STGP+admission")
     parser.add_argument("--tf", default=None, help="Timeframe unique (override la classe)")
     parser.add_argument("--only", default=None, help="Filtrer par actif (ex: BTCUSD)")
-    parser.add_argument("--pop", type=int, default=8)
-    parser.add_argument("--gen", type=int, default=3)
-    parser.add_argument("--n-eval", type=int, default=10)
-    parser.add_argument("--timeout", type=int, default=600)
+    parser.add_argument("--pop", type=int, default=40)
+    parser.add_argument("--gen", type=int, default=10)
+    parser.add_argument("--n-eval", type=int, default=100)
+    parser.add_argument("--timeout", type=int, default=900)
+    parser.add_argument("--use-sltp", action="store_true", default=False,
+                        help="Utilise SL/TP calibré (défaut: mode hold).")
     args = parser.parse_args(argv)
 
     assets = load_assets()

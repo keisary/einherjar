@@ -70,19 +70,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--horizon-index", type=int, default=1, choices=[0, 1, 2, 3],
                         help="Indice d'horizon (0-3, défaut: 1). Correspond à la colonne "
                              "des matrices Y_* (pour traçage uniquement en Phase 1).")
-    parser.add_argument("--max-depth", type=int, default=4,
-                        help="Profondeur max des conditions (défaut: 4).")
-    parser.add_argument("--pop-size", type=int, default=20,
-                        help="Taille de la population STGP (défaut: 20).")
-    parser.add_argument("--n-gen", type=int, default=5,
-                        help="Nombre de générations (défaut: 5).")
-    parser.add_argument("--n-eval", type=int, default=50,
-                        help="Budget d'évaluations admission (défaut: 50).")
+    parser.add_argument("--max-depth", type=int, default=6,
+                        help="Profondeur max des conditions (défaut: 6).")
+    parser.add_argument("--pop-size", type=int, default=40,
+                        help="Taille de la population STGP (défaut: 40).")
+    parser.add_argument("--n-gen", type=int, default=10,
+                        help="Nombre de générations (défaut: 10).")
+    parser.add_argument("--n-eval", type=int, default=100,
+                        help="Budget d'évaluations admission (défaut: 100).")
     parser.add_argument("--selection", type=str, default="tournament",
                         choices=("tournament", "lexicase"),
                         help="Méthode de sélection génétique (défaut: tournament).")
     parser.add_argument("--no-map-elites", action="store_true",
                         help="Désactive l'archive MAP-Elites (diversité).")
+    parser.add_argument("--use-sltp", action="store_true", default=False,
+                        help="Utilise SL/TP calibré (défaut: mode hold sans SL/TP).")
 
     parser.add_argument("--log-level", type=str, default="INFO",
                         choices=("DEBUG", "INFO", "WARNING", "ERROR"))
@@ -268,7 +270,7 @@ def handle_admit(args: argparse.Namespace) -> int:
     from einherjar.research.generators.config import TypedGPConfig
     from einherjar.research.generators.typedgp import TypedGPGenerator
 
-    engine = EvaluationEngine(config=config, data_version=data_version, seed=args.seed)
+    engine = EvaluationEngine(config=config, data_version=data_version, seed=args.seed, use_sltp=args.use_sltp)
 
     stgp_config = TypedGPConfig(
         seed=args.seed,
@@ -323,7 +325,7 @@ def handle_admit(args: argparse.Namespace) -> int:
     # 5. Admission
     from einherjar.research.admission.decision import AdmissionDecider
     from einherjar.research.corpus.store import CorpusEntry, CorpusStore
-    from einherjar.research.utils.stats import periods_per_year_for_timeframe
+    from einherjar.research.utils.stats import max_drawdown_from_returns, periods_per_year_for_timeframe
 
     decider = AdmissionDecider(config=config, data_version=data_version, seed=args.seed)
     corpus = CorpusStore()
@@ -364,8 +366,8 @@ def handle_admit(args: argparse.Namespace) -> int:
             mesures_val=m_val,
             returns_val=returns_val,
             signal_indices=tuple(t.entry_idx - 1 for t in m_val.trades),
-            corpus_signal_dates=[tuple(e.meta.get("signal_indices", ())) for e in corpus_entries],
-            corpus_ret_series=[e.ret_series for e in corpus_entries],
+            corpus_signal_dates=[() for _ in corpus_entries],  # plus stocké dans meta
+            corpus_ret_series=[() for _ in corpus_entries],    # plus stocké (retiré)
             pbo_candidate_paths=pbo_candidate_paths,
             current_corpus_fracs=current_fracs,
             cooldown_k=hyp.cooldown_k,
@@ -386,26 +388,39 @@ def handle_admit(args: argparse.Namespace) -> int:
                     pbo_val = float(v.observed)
             fp_struct = decision.meta.get("fp_struct", "")
             fp_comport = decision.meta.get("fp_comport", "")
+            # Calcule métriques essentielles (curated, pas le dump complet).
+            rets = [t.ret_pct_net for t in m_val.trades]
+            win_rate = sum(1 for r in rets if r > 0) / max(len(rets), 1)
+            dd = max_drawdown_from_returns(rets)
+            curated_metrics = {
+                "n_signals": m_val.n_signals,
+                "win_rate": round(win_rate, 4),
+                "ret_mean_pct_net": round(m_val.ret_mean_pct_net, 6),
+                "ret_std_pct": round(m_val.ret_std_pct, 6),
+                "sharpe_net": round(m_val.sharpe_net, 4),
+                "max_drawdown": round(dd, 4),
+                "avg_holding_period": round(m_val.avg_holding_period, 1),
+                "bootstrap_sharpe_ci_low": round(m_val.bootstrap_sharpe_ci_low, 4),
+                "bootstrap_sharpe_ci_high": round(m_val.bootstrap_sharpe_ci_high, 4),
+                "bootstrap_ret_ci_low": round(m_val.bootstrap_ret_ci_low, 6),
+                "bootstrap_ret_ci_high": round(m_val.bootstrap_ret_ci_high, 6),
+            }
+
             entry = CorpusEntry(
                 id=f"einh_{hyp.id}",
                 hypothesis=hyp.to_dict(),
                 direction=hyp.direction.value,
                 universe=hyp.universe.to_dict(),
                 amplitude=hyp.amplitude.to_dict(),
-                sl_n_atr=float(getattr(calibrated, "sl_n_atr", 0.0)),
-                tp_n_atr=float(getattr(calibrated, "tp_n_atr", 0.0)),
-                sl_distance=float(getattr(calibrated, "sl_distance", 0.0)),
-                tp_distance=float(getattr(calibrated, "tp_distance", 0.0)),
                 n_window=int(getattr(calibrated, "n_window", 0)),
                 fingerprint_structurel=fp_struct,
                 fingerprint_comportemental=fp_comport,
-                metrics_val=m_val.to_dict(),
+                metrics_val=curated_metrics,
                 sharpe_val=float(m_val.sharpe_net) if m_val.sharpe_net == m_val.sharpe_net else 0.0,
                 bootstrap_sharpe_ci_low_val=float(m_val.bootstrap_sharpe_ci_low),
                 bootstrap_sharpe_ci_high_val=float(m_val.bootstrap_sharpe_ci_high),
                 deflated_sharpe_ratio=dsr_val,
                 probability_of_backtest_overfitting=pbo_val,
-                ret_series=tuple(t.ret_pct_net for t in m_val.trades),
                 data_version=data_version,
                 seed=int(args.seed),
                 splits_hash=splits_hash,
@@ -417,9 +432,7 @@ def handle_admit(args: argparse.Namespace) -> int:
                     "timeframe": args.data_timeframe,
                     "horizon_index": stgp_config.horizon_index,
                     "max_depth": stgp_config.max_depth,
-                    "signal_indices": [t.entry_idx - 1 for t in m_val.trades],
-                    "exit_mode": getattr(engine, "exit_mode", "sltp"),
-                    "decision": decision.to_dict(),
+                    "exit_mode": "hold" if not args.use_sltp else "sltp",
                 },
             )
             corpus.append(entry)

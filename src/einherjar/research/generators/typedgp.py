@@ -281,7 +281,7 @@ class TypedGPGenerator(BaseGenerator):
         population_size: int = 50,
         n_generations: int = 10,
         crossover_prob: float = 0.8,
-        mutation_prob: float = 0.2,
+        mutation_prob: float = 0.3,
         tournament_size: int = 3,
         elitism: int = 2,
         selection_method: str = "tournament",

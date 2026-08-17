@@ -40,7 +40,7 @@ from einherjar.research.engine.bootstrap import (
     bootstrap_ret_total,
     bootstrap_sharpe,
 )
-from einherjar.research.engine.simulator import simulate
+from einherjar.research.engine.simulator import simulate, simulate_hold
 from einherjar.research.utils.stats import atr_wilder, percentile, periods_per_year_for_timeframe
 from einherjar.research.utils.types import (
     AmplitudeUnit,
@@ -439,6 +439,7 @@ class _TradeRunner:
     def __init__(self, direction: Direction, costs: TradingCosts) -> None:
         self.direction = direction
         self.costs = costs
+        self.use_sltp = True
 
     def run(
         self,
@@ -485,6 +486,35 @@ class _TradeRunner:
         if entry_price <= 0:
             return None  # bougie invalide
 
+        # --- Mode HOLD (sans SL/TP) ---
+        if not self.use_sltp:
+            exit_price, exit_reason, mfe, mae, n_held = simulate_hold(
+                direction=self.direction,
+                entry=entry_price,
+                closes=closes.tolist(),
+                highs=highs.tolist(),
+                lows=lows.tolist(),
+            )
+            # Rendement
+            if self.direction == Direction.LONG:
+                ret_brut = (exit_price - entry_price) / entry_price
+            else:
+                ret_brut = (entry_price - exit_price) / entry_price
+            ret_net = ret_brut - self.costs.total_round_trip_pct
+            return TradeMesure(
+                entry_idx=entry_pos,
+                exit_idx=entry_pos + n_held - 1,
+                entry_price=entry_price,
+                exit_price=exit_price,
+                exit_reason=exit_reason,
+                mfe_pct=mfe / entry_price,
+                mae_pct=mae / entry_price,
+                ret_pct_brut=ret_brut,
+                ret_pct_net=ret_net,
+                n_bougies_held=n_held,
+            )
+
+        # --- Mode SL/TP (historique) ---
         # SL/TP recalculés à l'entrée (anti prix absolu figé).
         sl_price, tp_price = calibrated.compute_sl_tp_at_entry(
             entry_price=entry_price,
@@ -747,17 +777,19 @@ class EvaluationEngine:
         seed: Graine RNG maître.
     """
 
-    def __init__(self, config: EinherjarConfig, data_version: str, seed: int = 42) -> None:
+    def __init__(self, config: EinherjarConfig, data_version: str, seed: int = 42, *, use_sltp: bool = False) -> None:
         """Initialise le moteur d'évaluation.
 
         Args:
             config: Configuration chargée (config/).
             data_version: Identifiant de version de données (pour traçabilité).
             seed: Graine RNG maître (défaut 42).
+            use_sltp: True = SL/TP calibré ; False (défaut) = sortie simple à N (hold).
         """
         self.config = config
         self.data_version = data_version
         self.seed = seed
+        self.use_sltp = use_sltp
         # Compteur d'accès au holdout (1 maximum, pour traçabilité I-5).
         self._holdout_accessed: bool = False
 
@@ -828,6 +860,21 @@ class EvaluationEngine:
             n_window = self._compute_n_multiple_atr(amplitude.valeur, train_ohlcv.timeframe, atr_p50)
         else:
             raise CalibrationError(f"Unité d'amplitude non supportée : {amplitude.unité}")
+
+        # --- Mode HOLD : pas de SL/TP, juste N_window ---
+        if not self.use_sltp:
+            calibrated = CalibratedParams(
+                n_window=n_window,
+                sl_n_atr=0.0, tp_n_atr=0.0,
+                sl_distance=0.0, tp_distance=0.0,
+                atr_p50=atr_p50,
+                n_observations=train_ohlcv.n_bougies,
+            )
+            logger.info(
+                "Calibration HOLD OK : N=%d, ATR_p50=%.4f (pas de SL/TP)",
+                calibrated.n_window, calibrated.atr_p50,
+            )
+            return calibrated
 
         # 3. Passe provisoire avec SL/TP quasi inatteignables
         # (1_000_000 × ATR = jamais touche sur la fenetre N). Le but est de
@@ -975,16 +1022,35 @@ class EvaluationEngine:
         )
 
         costs = TradingCosts.from_config(self.config, asset=ohlcv.asset)
-        runner = _TradeRunner(direction=hypothesis.direction, costs=costs)
 
         # Évalue la condition → masque → indices de signaux (après cooldown).
         mask = self._condition_evaluator.evaluate(hypothesis.condition_tree, features)
         signal_filter = _SignalFilter(cooldown_k=hypothesis.cooldown_k)
 
-        # Mode de sortie : si "signal" → trend-following symétrique (neutralisation
-        # du signal : entrée quand le masque devient vrai, tenue tant qu'il reste
-        # vrai, sortie à sa neutralisation). Sinon SL/TP historique.
-        if self.exit_mode == "signal":
+        # --- Mode HOLD : pas de SL/TP, sortie simple à N ---
+        if not self.use_sltp:
+            runner = _TradeRunner(direction=hypothesis.direction, costs=costs)
+            runner.use_sltp = False
+            signal_indices = signal_filter.filter(mask)
+            ohlcv_arrays = ohlcv.to_arrays()
+            trades_: list[TradeMesure] = []
+            for idx in signal_indices:
+                trade = runner.run(
+                    entry_idx=idx,
+                    ohlcv_arrays=ohlcv_arrays,
+                    calibrated=calibrated,
+                    atr_at_entry=0.0,  # not used in hold mode
+                )
+                if trade is not None:
+                    trades_.append(trade)
+            trades = trades_
+            logger.info(
+                "test_on(%s) [mode=hold] : %s × %s, %d signaux → %d trades",
+                split_name, ohlcv.asset, ohlcv.timeframe, len(signal_indices), len(trades),
+            )
+
+        # --- Mode SIGNAL : sortie par neutralisation du signal (trend-following) ---
+        elif self.exit_mode == "signal":
             trades, signal_indices = self._run_all_trades_signal(
                 hypothesis, ohlcv, mask, costs,
             )
@@ -992,7 +1058,10 @@ class EvaluationEngine:
                 "test_on(%s) [mode=signal] : %s × %s, %d bougies, %d trades",
                 split_name, ohlcv.asset, ohlcv.timeframe, ohlcv.n_bougies, len(trades),
             )
+
+        # --- Mode SL/TP (historique) ---
         else:
+            runner = _TradeRunner(direction=hypothesis.direction, costs=costs)
             signal_indices = signal_filter.filter(mask)
             # Pré-calcule la série ATR pour récupérer l'ATR local à chaque entrée.
             atr_series = _ATRSeries(ohlcv, period=self._atr_estimator.period)
@@ -1227,6 +1296,8 @@ def make_default_engine(
     config: EinherjarConfig,
     data_version: str,
     seed: int = 42,
+    *,
+    use_sltp: bool = False,
 ) -> EvaluationEngine:
     """Construit un EvaluationEngine avec la config chargée.
 
@@ -1234,8 +1305,9 @@ def make_default_engine(
         config: Configuration chargée (de `research.config.loader.load_config`).
         data_version: Identifiant de version de données (pour traçabilité).
         seed: Graine RNG maître (défaut 42).
+        use_sltp: True = SL/TP calibré ; False (défaut) = sortie simple à N (hold).
 
     Returns:
         EvaluationEngine prêt à l'emploi.
     """
-    return EvaluationEngine(config=config, data_version=data_version, seed=seed)
+    return EvaluationEngine(config=config, data_version=data_version, seed=seed, use_sltp=use_sltp)

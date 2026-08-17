@@ -61,28 +61,49 @@ def _log_bucket(value: float, edges: list[float]) -> int:
 def behavior_from_measures(measures: Any, direction: Direction) -> Behavior:
     """Calcule le descripteur depuis MesuresBrutes + direction.
 
-    S'appuie sur les champs exposés par MesuresBrutes / TradeMesure :
-      - n_signals, avg_holding_period (pour la fréquence)
-      - tp_hit_rate (win rate approximé)
+    Axes comportementaux adaptés au mode HOLD (pas de SL/TP) :
+      - direction           : Long / Short                     -> 2
+      - sharpe_bucket       : négatif / faible / bon           -> 3
+      - freq_bucket         : peu de trades / moyen / fréquent -> 3
+    Total : 2 x 3 x 3 = 18 niches.
+
+    En mode hold, tp_hit_rate est toujours 0 (tous TIMEOUT) donc inutilisable
+    comme axe de diversité. On utilise Sharpe et n_signals à la place.
+
+    Args:
+        measures: MesuresBrutes (ou None si individu invalide).
+        direction: Direction du trade.
+
+    Returns:
+        Behavior avec les buckets calculés.
     """
     n = getattr(measures, "n_signals", 0) or 0
-    avg_hold = getattr(measures, "avg_holding_period", 0.0) or 0.0
-    win_rate = getattr(measures, "tp_hit_rate", 0.0) or 0.0
+    sharpe = getattr(measures, "sharpe_net", float("nan"))
 
-    # Fréquence estimée (trades par sorte de "période de référence").
-    # Borne selon order of magnitude de trades/an :
-    period_scale = 100.0  # ~100 trades/an = "courant" par défaut
-    if avg_hold > 0:
-        freq = max(1.0, period_scale / max(avg_hold, 1e-9))
+    # Bucket Sharpe : négatif (<0), faible (0-1), bon (>1)
+    if not math.isfinite(sharpe):
+        sharpe_bucket = 0
+    elif sharpe <= 0:
+        sharpe_bucket = 0
+    elif sharpe <= 1.0:
+        sharpe_bucket = 1
     else:
-        freq = n
-    trades_bucket = _log_bucket(freq, [1.3, 2.3])  # ~20 / ~200 seuils
-    win_bucket = _log_bucket(max(win_rate, 1e-4) * 100.0, [1.3, 1.7])  # ~20% / ~50%
+        sharpe_bucket = 2
+
+    # Bucket fréquence : peu (0-50), moyen (50-500), fréquent (>500)
+    if n <= 0:
+        freq_bucket = 0
+    elif n <= 50:
+        freq_bucket = 0
+    elif n <= 500:
+        freq_bucket = 1
+    else:
+        freq_bucket = 2
 
     return Behavior(
         direction=direction.value,
-        trades_per_year_bucket=trades_bucket,
-        win_rate_bucket=win_bucket,
+        trades_per_year_bucket=freq_bucket,
+        win_rate_bucket=sharpe_bucket,
     )
 
 

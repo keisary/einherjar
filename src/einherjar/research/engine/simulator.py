@@ -107,3 +107,48 @@ def simulate(
     if direction == Direction.LONG:
         return simulate_long(entry, sl_price, tp_price, highs, lows, closes, opens)
     return simulate_short(entry, sl_price, tp_price, highs, lows, closes, opens)
+
+
+def simulate_hold(
+    direction: Direction,
+    entry: float,
+    closes: Sequence[float],
+    highs: Sequence[float] | None = None,
+    lows: Sequence[float] | None = None,
+) -> tuple[float, ExitReason, float, float, int]:
+    """Pure hold to end of window — NO SL/TP check.
+
+    Enter at ``entry`` (OPEN of t+1), exit at the LAST close of the window.
+    No stop-loss or take-profit is evaluated.  MFE/MAE are still computed
+    from high/low for diagnostics.
+
+    Args:
+        direction: Trade direction.
+        entry: Entry price (OPEN of t+1).
+        closes: Close prices over the holding window [t+1 .. t+N].
+        highs: High prices (optional, for MFE).
+        lows: Low prices (optional, for MAE).
+
+    Returns:
+        (exit_price, TIMEOUT, mfe, mae, n_held)
+    """
+    n = len(closes)
+    if n == 0:
+        return entry, ExitReason.TIMEOUT, 0.0, 0.0, 0
+    exit_price = float(closes[-1])
+    if highs is not None and lows is not None and len(highs) == n and len(lows) == n:
+        if direction == Direction.LONG:
+            mfe = max(highs) - entry
+            mae = entry - min(lows)
+        else:
+            mfe = entry - min(lows)
+            mae = max(highs) - entry
+    else:
+        # Fallback: approximate from closes only
+        if direction == Direction.LONG:
+            mfe = max(closes) - entry
+            mae = entry - min(closes)
+        else:
+            mfe = entry - min(closes)
+            mae = max(closes) - entry
+    return exit_price, ExitReason.TIMEOUT, max(mfe, 0.0), max(mae, 0.0), n
