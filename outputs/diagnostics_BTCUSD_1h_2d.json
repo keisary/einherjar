@@ -18,9 +18,9 @@
   "n_holdout": 13832,
   "n_paths_extracted": 30,
   "n_einhers_generated": 30,
-  "n_admitted": 14,
-  "n_rejected": 16,
-  "output_path": "outputs\\einhers_btcusd_2d_sprint_2_5.jsonl",
+  "n_admitted": 9,
+  "n_rejected": 21,
+  "output_path": "outputs\\einhers_btcusd_2d_sprint_3_1_strict.jsonl",
   "costs_pct": 0.0014000000000000002,
   "gbdt_config": {
     "backend": "auto",

@@ -67,6 +67,7 @@ from einherjar.research.xgb_einhers.model import (
     feature_importance,
 )
 from einherjar.research.xgb_einhers.multi_asset_loader import load_multi_asset
+from einherjar.research.xgb_einhers.multiple_testing import apply_bh_to_einhers
 from einherjar.research.xgb_einhers.path_extractor import extract_paths
 from einherjar.research.xgb_einhers.types import Einher
 
@@ -210,7 +211,7 @@ def run_pipeline(
 
     # 6. Split temporel
     logger.info("[6/10] Split temporel 60/20/20 ...")
-    split = temporal_split(X_valid, y_valid, embargo_bars=embargo_bars)
+    split = temporal_split(X_valid, y_valid, embargo_bars=embargo_bars, horizon_bars=horizon_bars)
     logger.info("  train=%d, val=%d, holdout=%d",
                 len(split.train_X), len(split.val_X), len(split.holdout_X))
 
@@ -244,7 +245,10 @@ def run_pipeline(
 
     # 9. Pour chaque chemin : construire un Einher et le backtest
     logger.info("[9/10] Generation des Einhers et backtest ...")
-    costs = load_costs(primary_asset)
+    # Sprint 3.0 FIX #3 : utiliser des couts realistes (taker 0.05% x 2 = 0.10%)
+    # L'ancien load_costs(primary_asset) sous-estimait les frais crypto
+    costs = max(load_costs(primary_asset), 0.0010)  # minimum 0.10% round-trip
+    logger.info("  Cout round-trip : %.4f (Sprint 3.0 : minimum 0.10%%)", costs)
     n_admitted = 0
     n_rejected = 0
     n_generated = 0
@@ -256,6 +260,9 @@ def run_pipeline(
             **{**admission_cfg.__dict__, "min_holdout_trades": min_holdout_trades}
         )
 
+    # Phase 1 : generer + backtester TOUS les Einhers (sans admission)
+    logger.info("[9a/10] Generation + backtest de tous les Einhers (avant BH) ...")
+    all_einhers: list[Einher] = []
     for path in paths:
         einher = build_einher_from_path(
             path=path,
@@ -270,16 +277,10 @@ def run_pipeline(
             continue
         n_generated += 1
         # Sprint 2.5.1 : FIX bug "val=full"
-        # Avant : on backtestait sur X_aligned (toute la série, full-dataset)
-        # Maintenant : on backteste sur val [60%, 80%] de X_aligned
-        # Le full-dataset metrics est stocké dans source['full_metrics'] pour debug
-        # Le holdout [80%, 100%] est dans einher.holdout_metrics (déjà OK)
         n_aligned = X_aligned.shape[0]
         if not multi and n_aligned > 0:
-            # Single : on peut segmenter precisement
             val_start = int(n_aligned * 0.6)
             val_end = int(n_aligned * 0.8)
-            # Val backtest (60-80%)
             val_result = backtest_einher(
                 einher=einher,
                 ohlcv_df=ohlcv_aligned[val_start:val_end],
@@ -301,7 +302,6 @@ def run_pipeline(
                     )
                     einher = set_einher_holdout_metrics(einher, holdout_result.metrics)
         else:
-            # Multi : fallback sur full-dataset (comme avant)
             result = backtest_einher(
                 einher=einher,
                 ohlcv_df=ohlcv_aligned,
@@ -311,7 +311,30 @@ def run_pipeline(
             )
         einher = set_einher_metrics(einher, result.metrics)
         einher = set_einher_tp_sl(einher, result.effective_tp_pct, result.effective_sl_pct)
-        passed, reason = check_admission(einher, admission_cfg)
+        all_einhers.append(einher)
+
+    # Phase 2 : Sprint 3.1 P1 - Benjamini-Hochberg sur TOUS les Einhers
+    bh_rejected_list: list[bool] = [True] * len(all_einhers)
+    if admission_cfg.apply_bh and len(all_einhers) > 0:
+        logger.info("[9b/10] Benjamini-Hochberg sur %d candidats (FDR=%.2f) ...",
+                    len(all_einhers), admission_cfg.fdr)
+        _, pvalues, bh_rejected = apply_bh_to_einhers(
+            all_einhers, fdr=admission_cfg.fdr,
+        )
+        bh_rejected_list = bh_rejected
+        n_bh_rejected = sum(1 for r in bh_rejected if not r)
+        logger.info("  BH : %d/%d Einhers rejetes (FDR %.0f%%)",
+                    n_bh_rejected, len(all_einhers), admission_cfg.fdr * 100)
+    else:
+        logger.info("  BH : desactive (tous les Einhers passent par defaut)")
+
+    # Phase 3 : admission finale (avec check BH)
+    logger.info("[9c/10] Admission finale ...")
+    n_admitted = 0
+    n_rejected = 0
+    einhers_admitted = []
+    for einher, bh in zip(all_einhers, bh_rejected_list):
+        passed, reason = check_admission(einher, admission_cfg, bh_rejected=bh)
         if passed:
             n_admitted += 1
             einhers_admitted.append(einher)

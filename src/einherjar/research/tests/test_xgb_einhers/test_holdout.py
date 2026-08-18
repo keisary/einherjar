@@ -28,7 +28,7 @@ from einherjar.research.xgb_einhers.einher_io import iter_einhers
 from einherjar.research.xgb_einhers.backtester import backtest_einher
 
 
-HOLDOUT_JSONL = Path("D:/midas_v2/Einherjar/outputs/einhers_btcusd_2d_sprint_2_5.jsonl")
+HOLDOUT_JSONL = Path("D:/midas_v2/Einherjar/outputs/einhers_btcusd_2d_sprint_3_1_strict.jsonl")
 
 # Seuils de cohérence : un Einher dont le holdout est trop dégradé
 # par rapport au val est suspect.

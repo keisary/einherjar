@@ -269,6 +269,7 @@ def temporal_split(
     val_ratio: float = 0.2,
     holdout_ratio: float = 0.2,
     embargo_bars: int = 50,
+    horizon_bars: int = 0,
 ) -> TrainValHoldoutSplit:
     """Split temporel 60/20/20 avec embargo entre train/val et val/holdout.
 
@@ -276,7 +277,10 @@ def temporal_split(
         X : (N, F)
         y : (N,) ou (N, ...)
         train_ratio, val_ratio, holdout_ratio : doivent sommer à 1.0
-        embargo_bars : nb de bougies exclues aux frontières
+        embargo_bars : nb de bougies exclues aux frontières (minimum)
+        horizon_bars : horizon du label en bars (Sprint 3.0 FIX #2)
+                       L'embargo effectif est max(embargo_bars, horizon_bars)
+                       pour eviter le leakage du target entre splits.
 
     Returns:
         TrainValHoldoutSplit
@@ -284,10 +288,15 @@ def temporal_split(
     n = X.shape[0]
     assert abs(train_ratio + val_ratio + holdout_ratio - 1.0) < 1e-6
 
+    # Sprint 3.0 FIX #2 : embargo proportionnel a l'horizon
+    # Si horizon_bars > embargo_bars, l'utiliser pour eviter le leakage
+    # du target (le label d'une bougie t utilise des bougies jusqu'a t+horizon).
+    effective_embargo = max(embargo_bars, horizon_bars)
+
     train_end = int(n * train_ratio)
-    val_start = train_end + embargo_bars
+    val_start = train_end + effective_embargo
     val_end = val_start + int(n * val_ratio)
-    holdout_start = val_end + embargo_bars
+    holdout_start = val_end + effective_embargo
 
     assert val_start < val_end, f"Train/val overlap : {val_start} < {val_end}"
     assert holdout_start < n, f"Holdout déborde : {holdout_start} >= {n}"
@@ -306,5 +315,5 @@ def temporal_split(
         train_indices=train_idx,
         val_indices=val_idx,
         holdout_indices=holdout_idx,
-        embargo_bars=embargo_bars,
+        embargo_bars=effective_embargo,
     )

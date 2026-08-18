@@ -87,7 +87,9 @@ class AdmissionConfig:
     min_profit_factor: float = 1.0
     max_drawdown: float = 0.30  # On rejette si max_dd > 0.30 (donc DD < 30%)
     min_families: int = 2  # Sprint 2.2.2 : >= 2 familles différentes
-    min_holdout_trades: int = 0  # Sprint 2.4.1 : 0 = pas de check, sinon minimum sur holdout
+    min_holdout_trades: int = 100  # Sprint 3.1 P1 : Gemini recommande 100+ pour significativite
+    fdr: float = 0.05  # Sprint 3.1 P1 : False Discovery Rate pour Benjamini-Hochberg
+    apply_bh: bool = True  # Sprint 3.1 P1 : activer la correction multi-tests
 
     @classmethod
     def debug(cls) -> "AdmissionConfig":
@@ -100,18 +102,31 @@ class AdmissionConfig:
             max_drawdown=0.99,
             min_families=1,  # debug : pas de quota famille
             min_holdout_trades=0,  # debug : pas de check holdout
+            fdr=1.0,  # debug : pas de correction BH
+            apply_bh=False,  # debug : pas de BH
         )
 
 
 def check_admission(
     einher: Einher,
     config: AdmissionConfig = AdmissionConfig(),
+    bh_rejected: Optional[bool] = None,
 ) -> tuple[bool, Optional[str]]:
     """Vérifie si un Einher passe les critères d'admission.
+
+    Args:
+        einher : l'Einher à tester
+        config : configuration d'admission
+        bh_rejected : Sprint 3.1 P1. Si fourni et False, l'Einher est rejeté
+                      (résultat de Benjamini-Hochberg depuis le caller).
 
     Returns:
         (passed, reason) : passed=True si OK, reason = raison du rejet sinon.
     """
+    # Sprint 3.1 P1 : check BH (Benjamini-Hochberg)
+    if bh_rejected is False:
+        return False, "BH REJECTED : non significatif apres correction multi-tests"
+
     # Sprint 2.2.2 : check diversité inter-familles
     if config.min_families >= 2:
         families = get_einher_families(einher)

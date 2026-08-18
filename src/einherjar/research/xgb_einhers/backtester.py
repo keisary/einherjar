@@ -158,12 +158,14 @@ def simulate_trade(
 def compute_metrics(
     trades: list[TradeResult],
     buy_hold_return: float,
+    years_in_period: float = 1.0,
 ) -> EinherMetrics:
     """Calcule les métriques d'un Einher depuis la liste de trades.
 
     Args:
         trades : liste de TradeResult
         buy_hold_return : rendement buy & hold sur la même période (en decimal)
+        years_in_period : durée du backtest en années (pour annualisation)
 
     Returns:
         EinherMetrics
@@ -188,10 +190,16 @@ def compute_metrics(
     avg_net = float(np.mean(rets))
     total = float(np.sum(rets))
 
-    # Sharpe annualisé (approx : sqrt(n_trades) sur la base trades/an)
+    # Sprint 3.0 FIX #1 : Sharpe annualisé CORRECT
+    # AVANT (bug) : sharpe = avg_net / std * sqrt(n_trades)
+    #   → sqrt(n) gonfle artificiellement le score avec le nombre de trades
+    #   → c'est une t-stat, pas un Sharpe annualisé
+    # APRES (fix) : sharpe = avg_net / std * sqrt(trades_per_year)
+    #   où trades_per_year = n_trades / years_in_period
     std = float(np.std(rets, ddof=1)) if n > 1 else 0.0
-    if std > 0:
-        sharpe = float(avg_net / std * np.sqrt(max(n, 1)))
+    if std > 0 and years_in_period > 0:
+        trades_per_year = n / years_in_period
+        sharpe = float(avg_net / std * np.sqrt(trades_per_year))
     else:
         sharpe = 0.0
 
@@ -230,7 +238,7 @@ def backtest_einher(
     ohlcv_df: pl.DataFrame,
     X: np.ndarray,
     feature_names: list[str],
-    costs_pct: float = 0.0008,
+    costs_pct: float = 0.0010,
     atr_period: int = 14,
 ) -> BacktestResult:
     """Backtest complet d'un Einher sur OHLCV + features.
@@ -240,7 +248,9 @@ def backtest_einher(
         ohlcv_df : DataFrame polars [timestamp, open, high, low, close, volume]
         X : (N, F) features alignées sur ohlcv_df
         feature_names : noms des colonnes de X
-        costs_pct : coût round-trip (decimal, ex: 0.0008)
+        costs_pct : coût round-trip (decimal, default 0.0010 = 0.10% Sprint 3.0)
+                    Ancien default 0.0008 etait sous-estime pour crypto.
+                    Realiste crypto : taker 0.05% x 2 = 0.10% + slippage.
         atr_period : période ATR pour calculer SL/TP dynamiques si tp_pct=0
 
     Returns:
@@ -327,8 +337,17 @@ def backtest_einher(
     else:
         buy_hold = 0.0
 
+    # 5b. Sprint 3.0 FIX #1 : calculer years_in_period pour annualisation Sharpe
+    if n > 1 and len(timestamps) > 1:
+        # timestamps en us (polars datetime[us, UTC])
+        # durée en heures, puis années
+        duration_hours = (timestamps[-1] - timestamps[0]) / 3_600_000_000  # us → h
+        years_in_period = duration_hours / 8_760  # 8760h = 1 an
+    else:
+        years_in_period = 1.0
+
     # 6. Métriques
-    metrics = compute_metrics(trades, buy_hold)
+    metrics = compute_metrics(trades, buy_hold, years_in_period=years_in_period)
 
     # 7. Equity curve
     if trades:

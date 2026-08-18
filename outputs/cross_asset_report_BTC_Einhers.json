@@ -20,7 +20,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_384dbd",
           "n_trades": 906,
           "win_rate": 0.8234,
-          "sharpe": 34.5688,
+          "sharpe": 12.2408,
           "profit_factor": 7.4942,
           "triggered": true,
           "passing": true
@@ -29,7 +29,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_7eaf9a",
           "n_trades": 1011,
           "win_rate": 0.816,
-          "sharpe": 35.3485,
+          "sharpe": 12.5169,
           "profit_factor": 7.1234,
           "triggered": true,
           "passing": true
@@ -38,7 +38,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0001_fb2238",
           "n_trades": 683,
           "win_rate": 0.735,
-          "sharpe": 20.1555,
+          "sharpe": 7.137,
           "profit_factor": 4.2601,
           "triggered": true,
           "passing": true
@@ -47,7 +47,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0003_fe8f5a",
           "n_trades": 1156,
           "win_rate": 0.7872,
-          "sharpe": 33.2696,
+          "sharpe": 11.7807,
           "profit_factor": 5.8948,
           "triggered": true,
           "passing": true
@@ -56,7 +56,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0006_42d51a",
           "n_trades": 393,
           "win_rate": 0.6819,
-          "sharpe": 12.1982,
+          "sharpe": 4.3194,
           "profit_factor": 3.2838,
           "triggered": true,
           "passing": true
@@ -65,7 +65,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_5775de",
           "n_trades": 1370,
           "win_rate": 0.7511,
-          "sharpe": 32.8498,
+          "sharpe": 11.6321,
           "profit_factor": 5.2095,
           "triggered": true,
           "passing": true
@@ -74,7 +74,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0003_53f908",
           "n_trades": 1475,
           "win_rate": 0.6875,
-          "sharpe": 24.3955,
+          "sharpe": 8.6384,
           "profit_factor": 3.3992,
           "triggered": true,
           "passing": true
@@ -83,7 +83,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_ce70b4",
           "n_trades": 1898,
           "win_rate": 0.6823,
-          "sharpe": 30.4503,
+          "sharpe": 10.7825,
           "profit_factor": 3.8766,
           "triggered": true,
           "passing": true
@@ -92,7 +92,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0007_1eb93e",
           "n_trades": 1727,
           "win_rate": 0.7244,
-          "sharpe": 30.8347,
+          "sharpe": 10.9186,
           "profit_factor": 4.0671,
           "triggered": true,
           "passing": true
@@ -101,7 +101,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_ac1583",
           "n_trades": 1574,
           "win_rate": 0.7173,
-          "sharpe": 31.4185,
+          "sharpe": 11.1253,
           "profit_factor": 4.5131,
           "triggered": true,
           "passing": true
@@ -110,7 +110,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0006_28d7f3",
           "n_trades": 428,
           "win_rate": 0.6612,
-          "sharpe": 11.6229,
+          "sharpe": 4.1156,
           "profit_factor": 2.9893,
           "triggered": true,
           "passing": true
@@ -119,7 +119,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0005_72fcca",
           "n_trades": 1886,
           "win_rate": 0.6888,
-          "sharpe": 30.1528,
+          "sharpe": 10.6771,
           "profit_factor": 3.8182,
           "triggered": true,
           "passing": true
@@ -128,7 +128,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_d7ddae",
           "n_trades": 1088,
           "win_rate": 0.8006,
-          "sharpe": 33.9441,
+          "sharpe": 12.0196,
           "profit_factor": 6.3161,
           "triggered": true,
           "passing": true
@@ -137,7 +137,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_63c41f",
           "n_trades": 1078,
           "win_rate": 0.8071,
-          "sharpe": 35.1061,
+          "sharpe": 12.431,
           "profit_factor": 6.6949,
           "triggered": true,
           "passing": true
@@ -157,7 +157,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_384dbd",
           "n_trades": 789,
           "win_rate": 0.7896,
-          "sharpe": 27.7836,
+          "sharpe": 10.3191,
           "profit_factor": 5.9439,
           "triggered": true,
           "passing": true
@@ -166,7 +166,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_7eaf9a",
           "n_trades": 886,
           "win_rate": 0.7698,
-          "sharpe": 26.9917,
+          "sharpe": 10.025,
           "profit_factor": 5.2636,
           "triggered": true,
           "passing": true
@@ -175,7 +175,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0001_fb2238",
           "n_trades": 701,
           "win_rate": 0.6961,
-          "sharpe": 17.3743,
+          "sharpe": 6.453,
           "profit_factor": 3.5238,
           "triggered": true,
           "passing": true
@@ -184,7 +184,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0003_fe8f5a",
           "n_trades": 980,
           "win_rate": 0.7643,
-          "sharpe": 27.4868,
+          "sharpe": 10.2089,
           "profit_factor": 5.0364,
           "triggered": true,
           "passing": true
@@ -193,7 +193,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0006_42d51a",
           "n_trades": 561,
           "win_rate": 0.5419,
-          "sharpe": 6.9766,
+          "sharpe": 2.5912,
           "profit_factor": 1.8118,
           "triggered": true,
           "passing": true
@@ -202,7 +202,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_5775de",
           "n_trades": 1045,
           "win_rate": 0.7368,
-          "sharpe": 25.5699,
+          "sharpe": 9.497,
           "profit_factor": 4.3988,
           "triggered": true,
           "passing": true
@@ -211,7 +211,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0003_53f908",
           "n_trades": 1521,
           "win_rate": 0.6568,
-          "sharpe": 21.6112,
+          "sharpe": 8.0266,
           "profit_factor": 2.9478,
           "triggered": true,
           "passing": true
@@ -220,7 +220,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_ce70b4",
           "n_trades": 1285,
           "win_rate": 0.7066,
-          "sharpe": 25.1082,
+          "sharpe": 9.3255,
           "profit_factor": 3.8008,
           "triggered": true,
           "passing": true
@@ -229,7 +229,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0007_1eb93e",
           "n_trades": 1640,
           "win_rate": 0.6817,
-          "sharpe": 25.1435,
+          "sharpe": 9.3386,
           "profit_factor": 3.319,
           "triggered": true,
           "passing": true
@@ -238,7 +238,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_ac1583",
           "n_trades": 1164,
           "win_rate": 0.7156,
-          "sharpe": 24.8004,
+          "sharpe": 9.2112,
           "profit_factor": 3.9711,
           "triggered": true,
           "passing": true
@@ -247,7 +247,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0006_28d7f3",
           "n_trades": 604,
           "win_rate": 0.5331,
-          "sharpe": 6.7979,
+          "sharpe": 2.5248,
           "profit_factor": 1.7489,
           "triggered": true,
           "passing": true
@@ -256,7 +256,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0005_72fcca",
           "n_trades": 1464,
           "win_rate": 0.7049,
-          "sharpe": 26.8038,
+          "sharpe": 9.9552,
           "profit_factor": 3.8109,
           "triggered": true,
           "passing": true
@@ -265,7 +265,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_d7ddae",
           "n_trades": 1014,
           "win_rate": 0.8047,
-          "sharpe": 33.4167,
+          "sharpe": 12.4113,
           "profit_factor": 6.4628,
           "triggered": true,
           "passing": true
@@ -274,7 +274,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_63c41f",
           "n_trades": 970,
           "win_rate": 0.7928,
-          "sharpe": 31.1779,
+          "sharpe": 11.5798,
           "profit_factor": 6.0508,
           "triggered": true,
           "passing": true
@@ -294,7 +294,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_384dbd",
           "n_trades": 355,
           "win_rate": 0.7296,
-          "sharpe": 14.1723,
+          "sharpe": 6.9286,
           "profit_factor": 4.1323,
           "triggered": true,
           "passing": true
@@ -303,7 +303,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_7eaf9a",
           "n_trades": 414,
           "win_rate": 0.7174,
-          "sharpe": 14.5508,
+          "sharpe": 7.1136,
           "profit_factor": 3.888,
           "triggered": true,
           "passing": true
@@ -312,7 +312,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0001_fb2238",
           "n_trades": 444,
           "win_rate": 0.6824,
-          "sharpe": 12.9954,
+          "sharpe": 6.3532,
           "profit_factor": 3.2914,
           "triggered": true,
           "passing": true
@@ -321,7 +321,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0003_fe8f5a",
           "n_trades": 547,
           "win_rate": 0.7678,
-          "sharpe": 20.7547,
+          "sharpe": 10.1466,
           "profit_factor": 5.1098,
           "triggered": true,
           "passing": true
@@ -330,7 +330,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0006_42d51a",
           "n_trades": 279,
           "win_rate": 0.552,
-          "sharpe": 5.263,
+          "sharpe": 2.573,
           "profit_factor": 1.887,
           "triggered": true,
           "passing": true
@@ -339,7 +339,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_5775de",
           "n_trades": 482,
           "win_rate": 0.6556,
-          "sharpe": 12.0551,
+          "sharpe": 5.8935,
           "profit_factor": 2.9232,
           "triggered": true,
           "passing": true
@@ -348,7 +348,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0003_53f908",
           "n_trades": 690,
           "win_rate": 0.6188,
-          "sharpe": 12.1668,
+          "sharpe": 5.9481,
           "profit_factor": 2.4992,
           "triggered": true,
           "passing": true
@@ -357,7 +357,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_ce70b4",
           "n_trades": 718,
           "win_rate": 0.5975,
-          "sharpe": 11.273,
+          "sharpe": 5.5112,
           "profit_factor": 2.3098,
           "triggered": true,
           "passing": true
@@ -366,7 +366,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0007_1eb93e",
           "n_trades": 910,
           "win_rate": 0.6824,
-          "sharpe": 18.8376,
+          "sharpe": 9.2093,
           "profit_factor": 3.3391,
           "triggered": true,
           "passing": true
@@ -375,7 +375,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_ac1583",
           "n_trades": 562,
           "win_rate": 0.6352,
-          "sharpe": 11.8438,
+          "sharpe": 5.7902,
           "profit_factor": 2.6729,
           "triggered": true,
           "passing": true
@@ -384,7 +384,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0006_28d7f3",
           "n_trades": 286,
           "win_rate": 0.549,
-          "sharpe": 5.2231,
+          "sharpe": 2.5535,
           "profit_factor": 1.8641,
           "triggered": true,
           "passing": true
@@ -393,7 +393,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0005_72fcca",
           "n_trades": 836,
           "win_rate": 0.695,
-          "sharpe": 19.3193,
+          "sharpe": 9.4448,
           "profit_factor": 3.6106,
           "triggered": true,
           "passing": true
@@ -402,7 +402,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_d7ddae",
           "n_trades": 645,
           "win_rate": 0.7442,
-          "sharpe": 20.3094,
+          "sharpe": 9.9289,
           "profit_factor": 4.4557,
           "triggered": true,
           "passing": true
@@ -411,7 +411,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_63c41f",
           "n_trades": 560,
           "win_rate": 0.7357,
-          "sharpe": 18.2686,
+          "sharpe": 8.9312,
           "profit_factor": 4.2638,
           "triggered": true,
           "passing": true
@@ -431,7 +431,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_384dbd",
           "n_trades": 345,
           "win_rate": 0.7971,
-          "sharpe": 18.7222,
+          "sharpe": 8.7835,
           "profit_factor": 6.1113,
           "triggered": true,
           "passing": true
@@ -440,7 +440,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_7eaf9a",
           "n_trades": 395,
           "win_rate": 0.7722,
-          "sharpe": 17.9909,
+          "sharpe": 8.4404,
           "profit_factor": 5.2543,
           "triggered": true,
           "passing": true
@@ -449,7 +449,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0001_fb2238",
           "n_trades": 381,
           "win_rate": 0.7113,
-          "sharpe": 13.6055,
+          "sharpe": 6.383,
           "profit_factor": 3.7734,
           "triggered": true,
           "passing": true
@@ -458,7 +458,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0003_fe8f5a",
           "n_trades": 642,
           "win_rate": 0.7975,
-          "sharpe": 25.6778,
+          "sharpe": 12.0467,
           "profit_factor": 6.1739,
           "triggered": true,
           "passing": true
@@ -467,7 +467,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0006_42d51a",
           "n_trades": 303,
           "win_rate": 0.6304,
-          "sharpe": 8.4734,
+          "sharpe": 3.9753,
           "profit_factor": 2.612,
           "triggered": true,
           "passing": true
@@ -476,7 +476,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_5775de",
           "n_trades": 448,
           "win_rate": 0.7522,
-          "sharpe": 17.6155,
+          "sharpe": 8.2643,
           "profit_factor": 4.6968,
           "triggered": true,
           "passing": true
@@ -485,7 +485,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0003_53f908",
           "n_trades": 581,
           "win_rate": 0.6867,
-          "sharpe": 15.1487,
+          "sharpe": 7.107,
           "profit_factor": 3.3578,
           "triggered": true,
           "passing": true
@@ -494,7 +494,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_ce70b4",
           "n_trades": 583,
           "win_rate": 0.7118,
-          "sharpe": 17.0734,
+          "sharpe": 8.01,
           "profit_factor": 3.838,
           "triggered": true,
           "passing": true
@@ -503,7 +503,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0007_1eb93e",
           "n_trades": 1039,
           "win_rate": 0.6959,
-          "sharpe": 21.3995,
+          "sharpe": 10.0396,
           "profit_factor": 3.5736,
           "triggered": true,
           "passing": true
@@ -512,7 +512,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_ac1583",
           "n_trades": 496,
           "win_rate": 0.7419,
-          "sharpe": 17.7494,
+          "sharpe": 8.3271,
           "profit_factor": 4.4419,
           "triggered": true,
           "passing": true
@@ -521,7 +521,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0006_28d7f3",
           "n_trades": 311,
           "win_rate": 0.6367,
-          "sharpe": 8.8464,
+          "sharpe": 4.1503,
           "profit_factor": 2.6838,
           "triggered": true,
           "passing": true
@@ -530,7 +530,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0005_72fcca",
           "n_trades": 1192,
           "win_rate": 0.6602,
-          "sharpe": 19.7789,
+          "sharpe": 9.2793,
           "profit_factor": 3.0566,
           "triggered": true,
           "passing": true
@@ -539,7 +539,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_d7ddae",
           "n_trades": 673,
           "win_rate": 0.8068,
-          "sharpe": 27.3245,
+          "sharpe": 12.8193,
           "profit_factor": 6.5064,
           "triggered": true,
           "passing": true
@@ -548,7 +548,7 @@
           "id": "xgb_BTCUSD_1h_2d_0000_0002_63c41f",
           "n_trades": 646,
           "win_rate": 0.8034,
-          "sharpe": 26.7026,
+          "sharpe": 12.5275,
           "profit_factor": 6.5231,
           "triggered": true,
           "passing": true
