@@ -1,0 +1,310 @@
+"""data_loader.py - Chargement et nettoyage des données MIDAS V3.
+
+Charge X, Y_dir, Y_ret, Y_hor + metadata.json pour un (asset, TF).
+Exclut :
+- Les 5 colonnes OHLCV de X (open, high, low, close, volume) → réponse Q6
+- Les features marquées excluded=True dans features_taxonomy.json
+Garde :
+- 213 features utilisables (218 - 5 OHLCV)
+
+API publique :
+- load_xy(asset, tf, asset_class, ...) -> LoadedData
+- load_ohlcv(asset, tf, asset_class, raw_root) -> pl.DataFrame
+- align_xy_with_ohlcv(loaded, ohlcv_df) -> (X_aligned, ohlcv_aligned, ts_aligned)
+- temporal_split(X, y, ratios, embargo) -> TrainValHoldoutSplit
+- get_target_for_horizon(loaded, horizon_idx) -> (target, valid_mask, Y_hor_col)
+"""
+from __future__ import annotations
+
+import json
+import logging
+from pathlib import Path
+from typing import Optional
+
+import numpy as np
+import polars as pl
+
+from einherjar.research.xgb_einhers.types import LoadedData, TrainValHoldoutSplit
+
+logger = logging.getLogger(__name__)
+
+
+# Chemins par défaut
+COMPILED_DIR = Path("D:/midas_v2/midasV3/src/data/compiled")
+OHLCV_DIR = Path("D:/midas_v2/technical_agent_dataset_brut")
+TAXONOMY_PATH = Path(
+    "D:/midas_v2/Einherjar/src/einherjar/research/config/features_taxonomy.json"
+)
+
+# Features OHLCV toujours exclues (réponse Q6 : on a les prix via CSV bruts)
+OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
+
+
+# --------------------------------------------------------------------------- #
+# Taxonomie
+# --------------------------------------------------------------------------- #
+
+
+def load_usable_feature_names() -> set[str]:
+    """Charge les noms de features marquées usable (excluded != True) depuis features_taxonomy.json.
+
+    Returns:
+        Set des noms de features utilisables.
+    """
+    with open(TAXONOMY_PATH) as f:
+        tax = json.load(f)
+    return {k for k, v in tax["features"].items() if not v.get("excluded", False)}
+
+
+# --------------------------------------------------------------------------- #
+# Chargement X / Y
+# --------------------------------------------------------------------------- #
+
+
+def load_xy(
+    asset: str,
+    timeframe: str,
+    asset_class: str = "crypto",
+    compiled_dir: Path = COMPILED_DIR,
+) -> LoadedData:
+    """Charge X, Y_dir, Y_ret, Y_hor + metadata pour un (asset, TF).
+
+    Args:
+        asset : ex 'BTCUSD'
+        timeframe : ex '1h'
+        asset_class : ex 'crypto'
+        compiled_dir : racine des .npy MIDAS V3
+
+    Returns:
+        LoadedData avec :
+        - X : (N, 213) features utilisables (OHLCV exclues)
+        - Y_dir : (N, H) int8
+        - Y_ret : (N, H) float32
+        - Y_hor : (N, H) float32
+        - feature_names : 213 noms
+        - horizons : H noms (ex ['6h', '12h', '1d', '2d'])
+    """
+    base = Path(compiled_dir) / asset_class / timeframe
+    if not base.exists():
+        raise FileNotFoundError(f"Répertoire absent : {base}")
+
+    # Charger arrays
+    ts = np.load(base / f"{asset}_ts.npy")
+    X_raw = np.load(base / f"{asset}_X.npy")
+    Y_dir = np.load(base / f"{asset}_Y_dir.npy")
+    Y_ret = np.load(base / f"{asset}_Y_ret.npy")
+    Y_hor = np.load(base / f"{asset}_Y_hor.npy")
+
+    # Charger metadata
+    with open(base / "metadata.json") as f:
+        meta = json.load(f)
+    all_feature_names = tuple(meta["feature_names"])
+    horizons = tuple(meta["horizons"])
+
+    # Exclure les 5 colonnes OHLCV (réponse Q6)
+    ohlcv_idx = [i for i, n in enumerate(all_feature_names) if n in OHLCV_COLUMNS]
+    keep_idx = [i for i in range(len(all_feature_names)) if i not in ohlcv_idx]
+    X = X_raw[:, keep_idx]
+    feature_names = tuple(n for i, n in enumerate(all_feature_names) if i in keep_idx)
+
+    # Filtrer la taxonomie : on garde uniquement les features usable
+    # (déjà fait via la taxonomie dans metadata.json, mais on double-check)
+    usable = load_usable_feature_names()
+    final_idx = [i for i, n in enumerate(feature_names) if n in usable]
+    X = X[:, final_idx]
+    feature_names = tuple(n for i, n in enumerate(feature_names) if i in final_idx)
+
+    # Sanity : pas de NaN/Inf (déjà vérifié mais on assert)
+    assert not np.isnan(X).any(), "X contient des NaN"
+    assert not np.isinf(X).any(), "X contient des Inf"
+
+    logger.info(
+        "load_xy(%s, %s) : N=%d, F=%d, H=%d, horizons=%s",
+        asset, timeframe, X.shape[0], X.shape[1], len(horizons), horizons,
+    )
+    return LoadedData(
+        asset=asset,
+        asset_class=asset_class,
+        timeframe=timeframe,
+        timestamps=ts,
+        X=X,
+        Y_dir=Y_dir,
+        Y_ret=Y_ret,
+        Y_hor=Y_hor,
+        feature_names=feature_names,
+        horizons=horizons,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Chargement OHLCV (CSV bruts)
+# --------------------------------------------------------------------------- #
+
+
+def load_ohlcv(
+    asset: str,
+    timeframe: str,
+    asset_class: str = "crypto",
+    ohlcv_dir: Path = OHLCV_DIR,
+) -> pl.DataFrame:
+    """Charge les OHLCV depuis les CSV annuels bruts.
+
+    Returns:
+        DataFrame polars avec colonnes [timestamp (datetime[us, UTC]), open, high, low, close, volume].
+        Trié ASC par timestamp.
+    """
+    root = Path(ohlcv_dir) / asset_class / asset / timeframe
+    if not root.is_dir():
+        raise FileNotFoundError(f"Dossier OHLCV absent : {root}")
+
+    pattern = str(root / f"{asset}_*_{timeframe}.csv")
+    import glob
+    csv_files = sorted(glob.glob(pattern))
+    if not csv_files:
+        raise FileNotFoundError(f"Aucun CSV trouvé : {pattern}")
+
+    frame_list = []
+    for f in csv_files:
+        df = pl.read_csv(
+            f,
+            try_parse_dates=True,
+            schema_overrides={"volume": pl.Float64},
+        )
+        # Garder les colonnes OHLCV + timestamp
+        cols = ["timestamp", "open", "high", "low", "close", "volume"]
+        df = df.select([c for c in cols if c in df.columns])
+        frame_list.append(df)
+    concat = pl.concat(frame_list)
+    concat = concat.sort("timestamp")
+    # Forcer timestamp en datetime[us, UTC]
+    if concat.schema["timestamp"] != pl.Datetime("us", "UTC"):
+        if concat.schema["timestamp"] in (pl.Datetime,):
+            concat = concat.with_columns(
+                pl.col("timestamp").dt.replace_time_zone("UTC").dt.cast_time_unit("us")
+            )
+        elif concat.schema["timestamp"] in (pl.Int64, pl.Int32):
+            concat = concat.with_columns(
+                pl.from_epoch("timestamp", time_unit="ms")
+                .dt.replace_time_zone("UTC")
+                .dt.cast_time_unit("us")
+            )
+    return concat
+
+
+def align_xy_with_ohlcv(
+    loaded: LoadedData,
+    ohlcv_df: pl.DataFrame,
+) -> tuple[np.ndarray, pl.DataFrame, np.ndarray]:
+    """Aligne X/Y sur les timestamps OHLCV par inner join.
+
+    Returns:
+        (X_aligned, ohlcv_aligned, ts_aligned) tous triés ASC et de même longueur.
+    """
+    # Convertir les timestamps ms epoch en datetime[us, UTC] pour le join
+    ts_dt = pl.from_numpy(loaded.timestamps.astype(np.int64), schema=["ts_ms"])
+    ts_dt = ts_dt.with_columns(
+        pl.from_epoch(pl.col("ts_ms"), time_unit="ms").dt.replace_time_zone("UTC").dt.cast_time_unit("us").alias("timestamp")
+    )
+
+    # DF avec timestamp + indices originaux
+    n = loaded.n_samples
+    xy_df = ts_dt.with_row_index(name="orig_idx").select(
+        pl.col("timestamp"), pl.col("orig_idx")
+    )
+    # Join inner
+    ohlcv_with_idx = ohlcv_df.with_row_index(name="ohlcv_idx")
+    joined = ohlcv_with_idx.join(xy_df, on="timestamp", how="inner").sort("timestamp")
+
+    # Réindexer X selon l'ordre du join
+    orig_idx = joined["orig_idx"].to_numpy()
+    X_aligned = loaded.X[orig_idx]
+    ts_aligned = joined["timestamp"]
+
+    # Réindexer OHLCV selon le même ordre
+    ohlcv_aligned = ohlcv_df.filter(pl.col("timestamp").is_in(joined["timestamp"])).sort("timestamp")
+    # Note : ci-dessus est un filter() simple, mais comme on a fait inner join, tous les
+    # timestamps du join sont dans ohlcv_df. On peut directement utiliser joined.
+    # Pour éviter un second select, on reconstruit depuis joined:
+    ohlcv_aligned = ohlcv_df.join(joined.select("timestamp"), on="timestamp", how="inner").sort("timestamp")
+
+    logger.info(
+        "align_xy_with_ohlcv : %d/%d lignes conservées (%.1f%%)",
+        X_aligned.shape[0], n, 100 * X_aligned.shape[0] / n,
+    )
+    return X_aligned, ohlcv_aligned, ts_aligned
+
+
+# --------------------------------------------------------------------------- #
+# Target pour un horizon donné
+# --------------------------------------------------------------------------- #
+
+
+def get_target_for_horizon(
+    loaded: LoadedData,
+    horizon_idx: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Construit le target supervisé pour un horizon donné.
+
+    Returns:
+        (target, valid_mask, y_hor) où :
+        - target : (N,) float32 = Y_ret[:, h] (signed return)
+        - valid_mask : (N,) bool = Y_dir[:, h] != -100
+        - y_hor : (N,) float32 = Y_hor[:, h] (horizon en bars)
+    """
+    valid_mask = loaded.Y_dir[:, horizon_idx] != -100
+    target = loaded.Y_ret[:, horizon_idx].copy()
+    y_hor = loaded.Y_hor[:, horizon_idx].copy()
+    return target, valid_mask, y_hor
+
+
+# --------------------------------------------------------------------------- #
+# Split temporel
+# --------------------------------------------------------------------------- #
+
+
+def temporal_split(
+    X: np.ndarray,
+    y: np.ndarray,
+    train_ratio: float = 0.6,
+    val_ratio: float = 0.2,
+    holdout_ratio: float = 0.2,
+    embargo_bars: int = 50,
+) -> TrainValHoldoutSplit:
+    """Split temporel 60/20/20 avec embargo entre train/val et val/holdout.
+
+    Args:
+        X : (N, F)
+        y : (N,) ou (N, ...)
+        train_ratio, val_ratio, holdout_ratio : doivent sommer à 1.0
+        embargo_bars : nb de bougies exclues aux frontières
+
+    Returns:
+        TrainValHoldoutSplit
+    """
+    n = X.shape[0]
+    assert abs(train_ratio + val_ratio + holdout_ratio - 1.0) < 1e-6
+
+    train_end = int(n * train_ratio)
+    val_start = train_end + embargo_bars
+    val_end = val_start + int(n * val_ratio)
+    holdout_start = val_end + embargo_bars
+
+    assert val_start < val_end, f"Train/val overlap : {val_start} < {val_end}"
+    assert holdout_start < n, f"Holdout déborde : {holdout_start} >= {n}"
+
+    train_idx = np.arange(0, train_end)
+    val_idx = np.arange(val_start, val_end)
+    holdout_idx = np.arange(holdout_start, n)
+
+    return TrainValHoldoutSplit(
+        train_X=X[train_idx],
+        train_y=y[train_idx],
+        val_X=X[val_idx],
+        val_y=y[val_idx],
+        holdout_X=X[holdout_idx],
+        holdout_y=y[holdout_idx],
+        train_indices=train_idx,
+        val_indices=val_idx,
+        holdout_indices=holdout_idx,
+        embargo_bars=embargo_bars,
+    )

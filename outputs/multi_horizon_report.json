@@ -1,0 +1,69 @@
+{
+  "horizons": {
+    "2d": {
+      "exists": true,
+      "n_einhers": 14,
+      "val": {
+        "sharpe_median": 8.7,
+        "win_rate_mean": 0.7078,
+        "profit_factor_mean": 4.88,
+        "n_trades_mean": 166.6
+      },
+      "holdout": {
+        "sharpe_median": 7.3,
+        "win_rate_mean": 0.6995,
+        "n_einhers_with_trades": 14
+      },
+      "ratio_val_holdout_median": 0.833
+    },
+    "6h": {
+      "exists": true,
+      "n_einhers": 19,
+      "val": {
+        "sharpe_median": 12.05,
+        "win_rate_mean": 0.5581,
+        "profit_factor_mean": 8.72,
+        "n_trades_mean": 157.3
+      },
+      "holdout": {
+        "sharpe_median": 12.21,
+        "win_rate_mean": 0.5259,
+        "n_einhers_with_trades": 19
+      },
+      "ratio_val_holdout_median": 0.961
+    },
+    "12h": {
+      "exists": true,
+      "n_einhers": 19,
+      "val": {
+        "sharpe_median": 10.63,
+        "win_rate_mean": 0.5825,
+        "profit_factor_mean": 6.52,
+        "n_trades_mean": 187.7
+      },
+      "holdout": {
+        "sharpe_median": 9.15,
+        "win_rate_mean": 0.5591,
+        "n_einhers_with_trades": 19
+      },
+      "ratio_val_holdout_median": 0.822
+    },
+    "1d": {
+      "exists": true,
+      "n_einhers": 17,
+      "val": {
+        "sharpe_median": 9.2,
+        "win_rate_mean": 0.648,
+        "profit_factor_mean": 5.05,
+        "n_trades_mean": 171.5
+      },
+      "holdout": {
+        "sharpe_median": 7.91,
+        "win_rate_mean": 0.6677,
+        "n_einhers_with_trades": 17
+      },
+      "ratio_val_holdout_median": 0.863
+    }
+  },
+  "n_einhers_total": 69
+}

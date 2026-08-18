@@ -1,0 +1,75 @@
+{
+  "asset": "BTCUSD",
+  "timeframe": "1h",
+  "horizon": "2d",
+  "n_features_total": 213,
+  "n_features_with_importance": 56,
+  "by_family": {
+    "market_regime": {
+      "total": 9,
+      "used": 2,
+      "pct_used": 22.22,
+      "sum_importance": 0.0285
+    },
+    "market_structure": {
+      "total": 52,
+      "used": 2,
+      "pct_used": 3.85,
+      "sum_importance": 0.0276
+    },
+    "microstructure": {
+      "total": 2,
+      "used": 1,
+      "pct_used": 50.0,
+      "sum_importance": 0.027
+    },
+    "momentum": {
+      "total": 15,
+      "used": 5,
+      "pct_used": 33.33,
+      "sum_importance": 0.069
+    },
+    "other": {
+      "total": 1,
+      "used": 0,
+      "pct_used": 0.0,
+      "sum_importance": 0.0
+    },
+    "price_action": {
+      "total": 58,
+      "used": 1,
+      "pct_used": 1.72,
+      "sum_importance": 0.0163
+    },
+    "risk": {
+      "total": 8,
+      "used": 8,
+      "pct_used": 100.0,
+      "sum_importance": 0.2611
+    },
+    "statistical": {
+      "total": 15,
+      "used": 13,
+      "pct_used": 86.67,
+      "sum_importance": 0.1774
+    },
+    "trend": {
+      "total": 29,
+      "used": 9,
+      "pct_used": 31.03,
+      "sum_importance": 0.129
+    },
+    "volatility": {
+      "total": 14,
+      "used": 8,
+      "pct_used": 57.14,
+      "sum_importance": 0.1224
+    },
+    "volume_flow": {
+      "total": 10,
+      "used": 7,
+      "pct_used": 70.0,
+      "sum_importance": 0.1333
+    }
+  }
+}
