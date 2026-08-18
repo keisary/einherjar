@@ -103,6 +103,7 @@ def run_pipeline(
     min_holdout_trades: int = 0,
     bagging_seeds: int = 1,
     walk_forward_folds: int = 1,
+    scope: str = "asset",  # Sprint 3.2 P2 : asset | market | general
 ) -> dict[str, Any]:
     """Pipeline complet XGBoost -> Einher (single ou multi-actif).
 
@@ -380,6 +381,20 @@ def cmd_run(args: argparse.Namespace) -> int:
     # Resolution des actifs : --assets prime sur --asset
     if args.assets:
         assets = [a.strip() for a in args.assets.split(",") if a.strip()]
+    elif args.scope == "market" or args.scope == "general":
+        # Sprint 3.2 P2 : resolution automatique des actifs selon le scope
+        from einherjar.research.xgb_einhers.multi_asset_loader import list_available_assets
+        asset_classes = [c.strip() for c in args.asset_classes.split(",") if c.strip()]
+        all_assets = []
+        for cls in asset_classes:
+            # Verifier que les donnees OHLCV sont dispo (pour le backtest)
+            cls_assets = list_available_assets(
+                asset_class=cls, timeframe=args.timeframe, require_ohlcv=True,
+            )
+            all_assets.extend(cls_assets)
+        # Dedupliquer et limiter
+        assets = sorted(set(all_assets))[:args.max_assets]
+        print(f"Scope {args.scope} : {len(assets)} actifs selectionnes sur {len(all_assets)} dispos")
     else:
         assets = [args.asset]
     summary = run_pipeline(
@@ -400,6 +415,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         min_holdout_trades=args.min_holdout_trades,
         bagging_seeds=args.bagging_seeds,
         walk_forward_folds=args.walk_forward_folds,
+        scope=args.scope,
     )
     # Resume JSON
     asset_tag = "_".join(assets) if len(assets) <= 3 else f"multi_{len(assets)}"
@@ -448,6 +464,14 @@ def main(argv: list[str] | None = None) -> int:
                        help="Sprint 2.4.2 : nombre de seeds pour bagging (1=desactive)")
     p_run.add_argument("--walk-forward-folds", type=int, default=1,
                        help="Sprint 2.4.3 : nombre de folds walk-forward (1=desactive)")
+    # Sprint 3.2 P2 : 3 niveaux de scope
+    p_run.add_argument("--scope", type=str, default="asset",
+                       choices=["asset", "market", "general"],
+                       help="Sprint 3.2 P2 : asset=1 actif, market=1 classe, general=toutes classes")
+    p_run.add_argument("--asset-classes", type=str, default="crypto",
+                       help="Sprint 3.2 P2 : classes separees par virgules (ex: crypto,forex,indices)")
+    p_run.add_argument("--max-assets", type=int, default=10,
+                       help="Sprint 3.2 P2 : limite d'actifs par run (pour scaler)")
     p_run.set_defaults(func=cmd_run)
 
     args = parser.parse_args(argv)

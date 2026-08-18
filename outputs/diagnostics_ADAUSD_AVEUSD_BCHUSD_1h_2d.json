@@ -1,0 +1,42 @@
+{
+  "assets": [
+    "ADAUSD",
+    "AVEUSD",
+    "BCHUSD"
+  ],
+  "multi_asset": true,
+  "timeframe": "1h",
+  "horizon": "2d",
+  "horizon_bars": 48,
+  "n_features_before": 213,
+  "n_features_after": 100,
+  "regularized": true,
+  "apply_dedup": true,
+  "drop_sparse": true,
+  "n_samples_total": 112277,
+  "n_valid": 112133,
+  "n_train": 67279,
+  "n_val": 22426,
+  "n_holdout": 22328,
+  "n_paths_extracted": 20,
+  "n_einhers_generated": 20,
+  "n_admitted": 19,
+  "n_rejected": 1,
+  "output_path": "outputs\\einhers_market_crypto_2d.jsonl",
+  "costs_pct": 0.004399999999999999,
+  "gbdt_config": {
+    "backend": "auto",
+    "n_estimators": 80,
+    "max_depth": 3,
+    "learning_rate": 0.05,
+    "subsample": 0.7,
+    "colsample_bytree": 0.6,
+    "min_child_weight": 50,
+    "reg_alpha": 1.0,
+    "reg_lambda": 5.0,
+    "random_state": 42,
+    "tree_method": "hist",
+    "device": "cpu",
+    "early_stopping_rounds": 20
+  }
+}
