@@ -62,6 +62,13 @@ def load_corpus(path: Path | None = None) -> list[dict[str, Any]]:
         return [json.loads(line) for line in f if line.strip()]
 
 
+def _assign_gp_id(entry: dict[str, Any], fingerprint: str) -> dict[str, Any]:
+    """Id GP (gp_<fingerprint[:12]>) si l'Einher n'en porte pas."""
+    if not entry.get("id"):
+        entry["id"] = f"gp_{fingerprint[:12]}"
+    return entry
+
+
 def entry_of(
     einher: Any,
     outcome: Any,
@@ -72,6 +79,7 @@ def entry_of(
 ) -> dict[str, Any]:
     """Construit l'entrée JSON d'un Einher + son dossier d'admission."""
     entry = einher.to_dict()
+    entry = _assign_gp_id(entry, fingerprint)
     entry["fingerprint"] = fingerprint
     entry["admission"] = {
         "admitted": outcome.admitted,
