@@ -27,7 +27,7 @@ import numpy as np
 
 from einherjar.research.baselines.runner import parse_horizon
 from einherjar.research.search_engine.admission import Candidate, admit_batch
-from einherjar.research.search_engine.corpus import append_einher, fingerprint_of
+from einherjar.research.search_engine.corpus import append_candidate, append_einher, fingerprint_of
 from einherjar.research.search_engine.evaluator import collect_tree_features, eval_condition_ast
 from einherjar.research.search_engine.map_elites import run_map_elites
 from einherjar.research.search_engine.space import SpaceConfig
@@ -108,9 +108,10 @@ def run(
 
     # 4. Backtests complets VAL + HOLD-OUT des candidats de l'archive
     candidates: list[Candidate] = []
-    ui = 0
+    cells_order: list[tuple[str, ...]] = []
+    ho_metrics: list[Any] = []
     for cell, entry in sorted(archive.cells.items()):
-        ui += 1
+        cells_order.append(cell)
         einher = entry.einher
         val_res = backtest_einher(
             einher, ohlcv_val, X_val, feature_names, costs_pct=costs,
@@ -119,6 +120,7 @@ def run(
         ho_res = backtest_einher(
             einher, ohlcv_ho, X_ho, feature_names, costs_pct=costs,
         )
+        ho_metrics.append(ho_res.metrics)
         candidates.append(
             Candidate(
                 einher=einher,
@@ -131,24 +133,46 @@ def run(
     # 5. Admission C1-C6 (batch : FDR sur toutes les p-values)
     outcomes = admit_batch(candidates, seed=seed)
 
-    # 6. Rapport + corpus
+    # 6. Rapport + corpus (corpus_GP = admis GP ; archive_GP = rejetés + raisons)
     output_dir.mkdir(exist_ok=True)
-    corpus_file = output_dir / "corpus.jsonl"
+    corpus_file = output_dir / "corpus_GP.jsonl"
+    archive_file = output_dir / "archive_GP.jsonl"
     report = _report(
         asset, timeframe, horizon, cfg, archive,
         candidates, outcomes, costs, n_pop, n_generations,
     )
-    out = output_dir / f"search_engine_{asset}_{timeframe}_{horizon}.json"
+    out = output_dir / f"search_engine_{asset}_{timeframe}_{horizon}_seed{seed}.json"
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
     print(f"[runner] rapport écrit : {out}")
 
-    for c, o in zip(candidates, outcomes):
+    for c, o, cell, ho_m in zip(candidates, outcomes, cells_order, ho_metrics):
         if o.admitted:
-            append_einher(c.einher, o, fingerprint=c.fingerprint, path=corpus_file)
+            append_einher(
+                c.einher, o, fingerprint=c.fingerprint,
+                holdout_metrics=ho_m, path=corpus_file,
+            )
+        else:
+            append_candidate(
+                c.einher, o, fingerprint=c.fingerprint,
+                holdout_metrics=ho_m,
+                extra={"cell_index": _report_index(report, c), "cell": list(cell)},
+                path=archive_file,
+            )
     n_admitted = sum(1 for o in outcomes if o.admitted)
-    print(f"[runner] admis : {n_admitted}/{len(candidates)} → corpus.jsonl")
+    print(
+        f"[runner] admis : {n_admitted}/{len(candidates)} → corpus_GP.jsonl ; "
+        f"rejetés → archive_GP.jsonl ({archive_file})"
+    )
     return report
+
+
+def _report_index(report: dict[str, Any], candidate: Candidate) -> int:
+    """Index du candidat dans le rapport (jointure par fingerprint)."""
+    for item in report["admission"]["details"]:
+        if item.get("fingerprint") == candidate.fingerprint:
+            return item["cell_index"]
+    return -1
 
 
 def _report(
@@ -198,6 +222,7 @@ def _report(
             "details": [
                 {
                     "cell_index": i,
+                    "fingerprint": c.fingerprint,
                     "sharpe_val": c.einher.metrics.sharpe_ratio,
                     "n_trades": int(c.einher.metrics.n_trades),
                     "p_value": c.einher.metrics.p_value,

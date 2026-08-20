@@ -101,8 +101,40 @@ def to_condition_tree(expr: object) -> Condition | ConditionNode:
     raise TypeError(f"BoolExpr attendue, reçu : {type(expr).__name__}")
 
 
+def _from_num_tree(node: object) -> object:
+    """NumExpr STGP (dans Condition.expr) → NumExpr STGP neuf (roundtrip)."""
+    from einherjar.research.search_engine.expression import BinNum, Const, Feature
+
+    if isinstance(node, Feature):
+        return Feature(node.feature_ref)
+    if isinstance(node, Const):
+        return Const(node.value)
+    if isinstance(node, BinNum):
+        return BinNum(
+            op=node.op,
+            left=_from_num_tree(node.left),
+            right=_from_num_tree(node.right),
+        )
+    raise TypeError(f"NumExpr inconnue : {type(node).__name__}")
+
+
 def from_condition_tree(ast: Condition | ConditionNode) -> object:
     """Inverse de to_condition_tree : Condition/ConditionNode → BoolExpr STGP."""
+    from einherjar.research.search_engine.expression import BoolOp, Cmp, Feature
+
+    if isinstance(ast, Condition):
+        if ast.expr is not None:
+            return Cmp(expr=_from_num_tree(ast.expr), operator=ast.operator, value=ast.value)
+        return Cmp(expr=Feature(ast.feature_ref), operator=ast.operator, value=ast.value)
+    if isinstance(ast, ConditionNode):
+        if ast.op == "NOT":
+            return BoolOp(op="NOT", left=from_condition_tree(ast.left))
+        return BoolOp(
+            op=ast.op,
+            left=from_condition_tree(ast.left),
+            right=from_condition_tree(ast.right),
+        )
+    raise TypeError(f"Condition attendue, reçu : {type(ast).__name__}")
 
 
 def collect_tree_features(ast: object) -> set[str]:
