@@ -1,0 +1,1786 @@
+{
+  "meta": {
+    "engine": "search_engine",
+    "asset": "BTCUSD",
+    "timeframe": "1h",
+    "horizon": "2d",
+    "costs_pct": 0.0014000000000000002,
+    "n_pop": 200,
+    "n_generations": 40,
+    "max_depth": 6,
+    "max_size": 40,
+    "n_features": 213,
+    "space": {
+      "data_version": "BTCUSD_1h_2d",
+      "n_features": 213,
+      "numeric_ops": [
+        "+",
+        "-",
+        "*",
+        "/",
+        "min",
+        "max"
+      ],
+      "bool_ops": [
+        "AND",
+        "OR",
+        "XOR",
+        "NOT"
+      ],
+      "cmp_ops": [
+        "<",
+        "<=",
+        ">",
+        ">="
+      ],
+      "max_depth": 6,
+      "min_depth": 2,
+      "const_values": [
+        -2.0,
+        -1.0,
+        -0.5,
+        0.0,
+        0.5,
+        1.0,
+        2.0
+      ],
+      "threshold_quantiles": [
+        0.05,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        0.9,
+        0.95
+      ],
+      "max_size": 40
+    }
+  },
+  "archive": {
+    "n_cells_occupied": 44,
+    "cells": [
+      {
+        "cell": [
+          "BUY",
+          "market_structure",
+          "high_vol"
+        ],
+        "fitness_cheap": 4.629784400522528,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "risk",
+          "high_vol"
+        ],
+        "fitness_cheap": 4.629784400522528,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "market_regime",
+          "high_vol"
+        ],
+        "fitness_cheap": 4.199509434250951,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "momentum",
+          "high_vol"
+        ],
+        "fitness_cheap": 4.190164835908142,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "price_action",
+          "high_vol"
+        ],
+        "fitness_cheap": 4.029806390289277,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "price_action",
+          "low_vol"
+        ],
+        "fitness_cheap": 3.8596185310955926,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "risk",
+          "low_vol"
+        ],
+        "fitness_cheap": 3.5599843388008763,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "market_structure",
+          "low_vol"
+        ],
+        "fitness_cheap": 3.31482030424656,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "statistical",
+          "high_vol"
+        ],
+        "fitness_cheap": 3.070234164591742,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "market_regime",
+          "low_vol"
+        ],
+        "fitness_cheap": 3.017013209234379,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "trend",
+          "high_vol"
+        ],
+        "fitness_cheap": 2.9011856695015408,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "microstructure",
+          "high_vol"
+        ],
+        "fitness_cheap": 2.8833357120511196,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "other",
+          "high_vol"
+        ],
+        "fitness_cheap": 2.5788423310059496,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "volatility",
+          "high_vol"
+        ],
+        "fitness_cheap": 2.553363439230268,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "volume_flow",
+          "high_vol"
+        ],
+        "fitness_cheap": 2.4695775789743877,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "statistical",
+          "low_vol"
+        ],
+        "fitness_cheap": 2.262222458680991,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "momentum",
+          "low_vol"
+        ],
+        "fitness_cheap": 2.06030913516004,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "trend",
+          "low_vol"
+        ],
+        "fitness_cheap": 2.0307910817384753,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "volume_flow",
+          "low_vol"
+        ],
+        "fitness_cheap": 2.022430321987901,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "other",
+          "low_vol"
+        ],
+        "fitness_cheap": 1.84895739147789,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "microstructure",
+          "low_vol"
+        ],
+        "fitness_cheap": 1.663354190419204,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "BUY",
+          "volatility",
+          "low_vol"
+        ],
+        "fitness_cheap": 1.5561975505544035,
+        "sharpe_val": 0.0,
+        "direction": "BUY"
+      },
+      {
+        "cell": [
+          "SELL",
+          "market_regime",
+          "high_vol"
+        ],
+        "fitness_cheap": 0.9392667905050496,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "volatility",
+          "high_vol"
+        ],
+        "fitness_cheap": 0.8442544473022913,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "risk",
+          "high_vol"
+        ],
+        "fitness_cheap": 0.8056169375446093,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "momentum",
+          "high_vol"
+        ],
+        "fitness_cheap": 0.766626188774984,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "statistical",
+          "high_vol"
+        ],
+        "fitness_cheap": 0.766626188774984,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "trend",
+          "high_vol"
+        ],
+        "fitness_cheap": 0.712641119655468,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "price_action",
+          "high_vol"
+        ],
+        "fitness_cheap": 0.6820556265205376,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "volume_flow",
+          "high_vol"
+        ],
+        "fitness_cheap": 0.6517572298561644,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "market_structure",
+          "high_vol"
+        ],
+        "fitness_cheap": 0.6044126462550917,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "microstructure",
+          "high_vol"
+        ],
+        "fitness_cheap": 0.5653323243500119,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "market_regime",
+          "low_vol"
+        ],
+        "fitness_cheap": 0.5242087911566069,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "statistical",
+          "low_vol"
+        ],
+        "fitness_cheap": 0.45263070613153034,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "momentum",
+          "low_vol"
+        ],
+        "fitness_cheap": 0.45027235047677777,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "market_structure",
+          "low_vol"
+        ],
+        "fitness_cheap": 0.36222206131528545,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "risk",
+          "low_vol"
+        ],
+        "fitness_cheap": 0.36222206131528545,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "other",
+          "high_vol"
+        ],
+        "fitness_cheap": 0.27457238762820463,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "price_action",
+          "low_vol"
+        ],
+        "fitness_cheap": 0.16902297641979275,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "volatility",
+          "low_vol"
+        ],
+        "fitness_cheap": 0.16900104027052593,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "trend",
+          "low_vol"
+        ],
+        "fitness_cheap": 0.16900104027052593,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "volume_flow",
+          "low_vol"
+        ],
+        "fitness_cheap": 0.006953154980005665,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "other",
+          "low_vol"
+        ],
+        "fitness_cheap": -0.015567394926553133,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      },
+      {
+        "cell": [
+          "SELL",
+          "microstructure",
+          "low_vol"
+        ],
+        "fitness_cheap": -0.12251414507996847,
+        "sharpe_val": 0.0,
+        "direction": "SELL"
+      }
+    ]
+  },
+  "admission": {
+    "n_candidates": 44,
+    "n_admitted": 1,
+    "details": [
+      {
+        "cell_index": 0,
+        "fingerprint": "531c3969b99d2e6b6c169ed4874649cd38cde88e3f8444613ef46f12f817c9e0",
+        "sharpe_val": 2.2778879817931426,
+        "n_trades": 217,
+        "p_value": 0.003957479546970788,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": 0.0024733406647198227,
+            "hi": 0.012743860905191093,
+            "mean": 0.0071290934071550184,
+            "pass": true
+          },
+          "c2_dsr": {
+            "value": 0.9978808724368975,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": true
+          },
+          "dedup": {
+            "duplicate_of": "4271159246e1951c032e9ce47703b7e6949d4c92d09919c351e68db4b2e78061",
+            "pass": false
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 1,
+        "fingerprint": "03d670c45fb8772c34841db246ad121994dbc42f25fc414f1609f49538df80c6",
+        "sharpe_val": 2.1919453589161337,
+        "n_trades": 217,
+        "p_value": 0.00555739183852233,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": 0.002215431372346163,
+            "hi": 0.012437617509995818,
+            "mean": 0.006894978449512619,
+            "pass": true
+          },
+          "c2_dsr": {
+            "value": 0.9971384118997523,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": true
+          },
+          "dedup": {
+            "duplicate_of": "4271159246e1951c032e9ce47703b7e6949d4c92d09919c351e68db4b2e78061",
+            "pass": false
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 2,
+        "fingerprint": "4271159246e1951c032e9ce47703b7e6949d4c92d09919c351e68db4b2e78061",
+        "sharpe_val": 2.953760943024005,
+        "n_trades": 182,
+        "p_value": 0.00018659095039907925,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": 0.0047986272540892745,
+            "hi": 0.01614757325289885,
+            "mean": 0.01063498563341508,
+            "pass": true
+          },
+          "c2_dsr": {
+            "value": 0.9996107931921496,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": true
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": true
+      },
+      {
+        "cell_index": 3,
+        "fingerprint": "4271159246e1951c032e9ce47703b7e6949d4c92d09919c351e68db4b2e78061",
+        "sharpe_val": 2.953760943024005,
+        "n_trades": 182,
+        "p_value": 0.00018659095039907925,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": 0.0047986272540892745,
+            "hi": 0.01614757325289885,
+            "mean": 0.01063498563341508,
+            "pass": true
+          },
+          "c2_dsr": {
+            "value": 0.9996107931921496,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": true
+          },
+          "dedup": {
+            "duplicate_of": "4271159246e1951c032e9ce47703b7e6949d4c92d09919c351e68db4b2e78061",
+            "pass": false
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 4,
+        "fingerprint": "5c8bc3bc31f1dba976b93ef8f27d4c476de46b9c06a749e977bac7272f90d06d",
+        "sharpe_val": 2.953760943024005,
+        "n_trades": 182,
+        "p_value": 0.00018659095039907925,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": 0.0047986272540892745,
+            "hi": 0.01614757325289885,
+            "mean": 0.01063498563341508,
+            "pass": true
+          },
+          "c2_dsr": {
+            "value": 0.9996107931921496,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": true
+          },
+          "dedup": {
+            "duplicate_of": "4271159246e1951c032e9ce47703b7e6949d4c92d09919c351e68db4b2e78061",
+            "pass": false
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 5,
+        "fingerprint": "0b70bf1197c8f5f1d2e7fe9c463952acd4649aa3cd57e1a5d7a2b55ac8e4a974",
+        "sharpe_val": 1.2950909906487449,
+        "n_trades": 290,
+        "p_value": 0.10136083788476258,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.0005381109810794522,
+            "hi": 0.007706438212759583,
+            "mean": 0.0034148470334373735,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.9537582959316941,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 6,
+        "fingerprint": "319bb4d76dd6c4a14af216ee84c1e3e026be212ca239ba1c7dc03c4a40d5a2f0",
+        "sharpe_val": 2.953760943024005,
+        "n_trades": 182,
+        "p_value": 0.00018659095039907925,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": 0.0047986272540892745,
+            "hi": 0.01614757325289885,
+            "mean": 0.01063498563341508,
+            "pass": true
+          },
+          "c2_dsr": {
+            "value": 0.9996107931921496,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": true
+          },
+          "dedup": {
+            "duplicate_of": "4271159246e1951c032e9ce47703b7e6949d4c92d09919c351e68db4b2e78061",
+            "pass": false
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 7,
+        "fingerprint": "6ee1049c90461d80e9848468aaf4ee018e1cb337cd2709c96358cecbb42daaf4",
+        "sharpe_val": 1.2125817073808667,
+        "n_trades": 290,
+        "p_value": 0.12504996333399498,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.0009039223862544583,
+            "hi": 0.007494516510541822,
+            "mean": 0.003252970669699874,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.943137222041454,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 8,
+        "fingerprint": "dd1248263e9752c3950d3e7cc6815b3930a125ee372da95194f45c24a695db52",
+        "sharpe_val": 1.2950909906487449,
+        "n_trades": 290,
+        "p_value": 0.10136083788476258,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.0005381109810794522,
+            "hi": 0.007706438212759583,
+            "mean": 0.0034148470334373735,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.9537582959316941,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 9,
+        "fingerprint": "bc7238c52fbaa0dc60b826d0a8c353400d6bfd8bb6021973fe9073414ac3e18f",
+        "sharpe_val": 1.2950909906487449,
+        "n_trades": 290,
+        "p_value": 0.10136083788476258,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.0005381109810794522,
+            "hi": 0.007706438212759583,
+            "mean": 0.0034148470334373735,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.9537582959316941,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 10,
+        "fingerprint": "431b072a00a01698ba48e0d9e37b165b4c6bb764ac8886a84afff0ae7135a4d0",
+        "sharpe_val": 2.953760943024005,
+        "n_trades": 182,
+        "p_value": 0.00018659095039907925,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": 0.0047986272540892745,
+            "hi": 0.01614757325289885,
+            "mean": 0.01063498563341508,
+            "pass": true
+          },
+          "c2_dsr": {
+            "value": 0.9996107931921496,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": true
+          },
+          "dedup": {
+            "duplicate_of": "4271159246e1951c032e9ce47703b7e6949d4c92d09919c351e68db4b2e78061",
+            "pass": false
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 11,
+        "fingerprint": "5132ae65b3e08db3d5bc0cbb9b0cc1e1adbcd74ce95c7e9d5ff39e00a073da93",
+        "sharpe_val": 2.953760943024005,
+        "n_trades": 182,
+        "p_value": 0.00018659095039907925,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": 0.0047986272540892745,
+            "hi": 0.01614757325289885,
+            "mean": 0.01063498563341508,
+            "pass": true
+          },
+          "c2_dsr": {
+            "value": 0.9996107931921496,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": true
+          },
+          "dedup": {
+            "duplicate_of": "4271159246e1951c032e9ce47703b7e6949d4c92d09919c351e68db4b2e78061",
+            "pass": false
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 12,
+        "fingerprint": "9df86e65f6e23b01110ea3de8724726b91e6c2e2192f55812ff5c8f0b273b21a",
+        "sharpe_val": 2.953760943024005,
+        "n_trades": 182,
+        "p_value": 0.00018659095039907925,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": 0.0047986272540892745,
+            "hi": 0.01614757325289885,
+            "mean": 0.01063498563341508,
+            "pass": true
+          },
+          "c2_dsr": {
+            "value": 0.9996107931921496,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": true
+          },
+          "dedup": {
+            "duplicate_of": "4271159246e1951c032e9ce47703b7e6949d4c92d09919c351e68db4b2e78061",
+            "pass": false
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 13,
+        "fingerprint": "0b6eaf0b8a0d14b6eee6ac8c99eaf60642408f1eb7e5ba572c93ce2b9ac87392",
+        "sharpe_val": 2.953760943024005,
+        "n_trades": 182,
+        "p_value": 0.00018659095039907925,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": 0.0047986272540892745,
+            "hi": 0.01614757325289885,
+            "mean": 0.01063498563341508,
+            "pass": true
+          },
+          "c2_dsr": {
+            "value": 0.9996107931921496,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": true
+          },
+          "dedup": {
+            "duplicate_of": "4271159246e1951c032e9ce47703b7e6949d4c92d09919c351e68db4b2e78061",
+            "pass": false
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 14,
+        "fingerprint": "3fc4f324e1d51a44a3a7e71b4b3b530f0b05daa42c9948f4dbc54c30ba5ea401",
+        "sharpe_val": 1.5793378550156605,
+        "n_trades": 254,
+        "p_value": 0.04573135735682188,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": 0.00016352166155438614,
+            "hi": 0.009488013779182599,
+            "mean": 0.0047669106346034254,
+            "pass": true
+          },
+          "c2_dsr": {
+            "value": 0.9722988342112628,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 15,
+        "fingerprint": "564b5d33f8b854ff3a55d8b55ab1f4335bde9929d5c1b1666c92e0099afd809c",
+        "sharpe_val": 1.5793378550156605,
+        "n_trades": 254,
+        "p_value": 0.04573135735682188,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": 0.00016352166155438614,
+            "hi": 0.009488013779182599,
+            "mean": 0.0047669106346034254,
+            "pass": true
+          },
+          "c2_dsr": {
+            "value": 0.9722988342112628,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 16,
+        "fingerprint": "4feab0d941723daac3f50e64c71d57c1d165229b781bb0ec59fc3c59e1688bb6",
+        "sharpe_val": 1.0518025762069372,
+        "n_trades": 259,
+        "p_value": 0.1833431703631776,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.00145177063382664,
+            "hi": 0.008359533666007795,
+            "mean": 0.0031083186959326944,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.9148050932055248,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 17,
+        "fingerprint": "4feab0d941723daac3f50e64c71d57c1d165229b781bb0ec59fc3c59e1688bb6",
+        "sharpe_val": 1.0518025762069372,
+        "n_trades": 259,
+        "p_value": 0.1833431703631776,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.00145177063382664,
+            "hi": 0.008359533666007795,
+            "mean": 0.0031083186959326944,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.9148050932055248,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 18,
+        "fingerprint": "c2ab4d3dd98c014c3991135e7682386afda5af6f7826eb975c019d6b47f07875",
+        "sharpe_val": 1.2950909906487449,
+        "n_trades": 290,
+        "p_value": 0.10136083788476258,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.0005381109810794522,
+            "hi": 0.007706438212759583,
+            "mean": 0.0034148470334373735,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.9537582959316941,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 19,
+        "fingerprint": "10829e603c9c35526ef17df675b6a2faed3e86d2f575899b7cd20cd63022302f",
+        "sharpe_val": 1.2950909906487449,
+        "n_trades": 290,
+        "p_value": 0.10136083788476258,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.0005381109810794522,
+            "hi": 0.007706438212759583,
+            "mean": 0.0034148470334373735,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.9537582959316941,
+            "pass": true
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 20,
+        "fingerprint": "8275836dbdae42beb0adfc17de88313c9684c4d4841e6e0cb9379fb0ff2b5034",
+        "sharpe_val": 1.2237700679150831,
+        "n_trades": 276,
+        "p_value": 0.12160526655916382,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.0008769408683346783,
+            "hi": 0.007863765913671968,
+            "mean": 0.003406876085044236,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.9468036650054141,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 21,
+        "fingerprint": "8275836dbdae42beb0adfc17de88313c9684c4d4841e6e0cb9379fb0ff2b5034",
+        "sharpe_val": 1.2237700679150831,
+        "n_trades": 276,
+        "p_value": 0.12160526655916382,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.0008769408683346783,
+            "hi": 0.007863765913671968,
+            "mean": 0.003406876085044236,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.9468036650054141,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 22,
+        "fingerprint": "364ea6ae777f4bda947274a98e689b45937998b85de18fad8f76a8fecc455063",
+        "sharpe_val": -0.47843036205784056,
+        "n_trades": 96,
+        "p_value": 0.5450361278053935,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010906544036327778,
+            "hi": 0.005126692031494367,
+            "mean": -0.002600270528969,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.2709351010495843,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 23,
+        "fingerprint": "364ea6ae777f4bda947274a98e689b45937998b85de18fad8f76a8fecc455063",
+        "sharpe_val": -0.47843036205784056,
+        "n_trades": 96,
+        "p_value": 0.5450361278053935,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010906544036327778,
+            "hi": 0.005126692031494367,
+            "mean": -0.002600270528969,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.2709351010495843,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 24,
+        "fingerprint": "cdb9c68299332ccaed70843a68b71a0f775b27829b648b5d2c8171b6c4e13a93",
+        "sharpe_val": -0.6296847319646547,
+        "n_trades": 103,
+        "p_value": 0.4257112581907374,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010788566469902885,
+            "hi": 0.004363003242004351,
+            "mean": -0.003315384304532978,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.21001326169497925,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 25,
+        "fingerprint": "3610709aa3d60154fe586cb9c31da5842f1b2c1e3fde204831bc0c41ec4fd434",
+        "sharpe_val": -0.6419550251443197,
+        "n_trades": 103,
+        "p_value": 0.41674920162297946,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010862017357159857,
+            "hi": 0.004346127272180917,
+            "mean": -0.003380504144782716,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.20550046593222543,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 26,
+        "fingerprint": "dde36f3d52b6e69b8af69f791d09be2df248bb04977372820789e6e2c48c277c",
+        "sharpe_val": -0.6748897304121613,
+        "n_trades": 103,
+        "p_value": 0.39325106524984377,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.011200795150228773,
+            "hi": 0.004156316438774312,
+            "mean": -0.0035611529554385245,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.1936481365859879,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 27,
+        "fingerprint": "85e547e5d6f727e74c8f9d3f16b48d7a710542b44ef487f8e8e473d778d310bd",
+        "sharpe_val": -0.6419550251443197,
+        "n_trades": 103,
+        "p_value": 0.41674920162297946,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010862017357159857,
+            "hi": 0.004346127272180917,
+            "mean": -0.003380504144782716,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.20550046593222543,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 28,
+        "fingerprint": "6719cba407196c366047c1eee0b06bff118eceaeffa3a5cb1e8cc1205283dbdf",
+        "sharpe_val": -0.4493111343343978,
+        "n_trades": 96,
+        "p_value": 0.5697775293685108,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010310111752121084,
+            "hi": 0.005184833893503801,
+            "mean": -0.0024047414017149007,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.2852972988815763,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 29,
+        "fingerprint": "6719cba407196c366047c1eee0b06bff118eceaeffa3a5cb1e8cc1205283dbdf",
+        "sharpe_val": -0.4493111343343978,
+        "n_trades": 96,
+        "p_value": 0.5697775293685108,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010310111752121084,
+            "hi": 0.005184833893503801,
+            "mean": -0.0024047414017149007,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.2852972988815763,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 30,
+        "fingerprint": "dc7d679ec590a46b81ca0cf8d6295b6d5d1a8d6780ac0ce12e41a0caa91dab0b",
+        "sharpe_val": -0.6419550251443197,
+        "n_trades": 103,
+        "p_value": 0.41674920162297946,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010862017357159857,
+            "hi": 0.004346127272180917,
+            "mean": -0.003380504144782716,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.20550046593222543,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 31,
+        "fingerprint": "d4df7358adbdaa66bad3d1583cdadae2da2fc9a863e6a6c349fc0a9bab9ebd8e",
+        "sharpe_val": -0.6419550251443197,
+        "n_trades": 103,
+        "p_value": 0.41674920162297946,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010862017357159857,
+            "hi": 0.004346127272180917,
+            "mean": -0.003380504144782716,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.20550046593222543,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 32,
+        "fingerprint": "37fb590a6a2b6de5693d1fa8e575660ccecb40c2f4f51b9fe84e31b8fbc33123",
+        "sharpe_val": -0.46383811367771993,
+        "n_trades": 102,
+        "p_value": 0.5573677119687843,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.009781037681685912,
+            "hi": 0.005736295753956378,
+            "mean": -0.002423602337481442,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.2784311934851936,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 33,
+        "fingerprint": "98fbbb663a4a4cc78342d41457d405e1b278387810dad477c15621d8cd3a70ec",
+        "sharpe_val": -0.46383811367771993,
+        "n_trades": 102,
+        "p_value": 0.5573677119687843,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.009781037681685912,
+            "hi": 0.005736295753956378,
+            "mean": -0.002423602337481442,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.2784311934851936,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 34,
+        "fingerprint": "4c3ce5399964678e501d993a98a1e264c24caa60ab0c8ec4f95bf00d4105a956",
+        "sharpe_val": -0.517778360182534,
+        "n_trades": 103,
+        "p_value": 0.5124739973108292,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010605041968546256,
+            "hi": 0.0046021412676982365,
+            "mean": -0.002721698087283217,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.25399865130281085,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 35,
+        "fingerprint": "a2841ee760c8a7e9ce0df4d7b93b098adc7000ef8b67c3126ba6932bcb53a9fe",
+        "sharpe_val": -0.6419550251443197,
+        "n_trades": 103,
+        "p_value": 0.41674920162297946,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010862017357159857,
+            "hi": 0.004346127272180917,
+            "mean": -0.003380504144782716,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.20550046593222543,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 36,
+        "fingerprint": "a20ee1452e7ddeaa8020bfd7993db5a0253d19bf5333fb409239b011b9e6264b",
+        "sharpe_val": -0.4493111343343978,
+        "n_trades": 96,
+        "p_value": 0.5697775293685108,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010310111752121084,
+            "hi": 0.005184833893503801,
+            "mean": -0.0024047414017149007,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.2852972988815763,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 37,
+        "fingerprint": "e8c4c7c1b82d4030d9aaa6e63157fda7ff381ecdcafab266cbe2ab6d12369218",
+        "sharpe_val": -0.6907569522852216,
+        "n_trades": 102,
+        "p_value": 0.3822225787339921,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.011511295146673402,
+            "hi": 0.0038288492718062343,
+            "mean": -0.0036546425858846265,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.18952096403624108,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 38,
+        "fingerprint": "02086fba2ab487b77814a381f5e7c6e1e966f2b030c454bf2a8ccdb2433bb677",
+        "sharpe_val": -0.6419550251443197,
+        "n_trades": 103,
+        "p_value": 0.41674920162297946,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010862017357159857,
+            "hi": 0.004346127272180917,
+            "mean": -0.003380504144782716,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.20550046593222543,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 39,
+        "fingerprint": "ddd9d3479efc70d1eabce20c5f026f8bdf27693c8a6b4b8c3f579213b99d4b13",
+        "sharpe_val": -0.6419550251443197,
+        "n_trades": 103,
+        "p_value": 0.41674920162297946,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010862017357159857,
+            "hi": 0.004346127272180917,
+            "mean": -0.003380504144782716,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.20550046593222543,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 40,
+        "fingerprint": "fba2144067c543815ccda13dcc899659f5902955e8acc4082d70f368c2103e2e",
+        "sharpe_val": -0.4493111343343978,
+        "n_trades": 96,
+        "p_value": 0.5697775293685108,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010310111752121084,
+            "hi": 0.005184833893503801,
+            "mean": -0.0024047414017149007,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.2852972988815763,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 41,
+        "fingerprint": "1dad677f1efa9b6d9b8def79d1baa8b09182f322a2eb0c430aede383a8fe859b",
+        "sharpe_val": -0.6419550251443197,
+        "n_trades": 103,
+        "p_value": 0.41674920162297946,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.010862017357159857,
+            "hi": 0.004346127272180917,
+            "mean": -0.003380504144782716,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.20550046593222543,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 42,
+        "fingerprint": "e979f240dc48746a45d86991bbc75d9c65869183c3e2871c7afaf7f842a97fca",
+        "sharpe_val": -0.756795642133095,
+        "n_trades": 102,
+        "p_value": 0.33839189904678113,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.012034540750899981,
+            "hi": 0.0032722447342756317,
+            "mean": -0.004035304503146347,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.1676733574492772,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      },
+      {
+        "cell_index": 43,
+        "fingerprint": "d12743736d6a92471b72e5dc231bcb7906bfb31bd5a9b8d81cc5d28ed3697183",
+        "sharpe_val": -0.5313204765635604,
+        "n_trades": 97,
+        "p_value": 0.5015066060716085,
+        "reasons": {
+          "c1_split_embargo": true,
+          "c6_bootstrap": {
+            "lo": -0.01022256604228031,
+            "hi": 0.00462853186557903,
+            "mean": -0.0027870300512680365,
+            "pass": false
+          },
+          "c2_dsr": {
+            "value": 0.25076148331241543,
+            "pass": false
+          },
+          "c5_fdr": {
+            "pass": false
+          },
+          "dedup": {
+            "duplicate_of": null,
+            "pass": true
+          },
+          "min_trades": true
+        },
+        "admitted": false
+      }
+    ]
+  }
+}

@@ -27,7 +27,13 @@ import numpy as np
 
 from einherjar.research.baselines.runner import parse_horizon
 from einherjar.research.search_engine.admission import Candidate, admit_batch
-from einherjar.research.search_engine.corpus import append_candidate, append_einher, fingerprint_of
+from einherjar.research.search_engine.corpus import (
+    append_candidate,
+    append_einher,
+    condition_from_dict,
+    fingerprint_of,
+    load_corpus,
+)
 from einherjar.research.search_engine.evaluator import collect_tree_features, eval_condition_ast
 from einherjar.research.search_engine.map_elites import run_map_elites
 from einherjar.research.search_engine.space import SpaceConfig
@@ -131,11 +137,24 @@ def run(
         )
 
     # 5. Admission C1-C6 (batch : FDR sur toutes les p-values)
-    outcomes = admit_batch(candidates, seed=seed)
+    #    Dédup GLOBAL : les admis historiques du corpus GP sont aussi
+    #    comparés (un même signal trouvé par un autre seed est un doublon).
+    corpus_file = output_dir / "corpus_GP.jsonl"
+    accepted_history: list[Candidate] = []
+    for entry in load_corpus(corpus_file):
+        ast = condition_from_dict(entry["condition_tree"])
+        accepted_history.append(
+            Candidate(
+                einher=None,
+                val_mask=eval_condition_ast(ast, X_val, feature_names),
+                features=collect_tree_features(ast),
+                fingerprint=entry.get("fingerprint", ""),
+            )
+        )
+    outcomes = admit_batch(candidates, seed=seed, initial_accepted=accepted_history)
 
     # 6. Rapport + corpus (corpus_GP = admis GP ; archive_GP = rejetés + raisons)
     output_dir.mkdir(exist_ok=True)
-    corpus_file = output_dir / "corpus_GP.jsonl"
     archive_file = output_dir / "archive_GP.jsonl"
     report = _report(
         asset, timeframe, horizon, cfg, archive,

@@ -69,6 +69,7 @@ def _mask_corr(m_a: np.ndarray, m_b: np.ndarray) -> float:
 def admit_batch(
     candidates: list[Candidate],
     *,
+    initial_accepted: list[Candidate] | None = None,
     min_trades: int = DEFAULT_MIN_TRADES,
     dsr_threshold: float = DEFAULT_DSR_THRESHOLD,
     fdr_alpha: float = DEFAULT_FDR_ALPHA,
@@ -88,7 +89,7 @@ def admit_batch(
     pvalues = [float(c.einher.metrics.p_value) for c in candidates]
     fdr_pass = benjamini_hochberg(pvalues, alpha=fdr_alpha)
 
-    accepted: list[Candidate] = []
+    accepted: list[Candidate] = list(initial_accepted or [])
     per_candidate: dict[int, AdmissionOutcome] = {}
 
     for i in order:

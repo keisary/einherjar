@@ -146,3 +146,43 @@ class TestCorpus:
         assert rows[0]["admission"]["admitted"] is True
         # idempotence de l'empreinte
         assert fingerprint_of(c.einher.condition_tree) == fp
+
+def _mk_strong(sharpe: float, n: int = 120, features=None, mask_slice=None) -> Candidate:
+    """Candidate admissible : rendements positifs bruités."""
+    rng = np.random.default_rng(3)
+    rets = rng.normal(0.01, 0.03, n)  # t-stat élevé -> C6/DSR passent en test
+    m = EinherMetrics(
+        n_trades=n, n_tp=int(n*0.6), n_sl=int(n*0.4), n_timeout=0,
+        win_rate=0.6, avg_net_return=float(rets.mean()), total_return=float(rets.sum()),
+        sharpe_ratio=sharpe, max_drawdown=-0.1, profit_factor=1.5,
+        avg_holding_bars=10, buy_hold_return=0.2, alpha=0.1,
+        t_statistic=4.0, p_value=0.0001, trade_returns=list(rets),
+    )
+    e = build_einher(Cmp(expr=Feature("mom"), operator=">", value=0.0), "BUY", 10,
+                     {"asset": "BTCUSD"}, costs_pct=0.0014)
+    e = dataclasses.replace(e, metrics=m)
+    mask = np.zeros(500, dtype=bool)
+    mask[slice(0, 200) if mask_slice is None else mask_slice] = True
+    return Candidate(
+        einher=e, val_mask=mask,
+        features={"mom", "vol"} if features is None else features,
+        fingerprint=f"fp_{sharpe}",
+    )
+
+
+def test_dedup_cross_batch_rejects_duplicate() -> None:
+    """Un doublon d'un admis HISTORIQUE (autre batch/seed) est rejeté."""
+    a = _mk_strong(2.0)
+    b = _mk_strong(1.9)  # quasi-identique (mêmes features, même masque)
+    outcomes = admit_batch([b], initial_accepted=[a], dup_jaccard=0.30, dup_corr=0.50)
+    assert not outcomes[0].admitted
+    assert outcomes[0].reasons["dedup"]["duplicate_of"] == "fp_2.0"
+
+
+def test_dedup_cross_batch_allows_distinct() -> None:
+    """Un candidat nouveau (features disjointes, masque décorrélé) passe malgré
+    un historique non vide."""
+    # features disjointes + masque décorrélé vs l'historique
+    b = _mk_strong(2.5, features={"rsi", "kurt"}, mask_slice=slice(200, 500))
+    outcomes = admit_batch([b], initial_accepted=[_mk_strong(2.0)], dup_jaccard=0.30, dup_corr=0.50)
+    assert outcomes[0].admitted

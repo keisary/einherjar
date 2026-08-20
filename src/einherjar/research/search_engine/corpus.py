@@ -15,6 +15,39 @@ OUTPUT_DIR = Path(r"D:/midas_v2/einherjar/outputs")
 CORPUS_FILENAME = "corpus.jsonl"
 
 
+def condition_from_dict(d: dict[str, Any]) -> Any:
+    """Reconstruit la Condition/ConditionNode depuis sa forme sérialisée.
+
+    Une condition sérialisée (JSON) est un dict : soit un atome
+    {feature_ref, operator, value, expr}, soit un nœud {op, left, right}.
+    L'expr numérique (kind: feature/const/binnum) est reconstruite en
+    NumExpr STGP.
+    """
+    from einherjar.research.search_engine.expression import BinNum, Const, Feature
+    from einherjar.research.xgb_einhers.types import Condition, ConditionNode
+
+    def rebuild_expr(x: dict[str, Any]) -> Any:
+        if x.get("kind") == "feature":
+            return Feature(x["feature_ref"])
+        if x.get("kind") == "const":
+            return Const(x["value"])
+        return BinNum(op=x["op"], left=rebuild_expr(x["left"]), right=rebuild_expr(x["right"]))
+
+    left, right = d.get("left"), d.get("right")
+    if left is not None or right is not None:
+        return ConditionNode(
+            op=d["op"],
+            left=condition_from_dict(left) if left is not None else None,
+            right=condition_from_dict(right) if right is not None else None,
+        )
+    return Condition(
+        feature_ref=d.get("feature_ref", ""),
+        operator=d.get("operator", ""),
+        value=d.get("value", 0.0),
+        expr=rebuild_expr(d["expr"]) if d.get("expr") else None,
+    )
+
+
 def fingerprint_of(ast: Any) -> str:
     """Empreinte exacte (sha256) de la condition, forme canonique JSON."""
     canon = json.dumps(ast.to_dict(), sort_keys=True, ensure_ascii=False)
