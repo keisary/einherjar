@@ -494,6 +494,79 @@ archive**. Cible d'architecture ; planification uniquement, rien d'implémenté.
 
 ---
 
+## F. Vue WorldQuant — minage d'alpha formulaïque (GP / Symbolic Regression)
+
+> Recherche arXiv effectuée le 2026-08-18 (skill arxiv). Cette approche est le cadre de
+> référence **industriel** du problème exact d'Einherjar : générer automatiquement des
+> formules symboliques (combo de features) prédictives et **interprétables** du rendement
+> futur, puis les combiner en portefeuille. C'est la lignée « WorldQuant formulaic alpha ».
+> Papiers principaux identifiés et lus (résumés) :
+
+### F1. PySR — Symbolic Regression PRÊTE à l'emploi (outil)
+- **Référence** : Cranmer, M., *Interpretable Machine Learning for Science with PySR and
+  SymbolicRegression.jl*, arXiv:2305.01582, 2023.
+- **Ce que c'est** : bibliothèque open-source de regression symbolique. Cherche des
+  formules closes interprétables. Algorithme = **algorithme évolutionnaire multi-population**
+  avec boucle unique **evolve–simplify–optimize** (optimise les constantes scalaires des
+  expressions découvertes). Backend Julia hautement optimisé (parallélisable, AD, fusion SIMD).
+- **Lien avec notre problème** : PySR **incarne concrètement** l'approche GP/symbolique pour
+  découvrir des formules de features. Contrairement à un GP « maison », il est éprouvé,
+  parallélisable, et gère nativement l'optimisation des constantes.
+- **Adéquation / mise en garde** : excellent pour **générer** des expressions candidates,
+  mais il trouve des **formules continues** (regression), pas des **conditions discrètes à
+  déclenchement** (le cerveau d'un einher). → complément possible du STGP, PAS un
+  remplacement direct ; il faut garder notre couche de validation (DSR/PBO/bootstrap).
+
+### F2. QuantFactor REINFORCE — minage d'alpha par RL
+- **Référence** : Zhao, J., Zhang, C., Qin, M., Yang, P., *QuantFactor REINFORCE: Mining
+  Steady Formulaic Alpha Factors with Variance-bounded REINFORCE*, arXiv:2409.05144, 2024.
+  (24 citations.)
+- **Ce que c'est** : remplace PPO (RL pour générer les alphas formulaïques) par REINFORCE
+  **variance-borné**, avec une baseline dédiée pour réduire la variance, et un **information
+  ratio** comme reward shaping → produit des alphas « stables » (adaptés à la volatilité).
+- **Lien** : montre une **alternative au GP** pour générer des combos de features : le GP
+  comme moteur génératif concurrent du RL.
+- **Adéquation** : dans notre contexte (STGP déjà retenu), le RL est plus complexe à calibrer
+  ; le GP reste la voie principale. À surveiller comme évolution possible, pas pour le MVP.
+
+### F3. AlphaForge — génération + COMBINAISON d'alphas
+- **Référence** : Shi, H., Song, W., Zhang, X., et al., *AlphaForge: A Framework to Mine and
+  Dynamically Combine Formulaic Alpha Factors*, arXiv:2406.18394, 2024.
+- **Ce que c'est** : framework 2 étapes : (1) un **réseau génératif-prédictif** génère les
+  alphas (exploration spatiale profonde + diversité préservée) ; (2) un module de **combinaison
+  qui pondère dynamiquement** chaque alpha selon sa performance temporelle (au lieu de poids
+  fixes).
+- **Lien avec notre étape E (corpus)** : le point fort est la **combinaison dynamique** +
+  la **diversité préservée à la génération** — exactement ce qu'on veut pour un corpus dont la
+  combinaison robuste fait croître le capital. Valide notre choix de ne pas figer les poids et
+  de chercher plusieurs alphas indépendants.
+
+### F4. Alpha Jungle (LLM + MCTS) — le plus récent
+- **Référence** : Shi, Y., Duan, Y., Li, J., *Navigating the Alpha Jungle: An LLM-Powered MCTS
+  Framework for Formulaic Factor Mining*, arXiv:2505.11122, 2025.
+- **Ce que c'est** : utilise un **LLM pour générer/affiner itérativement** les formules
+  d'alpha, piloté par un **Monte Carlo Tree Search (MCTS)**, avec un guidage par retour
+  quantitatif du backtest de chaque candidat, et un **mécanisme d'évitement de sous-arbres
+  fréquents** pour diversifier (anti-homogénéisation).
+- **Lien avec notre étape D (diversité)** : le mécanisme anti-homogénéisation des formules =
+  le pendant de notre MAP-Elites + dédup comportementale. Le cadre GP reste notre base ; le
+  LLM+MCTS est une voie de recherche émergente, lourde (LLM en boucle), à garder en veille.
+
+### Synthèse de cette vue WorldQuant et impact sur nos décisions
+Notre pile (A–E) est **cohérente** avec l'état de l'art : GP/STGP pour explorer les combos,
+diversité (MAP-Elites / anti-homogénéisation), et **une validation rigoureuse en aval** — ce
+que les papiers ci-dessus traitent moins. Les apports concrets :
+- **Outils prêts à l'emploi** : PySR (F1) peut être ajouté comme **générateur de formules
+  complémentaire** du STGP, pour enrichir l'espace d'expression (ex. formules continues côté
+  amplitude/score) avant notre validation.
+- **Diversité + combinaison dynamique** (F3) : confirme l'étape D et suggère que la mie en
+  corpus gagne à combiner les alphas avec des poids adaptatifs (pas fixes).
+- **Anti-homogénéisation** (F4) : renforce notre principe MAP-Elites + fingerprint/dédup.
+- **RL (F2/F4) et LLM (F4)** : voies concurrentes plus lourdes, à garder en veille, pas dans
+  le MVP (délai 3 semaines).
+
+---
+
 ## Synthèse / priorités pour notre contexte
 
 Notre problème = espace borné de combinaisons de features. La réponse n'est pas UN

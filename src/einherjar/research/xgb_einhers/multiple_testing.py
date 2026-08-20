@@ -135,23 +135,22 @@ def apply_bh_to_einhers(
         return [], [], []
     pvalues = []
     for e in einhers:
-        # On utilise les rendements val (stockes dans source si dispo, sinon metrics)
-        rets = getattr(e, "_trade_returns", None)
-        if rets is None:
-            # Fallback : approximation a partir de sharpe et n_trades
-            # Si sharpe > 0 et n > 30, on considere p-value faible
+        # Sprint 3.3 FIX BUG-02 : utiliser la vraie p-value calculee dans compute_metrics
+        # (t-stat sur les rendements de trades) au lieu du fallback Erf(Sharpe)
+        p_val = getattr(e.metrics, "p_value", None)
+        if p_val is None or p_val == 0:
+            # Fallback de securite (ne devrait pas arriver avec le fix BUG-02)
             sharpe = e.metrics.sharpe_ratio
             n = e.metrics.n_trades
             if n < 2 or sharpe <= 0:
                 pvalue = 1.0
             else:
-                # Approximation : p-value = 2 * (1 - Phi(|sharpe|))
-                # ou plus simple : p-value = exp(-sharpe) borne
                 from math import erf, sqrt
                 pvalue = 2 * (1 - 0.5 * (1 + erf(abs(sharpe) / sqrt(2))))
-            pvalues.append(pvalue)
+                pvalue = max(pvalue, 1e-10)
         else:
-            pvalues.append(bootstrap_pvalue(np.asarray(rets), n_bootstrap=n_bootstrap, random_state=random_state))
+            pvalue = p_val
+        pvalues.append(pvalue)
     rejected = benjamini_hochberg(pvalues, fdr=fdr)
     einhers_filtered = [e for e, r in zip(einhers, rejected) if r]
     return einhers_filtered, pvalues, rejected

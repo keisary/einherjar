@@ -18,14 +18,14 @@
         "total_return": 1.4266080386263735
       },
       "holdout": {
-        "n_trades": 39,
-        "win_rate": 0.7435897435897436,
-        "sharpe": 4.268926840820999,
-        "profit_factor": 5.014471302471517,
-        "max_dd": -0.0631999999999995,
-        "total_return": 0.5708578192114462
+        "n_trades": 27,
+        "win_rate": 0.7407407407407407,
+        "sharpe": 3.6304389903461654,
+        "profit_factor": 5.22423859927688,
+        "max_dd": -0.06319999999999952,
+        "total_return": 0.40045781921144563
       },
-      "degradation_sharpe_ratio": 0.592587659476201
+      "degradation_sharpe_ratio": 0.5039564800193738
     },
     {
       "id": "xgb_BTCUSD_1h_2d_0000_0002_a1a807",
@@ -40,14 +40,14 @@
         "total_return": 1.5118080386263737
       },
       "holdout": {
-        "n_trades": 42,
-        "win_rate": 0.7380952380952381,
-        "sharpe": 4.501847088314523,
-        "profit_factor": 5.217397768512373,
-        "max_dd": -0.0631999999999995,
-        "total_return": 0.615511918017763
+        "n_trades": 29,
+        "win_rate": 0.7241379310344828,
+        "sharpe": 3.7145074481637925,
+        "profit_factor": 5.271227041604709,
+        "max_dd": -0.06319999999999952,
+        "total_return": 0.42091191801776257
       },
-      "degradation_sharpe_ratio": 0.6173272348699608
+      "degradation_sharpe_ratio": 0.5093612836897453
     },
     {
       "id": "xgb_BTCUSD_1h_2d_0000_0002_2e48fc",
@@ -62,14 +62,14 @@
         "total_return": 2.9099608089508537
       },
       "holdout": {
-        "n_trades": 112,
-        "win_rate": 0.7410714285714286,
-        "sharpe": 6.9609691662842,
-        "profit_factor": 4.726263264904721,
-        "max_dd": -0.08639999999999914,
-        "total_return": 1.5924889432095366
+        "n_trades": 67,
+        "win_rate": 0.7014925373134329,
+        "sharpe": 4.706541083760859,
+        "profit_factor": 4.027991537210217,
+        "max_dd": -0.06319999999999948,
+        "total_return": 0.8634889432095354
       },
-      "degradation_sharpe_ratio": 0.8435760048713022
+      "degradation_sharpe_ratio": 0.570369589256637
     },
     {
       "id": "xgb_BTCUSD_1h_2d_0000_0003_77bc17",
@@ -84,14 +84,14 @@
         "total_return": 1.0311456382092232
       },
       "holdout": {
-        "n_trades": 38,
-        "win_rate": 0.6842105263157895,
-        "sharpe": 3.0072703018131635,
-        "profit_factor": 3.318565400843902,
-        "max_dd": -0.047399999999999665,
-        "total_return": 0.4396000000000014
+        "n_trades": 27,
+        "win_rate": 0.7037037037037037,
+        "sharpe": 2.739187065028712,
+        "profit_factor": 3.6376582278481195,
+        "max_dd": -0.03159999999999996,
+        "total_return": 0.3334000000000008
       },
-      "degradation_sharpe_ratio": 0.7039277764936258
+      "degradation_sharpe_ratio": 0.6411761054279707
     },
     {
       "id": "xgb_BTCUSD_1h_2d_0000_0002_a39d37",
@@ -106,14 +106,14 @@
         "total_return": 3.269074958232674
       },
       "holdout": {
-        "n_trades": 166,
-        "win_rate": 0.6385542168674698,
-        "sharpe": 6.0083032673357595,
-        "profit_factor": 3.199277576030576,
-        "max_dd": -0.0863999999999987,
-        "total_return": 1.7923054895808885
+        "n_trades": 91,
+        "win_rate": 0.6263736263736264,
+        "sharpe": 4.317155707428568,
+        "profit_factor": 3.1166261743990145,
+        "max_dd": -0.04739999999999961,
+        "total_return": 0.9557666191141241
       },
-      "degradation_sharpe_ratio": 0.9342749508513732
+      "degradation_sharpe_ratio": 0.671306067106042
     },
     {
       "id": "xgb_BTCUSD_1h_2d_0000_0002_f0fc79",
@@ -128,14 +128,14 @@
         "total_return": 2.5958585533670284
       },
       "holdout": {
-        "n_trades": 127,
-        "win_rate": 0.7086614173228346,
-        "sharpe": 6.98758840812901,
-        "profit_factor": 4.463805529244052,
-        "max_dd": -0.10219999999999896,
-        "total_return": 1.7122102584371341
+        "n_trades": 77,
+        "win_rate": 0.6883116883116883,
+        "sharpe": 5.068399910405353,
+        "profit_factor": 4.078959152613463,
+        "max_dd": -0.07059999999999933,
+        "total_return": 0.9868519067942383
       },
-      "degradation_sharpe_ratio": 1.0990498053906663
+      "degradation_sharpe_ratio": 0.7971883301959689
     },
     {
       "id": "xgb_BTCUSD_1h_2d_0000_0005_d37b2e",
@@ -150,14 +150,14 @@
         "total_return": 4.157006744206022
       },
       "holdout": {
-        "n_trades": 449,
-        "win_rate": 0.5523385300668151,
-        "sharpe": 8.434410578418413,
-        "profit_factor": 2.7913273515643247,
-        "max_dd": -0.17098815615069052,
-        "total_return": 4.077074471344945
+        "n_trades": 229,
+        "win_rate": 0.5109170305676856,
+        "sharpe": 4.562281426436716,
+        "profit_factor": 2.1912429942537197,
+        "max_dd": -0.09686797378825562,
+        "total_return": 1.6281281837688129
       },
-      "degradation_sharpe_ratio": 0.9580178335131881
+      "degradation_sharpe_ratio": 0.5182041978387949
     },
     {
       "id": "xgb_BTCUSD_1h_2d_0000_0002_2e19ce",
@@ -172,14 +172,14 @@
         "total_return": 1.6918240850910433
       },
       "holdout": {
-        "n_trades": 96,
-        "win_rate": 0.7083333333333334,
-        "sharpe": 5.80005609258897,
-        "profit_factor": 4.143968190445531,
-        "max_dd": -0.0631999999999995,
-        "total_return": 1.2643628652440442
+        "n_trades": 67,
+        "win_rate": 0.7014925373134329,
+        "sharpe": 4.52995782991226,
+        "profit_factor": 3.816446936347128,
+        "max_dd": -0.06319999999999955,
+        "total_return": 0.8454973702914027
       },
-      "degradation_sharpe_ratio": 0.6034755867564346
+      "degradation_sharpe_ratio": 0.4713262968062016
     },
     {
       "id": "xgb_BTCUSD_1h_2d_0000_0002_937415",
@@ -194,14 +194,14 @@
         "total_return": 1.5740712752952717
       },
       "holdout": {
-        "n_trades": 106,
-        "win_rate": 0.7735849056603774,
-        "sharpe": 9.07036161739992,
-        "profit_factor": 7.597038675757951,
-        "max_dd": -0.047399999999999665,
-        "total_return": 1.7540403821588435
+        "n_trades": 72,
+        "win_rate": 0.7361111111111112,
+        "sharpe": 6.7146086777967975,
+        "profit_factor": 6.500901590184027,
+        "max_dd": -0.04739999999999964,
+        "total_return": 1.114939193586922
       },
-      "degradation_sharpe_ratio": 0.9505693142293604
+      "degradation_sharpe_ratio": 0.7036875965262186
     }
   ]
 }

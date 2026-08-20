@@ -153,7 +153,11 @@ def load_ohlcv(
         DataFrame polars avec colonnes [timestamp (datetime[us, UTC]), open, high, low, close, volume].
         Trié ASC par timestamp.
     """
-    root = Path(ohlcv_dir) / asset_class / asset / timeframe
+    # FIX BUG-12 (Sprint 3.6) : les 3 sous-classes stocks (growth/tech/value)
+    # partagent le meme dossier OHLCV "stocks/".
+    from einherjar.research.xgb_einhers.multi_asset_loader import resolve_ohlcv_class
+    ohlcv_class = resolve_ohlcv_class(asset_class)
+    root = Path(ohlcv_dir) / ohlcv_class / asset / timeframe
     if not root.is_dir():
         raise FileNotFoundError(f"Dossier OHLCV absent : {root}")
 

@@ -1,0 +1,417 @@
+{
+  "meta": {
+    "asset": "ETHUSD",
+    "asset_class": "crypto",
+    "timeframe": "1h",
+    "horizon": "2d",
+    "horizon_bars": 48,
+    "n_random": 200,
+    "seed": 42,
+    "costs_pct": 0.002,
+    "costs_source": "fees_ctrader.json (load_costs)",
+    "created_at": "2026-08-20T01:15:23.664846+00:00",
+    "n_rows": 66002
+  },
+  "windows": {
+    "val": {
+      "start": "2022-11-24 18:00:00+00:00",
+      "end": "2024-05-30 23:00:00+00:00",
+      "n_bars": 13200
+    },
+    "holdout": {
+      "start": "2024-06-02 02:00:00+00:00",
+      "end": "2025-11-30 23:00:00+00:00",
+      "n_bars": 13101
+    }
+  },
+  "buy_hold": {
+    "val": {
+      "total_return": 2.1183180682764364,
+      "sharpe_daily": 1.6693901152113015,
+      "n_days": 553
+    },
+    "holdout": {
+      "total_return": -0.21359835936267552,
+      "sharpe_daily": 0.13718321641141784,
+      "n_days": 546
+    }
+  },
+  "always_long": {
+    "val": {
+      "n_trades": 928,
+      "n_tp": 341,
+      "n_sl": 519,
+      "n_timeout": 68,
+      "win_rate": 0.36745689655172414,
+      "avg_net_return": -0.0009466990859503159,
+      "total_return": -0.8785367517618932,
+      "sharpe_ratio": -1.2361039866660704,
+      "max_drawdown": -1.0385367517618915,
+      "profit_factor": 0.9020013416775647,
+      "avg_holding_bars": 14.204741379310345,
+      "buy_hold_return": 2.1183180682764364,
+      "alpha": -2.9968548200383296,
+      "t_statistic": -1.5217837127577651,
+      "p_value": 0.12806328381873522
+    },
+    "holdout": {
+      "n_trades": 1548,
+      "n_tp": 569,
+      "n_sl": 956,
+      "n_timeout": 23,
+      "win_rate": 0.36757105943152457,
+      "avg_net_return": -0.0019801525673591278,
+      "total_return": -3.0652761742719297,
+      "sharpe_ratio": -3.308394366148765,
+      "max_drawdown": -3.1247214044209053,
+      "profit_factor": 0.8116861661730672,
+      "avg_holding_bars": 8.438630490956072,
+      "buy_hold_return": -0.21359835936267552,
+      "alpha": -2.8516778149092543,
+      "t_statistic": -4.04962562148365,
+      "p_value": 5.1299634606927214e-05
+    }
+  },
+  "always_short": {
+    "val": {
+      "n_trades": 904,
+      "n_tp": 287,
+      "n_sl": 542,
+      "n_timeout": 75,
+      "win_rate": 0.3174778761061947,
+      "avg_net_return": -0.002642827374048742,
+      "total_return": -2.3891159461400626,
+      "sharpe_ratio": -3.500985762632464,
+      "max_drawdown": -2.449115946140055,
+      "profit_factor": 0.74451708724676,
+      "avg_holding_bars": 14.564159292035399,
+      "buy_hold_return": 2.1183180682764364,
+      "alpha": -4.507434014416499,
+      "t_statistic": -4.310109157191951,
+      "p_value": 1.6317398198406607e-05
+    },
+    "holdout": {
+      "n_trades": 1549,
+      "n_tp": 569,
+      "n_sl": 958,
+      "n_timeout": 22,
+      "win_rate": 0.3673337637185281,
+      "avg_net_return": -0.0020246802412007352,
+      "total_return": -3.1362296936199385,
+      "sharpe_ratio": -3.384682103418629,
+      "max_drawdown": -3.402940932442875,
+      "profit_factor": 0.8078526495925064,
+      "avg_holding_bars": 8.433182698515171,
+      "buy_hold_return": -0.21359835936267552,
+      "alpha": -2.922631334257263,
+      "t_statistic": -4.143005291880286,
+      "p_value": 3.427840324832232e-05
+    }
+  },
+  "random_search": {
+    "val": {
+      "sharpe": {
+        "n": 200,
+        "mean": -1.5972845714841624,
+        "median": -1.4865275442235482,
+        "std": 1.1114298044204003,
+        "p5": -3.4147536810069745,
+        "p25": -2.4536540215980196,
+        "p75": -0.8053596858993141,
+        "p95": 0.02724802246505789,
+        "min": -3.8034374885081688,
+        "max": 1.8038714316483861
+      },
+      "win_rate": {
+        "n": 200,
+        "mean": 0.3269441521227347,
+        "median": 0.3237975571269943,
+        "std": 0.04412097326836822,
+        "p5": 0.2665475213875542,
+        "p25": 0.30734075680484885,
+        "p75": 0.3539039286893364,
+        "p95": 0.3825302848412091,
+        "min": 0.17391304347826086,
+        "max": 0.5952380952380952
+      },
+      "n_trades": {
+        "n": 200,
+        "mean": 410.18,
+        "median": 380.0,
+        "std": 256.46845408295053,
+        "p5": 56.900000000000006,
+        "p25": 178.5,
+        "p75": 647.0,
+        "p95": 824.15,
+        "min": 3.0,
+        "max": 929.0
+      },
+      "total_return": {
+        "n": 200,
+        "mean": -0.7823611099198656,
+        "median": -0.6577810671213493,
+        "std": 0.6695941833174128,
+        "p5": -2.078356887098885,
+        "p25": -1.1941037080945098,
+        "p75": -0.24323693433892607,
+        "p95": 0.00884120645105302,
+        "min": -2.306226176574423,
+        "max": 0.5501179198884419
+      },
+      "trigger_rate": {
+        "n": 200,
+        "mean": 0.18364090909090908,
+        "median": 0.0775,
+        "std": 0.2146495422788645,
+        "p5": 0.006181818181818182,
+        "p25": 0.026363636363636363,
+        "p75": 0.29113636363636364,
+        "p95": 0.6276060606060604,
+        "min": 0.00022727272727272727,
+        "max": 0.9681818181818181
+      },
+      "n_positive_sharpe": 11,
+      "n_admissible_min": 9,
+      "n_passes_admission": 3,
+      "share_beating_buy_hold": 0.0
+    },
+    "by_direction": {
+      "BUY": {
+        "n": 103,
+        "mean": -0.9351897320317131,
+        "median": -0.9525413146766626,
+        "std": 0.7923195923701228,
+        "p5": -2.0609858223896715,
+        "p25": -1.4065343910377466,
+        "p75": -0.4085645355559838,
+        "p95": 0.25121452620488227,
+        "min": -3.1752408720445797,
+        "max": 1.8038714316483861
+      },
+      "SELL": {
+        "n": 97,
+        "mean": -2.3003337309027425,
+        "median": -2.4504785130399602,
+        "std": 0.9611752107657286,
+        "p5": -3.5247964038968917,
+        "p25": -2.9978468515883097,
+        "p75": -1.7751236557834695,
+        "p95": -0.5300605311222023,
+        "min": -3.8034374885081688,
+        "max": 0.5915422305510261
+      }
+    },
+    "holdout_corr_sharpe": 0.3365215381298961,
+    "best_by_val_sharpe": [
+      {
+        "id": "bl_ETHUSD_1h_2d_0052",
+        "direction": "BUY",
+        "n_conditions": 3,
+        "condition": "((macd_line > -0.01443 AND quant_dynamic_cvar > 0.01306) AND quant_max_drawdown > 0.04704)",
+        "val": {
+          "n_trades": 42,
+          "n_tp": 25,
+          "n_sl": 17,
+          "n_timeout": 0,
+          "win_rate": 0.5952380952380952,
+          "avg_net_return": 0.006809523809523748,
+          "total_return": 0.2859999999999974,
+          "sharpe_ratio": 1.8038714316483861,
+          "max_drawdown": -0.06200000000000014,
+          "profit_factor": 1.9896193771626194,
+          "avg_holding_bars": 4.928571428571429,
+          "buy_hold_return": 2.1183180682764364,
+          "alpha": -1.832318068276439,
+          "t_statistic": 2.220769606928812,
+          "p_value": 0.026366570129752187
+        },
+        "holdout": {
+          "n_trades": 120,
+          "n_tp": 50,
+          "n_sl": 70,
+          "n_timeout": 0,
+          "win_rate": 0.4166666666666667,
+          "avg_net_return": -0.0003333333333333816,
+          "total_return": -0.040000000000005795,
+          "sharpe_ratio": -0.15064053713585226,
+          "max_drawdown": -0.2120000000000013,
+          "profit_factor": 0.9663865546218441,
+          "avg_holding_bars": 3.466666666666667,
+          "buy_hold_return": -0.21359835936267552,
+          "alpha": 0.1735983593626697,
+          "t_statistic": -0.18439088914588478,
+          "p_value": 0.8537068166869148
+        }
+      },
+      {
+        "id": "bl_ETHUSD_1h_2d_0120",
+        "direction": "BUY",
+        "n_conditions": 1,
+        "condition": "quant_rolling_skewness > 0.9064",
+        "val": {
+          "n_trades": 550,
+          "n_tp": 226,
+          "n_sl": 276,
+          "n_timeout": 48,
+          "win_rate": 0.4109090909090909,
+          "avg_net_return": 0.001000214399797167,
+          "total_return": 0.5501179198884419,
+          "sharpe_ratio": 0.9944907224883899,
+          "max_drawdown": -0.22502760463045457,
+          "profit_factor": 1.1143241132638357,
+          "avg_holding_bars": 15.41090909090909,
+          "buy_hold_return": 2.1183180682764364,
+          "alpha": -1.5682001483879944,
+          "t_statistic": 1.2243304772872434,
+          "p_value": 0.22082758419859583
+        },
+        "holdout": {
+          "n_trades": 627,
+          "n_tp": 301,
+          "n_sl": 310,
+          "n_timeout": 16,
+          "win_rate": 0.4800637958532695,
+          "avg_net_return": 0.002686751807093808,
+          "total_return": 1.6845933830478175,
+          "sharpe_ratio": 2.777266217947132,
+          "max_drawdown": -0.2250000000000012,
+          "profit_factor": 1.3180113956271406,
+          "avg_holding_bars": 10.851674641148325,
+          "buy_hold_return": -0.21359835936267552,
+          "alpha": 1.898191742410493,
+          "t_statistic": 3.399500539886356,
+          "p_value": 0.0006750904656718237
+        }
+      },
+      {
+        "id": "bl_ETHUSD_1h_2d_0038",
+        "direction": "BUY",
+        "n_conditions": 1,
+        "condition": "atr_21 < 0.612",
+        "val": {
+          "n_trades": 3,
+          "n_tp": 1,
+          "n_sl": 0,
+          "n_timeout": 2,
+          "win_rate": 0.3333333333333333,
+          "avg_net_return": 0.006662792997224681,
+          "total_return": 0.019988378991674043,
+          "sharpe_ratio": 0.6618248252369752,
+          "max_drawdown": -0.002162663341105002,
+          "profit_factor": 7.637083131115877,
+          "avg_holding_bars": 34.666666666666664,
+          "buy_hold_return": 2.1183180682764364,
+          "alpha": -2.0983296892847623,
+          "t_statistic": 0.8147811596828566,
+          "p_value": 0.4151975871267388
+        },
+        "holdout": {
+          "n_trades": 2,
+          "n_tp": 0,
+          "n_sl": 2,
+          "n_timeout": 0,
+          "win_rate": 0.0,
+          "avg_net_return": -0.017,
+          "total_return": -0.034,
+          "sharpe_ratio": 0.0,
+          "max_drawdown": -0.017000000000000015,
+          "profit_factor": 0.0,
+          "avg_holding_bars": 3.0,
+          "buy_hold_return": -0.21359835936267552,
+          "alpha": 0.1795983593626755,
+          "t_statistic": 0.0,
+          "p_value": 1.0
+        }
+      },
+      {
+        "id": "bl_ETHUSD_1h_2d_0014",
+        "direction": "BUY",
+        "n_conditions": 3,
+        "condition": "((Factor_Volume_Score < 0.4545 AND roc_10 > -0.181) AND adx_strength_signal > 0.5062)",
+        "val": {
+          "n_trades": 143,
+          "n_tp": 54,
+          "n_sl": 67,
+          "n_timeout": 22,
+          "win_rate": 0.3776223776223776,
+          "avg_net_return": 0.0011961698239411908,
+          "total_return": 0.1710522848235903,
+          "sharpe_ratio": 0.6281173306516729,
+          "max_drawdown": -0.17464118844938203,
+          "profit_factor": 1.147474782243903,
+          "avg_holding_bars": 19.74125874125874,
+          "buy_hold_return": 2.1183180682764364,
+          "alpha": -1.9472657834528462,
+          "t_statistic": 0.7732834242082431,
+          "p_value": 0.43935466342165563
+        },
+        "holdout": {
+          "n_trades": 68,
+          "n_tp": 24,
+          "n_sl": 42,
+          "n_timeout": 2,
+          "win_rate": 0.35294117647058826,
+          "avg_net_return": -0.002257474318920764,
+          "total_return": -0.15350825368661197,
+          "sharpe_ratio": -0.794565989619552,
+          "max_drawdown": -0.1825082536866116,
+          "profit_factor": 0.7850024458170701,
+          "avg_holding_bars": 12.558823529411764,
+          "buy_hold_return": -0.21359835936267552,
+          "alpha": 0.06009010567606354,
+          "t_statistic": -0.9725850166008184,
+          "p_value": 0.3307595924260567
+        }
+      },
+      {
+        "id": "bl_ETHUSD_1h_2d_0136",
+        "direction": "SELL",
+        "n_conditions": 3,
+        "condition": "((vwap_signal > 0 AND Factor_Regime_Hurst_Score > 0.4507) AND quant_autocorr_50_weighted < 0.09066)",
+        "val": {
+          "n_trades": 97,
+          "n_tp": 39,
+          "n_sl": 46,
+          "n_timeout": 12,
+          "win_rate": 0.4020618556701031,
+          "avg_net_return": 0.00139545178591116,
+          "total_return": 0.13535882323338252,
+          "sharpe_ratio": 0.5915422305510261,
+          "max_drawdown": -0.13825385729682127,
+          "profit_factor": 1.1697511598386465,
+          "avg_holding_bars": 19.082474226804123,
+          "buy_hold_return": 2.1183180682764364,
+          "alpha": -1.982959245043054,
+          "t_statistic": 0.7282553422458431,
+          "p_value": 0.46645729391325386
+        },
+        "holdout": {
+          "n_trades": 31,
+          "n_tp": 12,
+          "n_sl": 18,
+          "n_timeout": 1,
+          "win_rate": 0.3870967741935484,
+          "avg_net_return": -0.0009889944806712484,
+          "total_return": -0.030658828900808704,
+          "sharpe_ratio": -0.22956695642561858,
+          "max_drawdown": -0.08999999999999941,
+          "profit_factor": 0.9000230027268332,
+          "avg_holding_bars": 12.483870967741936,
+          "buy_hold_return": -0.21359835936267552,
+          "alpha": 0.1829395304618668,
+          "t_statistic": -0.28100042670227504,
+          "p_value": 0.7787100725521574
+        }
+      }
+    ]
+  },
+  "verdict": {
+    "n_positive_sharpe_rate": 0.055,
+    "random_median_sharpe": -1.4865275442235482,
+    "random_p95_sharpe": 0.02724802246505789,
+    "median_win_rate": 0.3237975571269943,
+    "share_beating_buy_hold": 0.0,
+    "pipeline_sane": true,
+    "note": "Pipeline sain = win_rate aléatoire proche de TP/(TP+SL) (~37.5%), médiane aléatoire négative nette de coûts, <50% de candidats positifs. Le STGP devra battre le quantile p95 des aléatoires (val) ET survivre à la validation lourde (holdout + DSR + FDR) pour prouver qu'il n'est pas du bruit."
+  }
+}

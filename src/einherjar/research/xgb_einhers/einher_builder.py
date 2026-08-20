@@ -27,8 +27,10 @@ from einherjar.research.xgb_einhers.types import (
 logger = logging.getLogger(__name__)
 
 
-# Seuils pour la direction
-MIN_ABS_SCORE_FOR_DIRECTION = 0.003  # |score| > 0.3% pour BUY/SELL
+# Sprint 3.5 : seuil minimum pour la direction (BUY/SELL)
+# Avant : 0.003 (0.3%) - trop restrictif
+# Apres : 0.0005 (0.05%) - aligne sur min_score
+MIN_ABS_SCORE_FOR_DIRECTION = 0.0005
 
 
 def build_einher_from_path(

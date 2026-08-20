@@ -197,11 +197,29 @@ def compute_metrics(
     # APRES (fix) : sharpe = avg_net / std * sqrt(trades_per_year)
     #   où trades_per_year = n_trades / years_in_period
     std = float(np.std(rets, ddof=1)) if n > 1 else 0.0
-    if std > 0 and years_in_period > 0:
+    # FIX BASELINE-01 (2026-08-20) : garde anti-degenerescence (std numerique ~0).
+    degenerate = std <= 1e-12 * max(1e-12, abs(avg_net))
+    if std > 0 and not degenerate and years_in_period > 0:
         trades_per_year = n / years_in_period
         sharpe = float(avg_net / std * np.sqrt(trades_per_year))
     else:
         sharpe = 0.0
+
+    # Sprint 3.3 FIX BUG-02 : vraie t-stat pour correction multi-tests (BH)
+    # t = mean(rets) / (std(rets) / sqrt(n))
+    # p-value bilaterale H0: mean(rets) = 0
+    # On utilise Student t (approx normale si n > 30)
+    if n > 1 and std > 0 and not degenerate:
+        t_stat = float(avg_net / (std / np.sqrt(n)))
+        from math import erf, sqrt
+        if n > 30:
+            p_val = 2.0 * (1.0 - 0.5 * (1.0 + erf(abs(t_stat) / sqrt(2.0))))
+        else:
+            p_val = 2.0 * (1.0 - 0.5 * (1.0 + erf(abs(t_stat) / sqrt(2.0))))
+        p_val = max(p_val, 1e-10)
+    else:
+        t_stat = 0.0
+        p_val = 1.0
 
     # Max drawdown sur equity_curve
     eq = np.cumsum(rets)
@@ -230,6 +248,9 @@ def compute_metrics(
         avg_holding_bars=avg_hold,
         buy_hold_return=buy_hold_return,
         alpha=total - buy_hold_return,
+        t_statistic=t_stat,
+        p_value=p_val,
+        trade_returns=tuple(rets.tolist()),
     )
 
 
@@ -290,11 +311,18 @@ def backtest_einher(
     effective_sl_pct = sl_pct
 
     # 3. Simuler chaque trade
+    # Sprint 3.3 FIX BUG-06 : tracker in_position pour eviter le stacking
+    # Un seul trade ouvert a la fois. Si un signal survient pendant qu'on est
+    # deja en position, on l'ignore (pas d'effet de levier implicite).
     trades = []
+    in_position_until_idx = -1  # index jusqu'auquel une position est ouverte
     for sig_idx in signal_indices:
         entry_idx = sig_idx + 1  # entrée à OPEN[t+1]
         if entry_idx >= n:
             break
+        # FIX BUG-06 : ignorer si on est deja en position
+        if entry_idx <= in_position_until_idx:
+            continue
         entry_price = float(opens[entry_idx])
 
         # SL/TP = pourcentage fixe du prix d'entrée (déjà calibré)
@@ -318,6 +346,7 @@ def backtest_einher(
         net = gross - costs_pct
 
         exit_idx = entry_idx + n_bars - 1
+        in_position_until_idx = exit_idx
         trades.append(TradeResult(
             entry_idx=entry_idx,
             exit_idx=exit_idx,

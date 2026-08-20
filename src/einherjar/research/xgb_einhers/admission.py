@@ -80,16 +80,21 @@ def get_einher_families(einher: Einher) -> set[str]:
 
 @dataclass(frozen=True)
 class AdmissionConfig:
-    """Seuils d'admission."""
+    """Seuils d'admission.
+
+    Sprint 3.5 FIX : limitations relaxees pour permettre plus d'admissions.
+    - min_families : 1 (au lieu de 2) - les regles simples sont OK
+    - min_holdout_trades : 30 (au lieu de 100) - plus permissif, ajuste par horizon
+    """
     min_trades: int = 30
     min_sharpe: float = 0.3
     min_win_rate: float = 0.40
     min_profit_factor: float = 1.0
-    max_drawdown: float = 0.30  # On rejette si max_dd > 0.30 (donc DD < 30%)
-    min_families: int = 2  # Sprint 2.2.2 : >= 2 familles différentes
-    min_holdout_trades: int = 100  # Sprint 3.1 P1 : Gemini recommande 100+ pour significativite
-    fdr: float = 0.05  # Sprint 3.1 P1 : False Discovery Rate pour Benjamini-Hochberg
-    apply_bh: bool = True  # Sprint 3.1 P1 : activer la correction multi-tests
+    max_drawdown: float = 0.30
+    min_families: int = 1  # Sprint 3.5 : 1 au lieu de 2 (regles simples OK)
+    min_holdout_trades: int = 30  # Sprint 3.5 : 30 au lieu de 100 (plus permissif)
+    fdr: float = 0.05
+    apply_bh: bool = True
 
     @classmethod
     def debug(cls) -> "AdmissionConfig":
@@ -100,10 +105,10 @@ class AdmissionConfig:
             min_win_rate=0.30,
             min_profit_factor=0.5,
             max_drawdown=0.99,
-            min_families=1,  # debug : pas de quota famille
+            min_families=1,
             min_holdout_trades=0,  # debug : pas de check holdout
-            fdr=1.0,  # debug : pas de correction BH
-            apply_bh=False,  # debug : pas de BH
+            fdr=1.0,
+            apply_bh=False,
         )
 
 

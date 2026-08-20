@@ -108,14 +108,16 @@ class TestAdmissionDiversity(unittest.TestCase):
     """Test du quota >= 2 familles dans l'admission."""
 
     def test_single_family_rejected(self):
-        """Un Einher avec 1 seule famille doit etre REJETE (quota=2)."""
+        """Un Einher avec 1 seule famille doit etre REJETE en strict mode (quota=2)."""
         e = _make_einher(["rsi_14"])
         # Verifier d'abord que rsi_14 est bien 1 famille
         fams = get_einher_families(e)
         if len(fams) >= 2:
             self.skipTest("rsi_14 a plus d'1 famille dans la taxonomie, test non applicable")
-        passed, reason = check_admission(e, AdmissionConfig())
-        self.assertFalse(passed, f"Einher 1-famille devrait etre REJETE : {reason}")
+        # Sprint 3.5 : default min_families=1 (permissif), on teste le strict mode
+        strict_config = AdmissionConfig(min_families=2)
+        passed, reason = check_admission(e, strict_config)
+        self.assertFalse(passed, f"Einher 1-famille devrait etre REJETE en strict : {reason}")
         self.assertIn("famil", reason.lower() if reason else "")
 
     def test_two_families_accepted(self):

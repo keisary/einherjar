@@ -1,0 +1,40 @@
+{
+  "assets": [
+    "BTCUSD"
+  ],
+  "multi_asset": false,
+  "timeframe": "1h",
+  "horizon": "2d",
+  "horizon_bars": 48,
+  "n_features_before": 213,
+  "n_features_after": 91,
+  "regularized": true,
+  "apply_dedup": true,
+  "drop_sparse": true,
+  "n_samples_total": 69708,
+  "n_valid": 69660,
+  "n_train": 41796,
+  "n_val": 13932,
+  "n_holdout": 13832,
+  "n_paths_extracted": 30,
+  "n_einhers_generated": 30,
+  "n_admitted": 20,
+  "n_rejected": 10,
+  "output_path": "outputs\\_test_btc_2d.jsonl",
+  "costs_pct": 0.0014000000000000002,
+  "gbdt_config": {
+    "backend": "auto",
+    "n_estimators": 200,
+    "max_depth": 3,
+    "learning_rate": 0.05,
+    "subsample": 0.7,
+    "colsample_bytree": 0.6,
+    "min_child_weight": 50,
+    "reg_alpha": 1.0,
+    "reg_lambda": 5.0,
+    "random_state": 42,
+    "tree_method": "hist",
+    "device": "cpu",
+    "early_stopping_rounds": 20
+  }
+}

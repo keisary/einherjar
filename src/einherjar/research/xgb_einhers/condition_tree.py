@@ -138,6 +138,12 @@ def evaluate_ast_on_array(
     Returns:
         mask : (N,) bool, True aux indices où la condition est vraie.
     """
+    # FIX SE-01 (2026-08-20) : si l'AST contient des atomes expr (STGP),
+    # basculer sur l'evaluateur vectorise de search_engine (les expressions
+    # arithmetiques ne peuvent pas passer par le parcours scalaire par ligne).
+    from einherjar.research.search_engine import evaluator  # import lazy (cycle)
+    if evaluator.has_expr_atoms(ast):
+        return evaluator.eval_condition_ast(ast, X, feature_names)
     import numpy as np
     name_to_idx = {n: i for i, n in enumerate(feature_names)}
     n = X.shape[0]

@@ -192,11 +192,14 @@ class TestComputeMetrics(unittest.TestCase):
         self.assertEqual(m.alpha, -0.1)
 
     def test_metrics_with_trades(self):
+        # Returns varies (somme = 0.18) pour un Sharpe defini
+        offsets = [-0.0045, -0.0035, -0.0025, -0.0015, -0.0005,
+                   0.0005, 0.0015, 0.0025, 0.0035, 0.0045]
         trades = [
             TradeResult(
                 entry_idx=i, exit_idx=i + 1, entry_price=100.0,
                 exit_price=102.0, exit_reason="tp", gross_return=0.02,
-                net_return=0.018, n_bars_held=2,
+                net_return=0.018 + offsets[i], n_bars_held=2,
                 entry_timestamp_ms=0, exit_timestamp_ms=0,
             )
             for i in range(10)
@@ -208,6 +211,19 @@ class TestComputeMetrics(unittest.TestCase):
         self.assertAlmostEqual(m.total_return, 0.18, places=4)
         self.assertGreater(m.sharpe_ratio, 0)
         self.assertAlmostEqual(m.alpha, 0.18 - 0.05, places=4)
+
+    def test_identical_returns_sharpe_zero(self):
+        """FIX BASELINE-01 : retours identiques -> Sharpe/t-stat non definis (0)."""
+        t = TradeResult(
+            entry_idx=0, exit_idx=1, entry_price=100.0,
+            exit_price=102.0, exit_reason="tp", gross_return=0.02,
+            net_return=0.018, n_bars_held=1,
+            entry_timestamp_ms=0, exit_timestamp_ms=0,
+        )
+        m = compute_metrics([t] * 3, 0.05)
+        self.assertEqual(m.sharpe_ratio, 0.0)
+        self.assertEqual(m.t_statistic, 0.0)
+        self.assertEqual(m.p_value, 1.0)
 
 
 class TestBacktestKnownSignal(unittest.TestCase):

@@ -194,7 +194,7 @@ def extract_paths(
     model: Any,
     backend: str,
     feature_names: list[str],
-    min_score: float = 0.005,
+    min_score: float = 0.0005,
     max_score: float = 0.10,
     min_path_length: int = 1,
     max_path_length: int = 4,

@@ -98,9 +98,14 @@ class EinherMetrics:
     avg_holding_bars: float
     buy_hold_return: float
     alpha: float
+    # Sprint 3.3 FIX BUG-02 : t-stat et p-value pour correction multi-tests (BH)
+    t_statistic: float = 0.0  # t = mean(rets) / (std(rets) / sqrt(n))
+    p_value: float = 1.0      # p-value bilaterale H0: mean(rets) = 0
+    # Rendements par trade (utilises pour vrai bootstrap si on veut)
+    trade_returns: tuple[float, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return {k: v for k, v in asdict(self).items() if k != "trade_returns"}
 
     def passes_admission(
         self,
@@ -123,8 +128,10 @@ class EinherMetrics:
             return False, f"win_rate={self.win_rate:.3f} < {min_win_rate}"
         if self.profit_factor < min_profit_factor:
             return False, f"profit_factor={self.profit_factor:.3f} < {min_profit_factor}"
-        if self.max_drawdown > max_drawdown:
-            return False, f"max_drawdown={self.max_drawdown:.3f} > {max_drawdown}"
+        # Sprint 3.3 FIX BUG-01 : max_drawdown est stocke NEGATIF (dd = eq - peak <= 0)
+        # On utilise abs() pour comparer au seuil positif
+        if abs(self.max_drawdown) > max_drawdown:
+            return False, f"max_drawdown={abs(self.max_drawdown):.3f} > {max_drawdown}"
         if self.total_return <= 0:
             return False, f"total_return={self.total_return:.4f} <= 0"
         return True, None
@@ -142,9 +149,13 @@ class Condition:
     operator: str              # '<' | '<=' | '>' | '>=' | '==' | '!='
     value: float | int
     transformation: Optional[str] = None
+    expr: Optional[object] = None  # STGP: expression numerique (search_engine) sinon None
 
     def to_dict(self) -> dict[str, Any]:
-        return {k: v for k, v in asdict(self).items() if v is not None}
+        d = {k: v for k, v in asdict(self).items() if v is not None}
+        if self.expr is not None and hasattr(self.expr, "to_dict"):
+            d["expr"] = self.expr.to_dict()
+        return d
 
 
 @dataclass(frozen=True)
