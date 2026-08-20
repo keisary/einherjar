@@ -133,6 +133,7 @@ def run(
                 val_mask=eval_condition_ast(einher.condition_tree, X_val, feature_names),
                 features=collect_tree_features(einher.condition_tree),
                 fingerprint=fingerprint_of(einher.condition_tree),
+                holdout_metrics=ho_res.metrics,
             )
         )
 
@@ -149,6 +150,7 @@ def run(
                 val_mask=eval_condition_ast(ast, X_val, feature_names),
                 features=collect_tree_features(ast),
                 fingerprint=entry.get("fingerprint", ""),
+                holdout_metrics=None,
             )
         )
     outcomes = admit_batch(candidates, seed=seed, initial_accepted=accepted_history)

@@ -31,6 +31,7 @@ class Candidate:
     val_mask: np.ndarray
     features: set[str]
     fingerprint: str
+    holdout_metrics: Any = None
 
 
 @dataclass
@@ -75,6 +76,7 @@ def admit_batch(
     fdr_alpha: float = DEFAULT_FDR_ALPHA,
     dup_jaccard: float = DEFAULT_DUP_JACCARD,
     dup_corr: float = DEFAULT_DUP_CORR,
+    require_beat_holdout_bh: bool = True,
     seed: int = 0,
 ) -> list[AdmissionOutcome]:
     """Évalue le batch complet ; l'ordre des candidats détermine le dédup."""
@@ -121,12 +123,26 @@ def admit_batch(
                 break
         reasons["dedup"] = {"duplicate_of": dup_against, "pass": dup_against is None}
 
+        # C7 : battre le buy-and-hold sur le HOLD-OUT (test hors-échantillon).
+        # La val peut être un bull run (beta pur) ; le holdout révèle l'alpha
+        # réel. Si les métriques holdout ne sont pas fournies, porte désactivée.
+        c7: bool = True
+        c7_info = None
+        if require_beat_holdout_bh and c.holdout_metrics is not None:
+            ho = c.holdout_metrics
+            bh = float(getattr(ho, "buy_hold_return", 0.0) or 0.0)
+            total = float(getattr(ho, "total_return", 0.0) or 0.0)
+            c7 = total >= bh
+            c7_info = {"total_return": total, "buy_hold_return": bh, "pass": c7}
+        reasons["c7_beat_bh_holdout"] = c7_info
+
         ok = (
             n_trades >= min_trades
             and reasons["c6_bootstrap"]["pass"]
             and reasons["c2_dsr"]["pass"]
             and reasons["c5_fdr"]["pass"]
             and reasons["dedup"]["pass"]
+            and c7
         )
         reasons["min_trades"] = n_trades >= min_trades
         per_candidate[i] = AdmissionOutcome(admitted=ok, reasons=reasons)

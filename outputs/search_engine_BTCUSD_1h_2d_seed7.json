@@ -503,7 +503,7 @@
   },
   "admission": {
     "n_candidates": 44,
-    "n_admitted": 1,
+    "n_admitted": 0,
     "details": [
       {
         "cell_index": 0,
@@ -527,12 +527,12 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": null,
-            "pass": true
+            "duplicate_of": "fd7ac50fc2651ad0eba8959b77932f480f1f098bb628a1853802c5458f189f7d",
+            "pass": false
           },
           "min_trades": true
         },
-        "admitted": true
+        "admitted": false
       },
       {
         "cell_index": 1,
@@ -585,7 +585,7 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": "fd7ac50fc2651ad0eba8959b77932f480f1f098bb628a1853802c5458f189f7d",
+            "duplicate_of": "817743f586fbdcb4eff996708aa42983409cd3726a69306372feaeb7dcbb558c",
             "pass": false
           },
           "min_trades": true
@@ -643,7 +643,7 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": "fd7ac50fc2651ad0eba8959b77932f480f1f098bb628a1853802c5458f189f7d",
+            "duplicate_of": "817743f586fbdcb4eff996708aa42983409cd3726a69306372feaeb7dcbb558c",
             "pass": false
           },
           "min_trades": true
@@ -672,7 +672,7 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": "fd7ac50fc2651ad0eba8959b77932f480f1f098bb628a1853802c5458f189f7d",
+            "duplicate_of": "817743f586fbdcb4eff996708aa42983409cd3726a69306372feaeb7dcbb558c",
             "pass": false
           },
           "min_trades": true
@@ -701,7 +701,7 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": "fd7ac50fc2651ad0eba8959b77932f480f1f098bb628a1853802c5458f189f7d",
+            "duplicate_of": "817743f586fbdcb4eff996708aa42983409cd3726a69306372feaeb7dcbb558c",
             "pass": false
           },
           "min_trades": true
@@ -730,7 +730,7 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": "fd7ac50fc2651ad0eba8959b77932f480f1f098bb628a1853802c5458f189f7d",
+            "duplicate_of": "817743f586fbdcb4eff996708aa42983409cd3726a69306372feaeb7dcbb558c",
             "pass": false
           },
           "min_trades": true
@@ -817,7 +817,7 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": "fd7ac50fc2651ad0eba8959b77932f480f1f098bb628a1853802c5458f189f7d",
+            "duplicate_of": "817743f586fbdcb4eff996708aa42983409cd3726a69306372feaeb7dcbb558c",
             "pass": false
           },
           "min_trades": true
@@ -846,7 +846,7 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": "fd7ac50fc2651ad0eba8959b77932f480f1f098bb628a1853802c5458f189f7d",
+            "duplicate_of": "817743f586fbdcb4eff996708aa42983409cd3726a69306372feaeb7dcbb558c",
             "pass": false
           },
           "min_trades": true
@@ -875,7 +875,7 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": "fd7ac50fc2651ad0eba8959b77932f480f1f098bb628a1853802c5458f189f7d",
+            "duplicate_of": "817743f586fbdcb4eff996708aa42983409cd3726a69306372feaeb7dcbb558c",
             "pass": false
           },
           "min_trades": true
@@ -904,7 +904,7 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": "fd7ac50fc2651ad0eba8959b77932f480f1f098bb628a1853802c5458f189f7d",
+            "duplicate_of": "817743f586fbdcb4eff996708aa42983409cd3726a69306372feaeb7dcbb558c",
             "pass": false
           },
           "min_trades": true
@@ -933,7 +933,7 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": "fd7ac50fc2651ad0eba8959b77932f480f1f098bb628a1853802c5458f189f7d",
+            "duplicate_of": "817743f586fbdcb4eff996708aa42983409cd3726a69306372feaeb7dcbb558c",
             "pass": false
           },
           "min_trades": true
@@ -962,7 +962,7 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": "fd7ac50fc2651ad0eba8959b77932f480f1f098bb628a1853802c5458f189f7d",
+            "duplicate_of": "817743f586fbdcb4eff996708aa42983409cd3726a69306372feaeb7dcbb558c",
             "pass": false
           },
           "min_trades": true

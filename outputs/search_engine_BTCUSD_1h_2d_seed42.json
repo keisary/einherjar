@@ -503,7 +503,7 @@
   },
   "admission": {
     "n_candidates": 44,
-    "n_admitted": 3,
+    "n_admitted": 0,
     "details": [
       {
         "cell_index": 0,
@@ -556,12 +556,12 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": null,
-            "pass": true
+            "duplicate_of": "3b149a5770aee482bdc8721afbff6932e86465b6f1eebfd89a684eca515d3fba",
+            "pass": false
           },
           "min_trades": true
         },
-        "admitted": true
+        "admitted": false
       },
       {
         "cell_index": 2,
@@ -643,12 +643,12 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": null,
-            "pass": true
+            "duplicate_of": "817743f586fbdcb4eff996708aa42983409cd3726a69306372feaeb7dcbb558c",
+            "pass": false
           },
           "min_trades": true
         },
-        "admitted": true
+        "admitted": false
       },
       {
         "cell_index": 5,
@@ -1107,12 +1107,12 @@
             "pass": true
           },
           "dedup": {
-            "duplicate_of": null,
-            "pass": true
+            "duplicate_of": "7fc5bb9f9396769b0b54741330bcf32b01af93268aa425c3b6cd9a2bbd26a600",
+            "pass": false
           },
           "min_trades": true
         },
-        "admitted": true
+        "admitted": false
       },
       {
         "cell_index": 21,
