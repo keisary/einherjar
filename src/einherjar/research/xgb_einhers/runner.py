@@ -435,7 +435,7 @@ def run_pipeline(
     # 2. Pre-compute valid_mask (single ; multi deja tout-True via l'init ci-dessus)
     logger.info("[2a/10] Pre-compute valid_mask ...")
     if not multi:
-        valid_mask = loaded.Y_dir[:, horizon_idx] != -100
+        valid_mask = loaded.Y_dir[:, horizon_idx] != -100 # type: ignore
     assert valid_mask is not None
     logger.info(
         "  valid_mask : %d/%d True (%.1f%%)",
