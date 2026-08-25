@@ -1,0 +1,37 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "XGB Discover (campagne complete)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "einherjar.research.xgb_einhers.runner",
+            "console": "integratedTerminal",
+            "python": "${command:python.interpreter}",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
+            "name": "XGB Discover (test rapide, 3 triplets, 1 worker)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "einherjar.research.xgb_einhers.runner",
+            "args": ["--limit", "3", "--workers", "1"],
+            "console": "integratedTerminal",
+            "python": "${command:python.interpreter}",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
+            "name": "XGB Run BTCUSD 1h 6h",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "einherjar.research.xgb_einhers.runner",
+            "args": ["run", "--asset", "BTCUSD", "--timeframe", "1h", "--horizon", "6h", "--regularized", "--apply-dedup", "--drop-sparse"],
+            "console": "integratedTerminal",
+            "python": "${command:python.interpreter}",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        }
+    ]
+}
