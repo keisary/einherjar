@@ -345,6 +345,15 @@ def run_pipeline(
     logger.info("=" * 70)
 
     # 1. Charger X, Y (single ou multi)
+    # Initialisation explicite (None) : les branches if/else ci-dessous assignent
+    # chacune un sous-ensemble de ces variables. Sans initialisation, Pylance
+    # marque chaque usage post-branche "possibly unbound".
+    _primary_class = asset_class
+    X_global_train = X_global_val = X_global_holdout = None
+    y_global_train = y_global_val = None
+    valid_mask: np.ndarray | None = None
+    Y_ret_global = None
+
     logger.info("[1/10] Chargement X, Y ...")
     if multi:
         # Sprint 3.4 + 3.6 FIX BUG-03 + scope multi-classes :
@@ -393,7 +402,8 @@ def run_pipeline(
         # suffisant pour classer les features, sans dupliquer tous les arrays.
         Y_dir_global = primary_loaded.Y_dir
         Y_ret_global = primary_loaded.Y_ret
-        valid_mask = Y_dir_global[:, horizon_idx] != -100
+        # En multi, load_multi_asset_split a deja filtre les invalides par actif :
+        # valid_mask = tout-True sur la concat des splits.
         valid_mask = np.ones(X_global.shape[0], dtype=bool)
         logger.info(
             "  Multi-actif (FIX BUG-03 + MEM-01): %d actifs, train=%d, val=%d, holdout=%d",
@@ -422,16 +432,16 @@ def run_pipeline(
             horizons,
         )
 
-    # 2. Pre-compute valid_mask (Sprint 3.6 FIX BUG-08 : dedup en avait besoin)
+    # 2. Pre-compute valid_mask (single ; multi deja tout-True via l'init ci-dessus)
     logger.info("[2a/10] Pre-compute valid_mask ...")
     if not multi:
-        valid_mask = Y_dir_global[:, horizon_idx] != -100 # pyright: ignore[reportOptionalSubscript]
-    # (multi : valid_mask deja tout-True, les invalides ont ete filtres par actif)
+        valid_mask = loaded.Y_dir[:, horizon_idx] != -100
+    assert valid_mask is not None
     logger.info(
         "  valid_mask : %d/%d True (%.1f%%)",
-        valid_mask.sum(), # type: ignore
+        int(valid_mask.sum()),
         len(valid_mask),
-        100 * valid_mask.sum() / max(1, len(valid_mask)),
+        100 * float(valid_mask.sum()) / max(1, len(valid_mask)),
     )
 
     # 2. Drop sparse patterns (Sprint 2.3)
@@ -446,6 +456,7 @@ def run_pipeline(
 
     # 3. Feature dedup (Sprint 2.3 + FIX BUG-07)
     if apply_dedup_flag:
+        assert valid_mask is not None and Y_ret_global is not None
         logger.info("[3/10] Feature dedup (drop |r| > 0.85) ...")
         # FIX BUG-07 : pre-train rapide pour avoir les vraies importances
         # au lieu d'un vecteur uniforme (elimination arbitraire en cas d'egalite)
@@ -488,6 +499,7 @@ def run_pipeline(
         # sinon XGBoost entraine sur 213 cols mais feature_names en a 120
         # → AST invalide, 0 trades en backtest
         if multi:
+            assert X_global_train is not None and X_global_val is not None and X_global_holdout is not None
             X_global_train = X_global_train[:, keep_idx]
             X_global_val = X_global_val[:, keep_idx]
             X_global_holdout = X_global_holdout[:, keep_idx]
@@ -549,7 +561,14 @@ def run_pipeline(
 
     # 5. Filtrer valides (single uniquement, multi deja filtre dans load_multi_asset_split)
     if multi:
-        # Multi : X_global_train, X_global_val, X_global_holdout sont deja prets
+        # Multi : les splits sont deja prets (assignes dans la branche multi).
+        assert (
+            X_global_train is not None
+            and X_global_val is not None
+            and X_global_holdout is not None
+            and y_global_train is not None
+            and y_global_val is not None
+        )
         X_valid = X_global  # pour le resume (n_valid)
         y_valid = y_global_train  # pas utilise en multi
         split_train_X = X_global_train
@@ -841,13 +860,14 @@ def run_pipeline(
     # FIX BUG-10 (Sprint 3.6) : en multi, on utilise les splits du multi_split
     # pas `split` (qui n'existe qu'en single).
     if multi:
+        assert split_train_X is not None and split_val_X is not None and split_holdout_X is not None
         _n_train = len(split_train_X)
         _n_val = len(split_val_X)
         _n_holdout = len(split_holdout_X)
     else:
-        _n_train = len(split.train_X)
-        _n_val = len(split.val_X)
-        _n_holdout = len(split.holdout_X)
+        _n_train = len(split_train_X)  # single : split.* assignes ci-dessus dans les memes vars
+        _n_val = len(split_val_X)
+        _n_holdout = len(split_holdout_X)
     summary = {
         "assets": assets,
         "multi_asset": multi,
