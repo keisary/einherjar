@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+import numpy as np
 
-from einherjar.research.xgb_einhers.path_extractor import XGBPath
-from einherjar.research.xgb_einhers.types import Condition, ConditionNode
+from .path_extractor import XGBPath
+from .types import Condition, ConditionNode
 
 logger = logging.getLogger(__name__)
 
@@ -30,15 +31,28 @@ OP_MAP = {
 
 
 def path_to_ast(path: XGBPath) -> Condition | ConditionNode:
-    """Convertit un XGBPath en AST de conditions (AND-only par défaut).
+    """Convertit un XGBPath en AST de conditions.
+
+    Problème 3 (2026-08-21) : gère les variantes logiques.
+    - logical_op = 'OR'  : OR(path_to_ast(p1), path_to_ast(p2)) via sub_paths
+    - logical_op = 'XOR' : XOR(left, right) sur les conditions
+    - logical_op = 'NOT' : NOT(left) sur la condition atomique négativée
+    - logical_op = 'AND' (défaut) : AND des conditions (comportement original)
 
     Args:
         path : XGBPath avec une liste de (feature, op, threshold)
 
     Returns:
-        Condition si 1 seule condition, ConditionNode(AND) sinon.
+        Condition si 1 seule condition, ConditionNode sinon.
     """
     if len(path.conditions) == 0:
+        # Variantes OR : les conditions sont dans sub_paths
+        if path.logical_op == "OR" and path.sub_paths:
+            asts = [path_to_ast(sp) for sp in path.sub_paths]
+            result = asts[0]
+            for a in asts[1:]:
+                result = ConditionNode(op="OR", left=result, right=a)
+            return result
         raise ValueError("Chemin vide : impossible de construire un AST")
 
     # Convertir chaque condition en Condition atomique
@@ -52,6 +66,20 @@ def path_to_ast(path: XGBPath) -> Condition | ConditionNode:
         for feat, op, value in path.conditions
     ]
 
+    # XOR : (left XOR right) sur les 2 premières conditions
+    if path.logical_op == 'XOR' and len(conditions) >= 2:
+        return ConditionNode(op='XOR', left=conditions[0], right=conditions[1])
+
+    # NOT : NOT(c1) puis AND avec le reste des conditions (conservées)
+    # Résultat : NOT(c1) AND c2 AND c3 ... (on capture le complémentaire
+    # du trigger principal tout en gardant le contexte du chemin).
+    if path.logical_op == 'NOT':
+        not_node = ConditionNode(op='NOT', left=conditions[0])
+        result = not_node
+        for c in conditions[1:]:
+            result = ConditionNode(op='AND', left=result, right=c)
+        return result
+
     if len(conditions) == 1:
         return conditions[0]
 
@@ -59,7 +87,39 @@ def path_to_ast(path: XGBPath) -> Condition | ConditionNode:
     # AND(left, AND(rest...)) pour préserver l'ordre
     result = conditions[0]
     for c in conditions[1:]:
-        result = ConditionNode(op="AND", left=result, right=c)
+        result = ConditionNode(op='AND', left=result, right=c)
+    return result
+
+def merge_paths_or(
+    paths: list[XGBPath],
+) -> Condition | ConditionNode:
+    """Combine plusieurs XGBPaths en DNF (Disjunctive Normal Form).
+
+    Chaque path est converti en AST AND (via path_to_ast), puis tous
+    les ASTs sont combines en OR : (P1 AND P1b) OR (P2 AND P2b) OR ...
+
+    P2-1 (AI Review 2026-08-20) : permet d'exprimer des regles
+    disjonctives que XGBoost ne peut pas capturer naturellement.
+
+    Construction right-associative pour faciliter l'evaluation :
+        OR(p1, OR(p2, OR(p3, ...)))
+
+    Args:
+        paths : liste de XGBPaths
+
+    Returns:
+        Condition si 1 path a 1 condition, ConditionNode sinon.
+    """
+    if not paths:
+        raise ValueError("Liste de paths vide : impossible de merger")
+    asts = [path_to_ast(p) for p in paths]
+    if len(asts) == 1:
+        return asts[0]
+    # OR recursif right-associative : OR(p1, OR(p2, p3, ...))
+    # On part de la fin : OR(p_{n-1}, p_n), puis OR(p_{n-2}, ...), etc.
+    result = asts[-1]
+    for a in reversed(asts[:-1]):
+        result = ConditionNode(op="OR", left=a, right=result)
     return result
 
 
@@ -130,10 +190,19 @@ def _eval_atomic(c: Condition, features_at_t: dict[str, float | int | None]) -> 
 
 def evaluate_ast_on_array(
     ast: Condition | ConditionNode,
-    X: "np.ndarray",          # (N, F) float32
+    X: np.ndarray,          # (N, F) float32
     feature_names: list[str],
-) -> "np.ndarray":
-    """Évalue l'AST sur toute une matrice X.
+) -> np.ndarray:
+    """Évalue l'AST sur toute une matrice X (vectorisé numpy).
+
+    FIX PERF (2026-08-21) : l'ancienne version bouclait ligne par ligne et
+    reconstruisait un dict de 218 features à CHAQUE bougie, juste pour évaluer
+    une condition utilisant 1-6 colonnes. C'était le goulot principal du backtest.
+    Maintenant on évalue récursivement des masks numpy (N,) sur les seules colonnes
+    utilisées par l'AST : O(N) numpy pur, sans boucle Python ni dict par ligne.
+
+    Semantic conservée : NaN -> False (comme l'ancien _eval_atomic), NOT/AND/OR/XOR
+    appliqués vectorisés.
 
     Returns:
         mask : (N,) bool, True aux indices où la condition est vraie.
@@ -146,10 +215,123 @@ def evaluate_ast_on_array(
         return evaluator.eval_condition_ast(ast, X, feature_names)
     import numpy as np
     name_to_idx = {n: i for i, n in enumerate(feature_names)}
+    return _eval_ast_numpy(ast, X, name_to_idx)
+
+
+def _eval_ast_numpy(
+    node: Condition | ConditionNode,
+    X: np.ndarray,
+    name_to_idx: dict,
+) -> np.ndarray:
+    """Évalue récursivement un sous-arbre et retourne un mask numpy (N,)."""
+    import numpy as np
     n = X.shape[0]
-    mask = np.zeros(n, dtype=bool)
-    for i in range(n):
-        features_at_t = {name: X[i, name_to_idx[name]] for name in feature_names}
-        if evaluate_condition_on_value(ast, features_at_t):
-            mask[i] = True
-    return mask
+    if isinstance(node, Condition):
+        idx = name_to_idx.get(node.feature_ref)
+        if idx is None:
+            return np.zeros(n, dtype=bool)
+        col = X[:, idx]
+        op = node.operator
+        v = node.value
+        if op == "<":
+            return col < v
+        if op == "<=":
+            return col <= v
+        if op == ">":
+            return col > v
+        if op == ">=":
+            return col >= v
+        if op == "==":
+            return np.abs(col - v) < 1e-9
+        if op == "!=":
+            valid = ~np.isnan(col)
+            return valid & (np.abs(col - v) >= 1e-9)
+        raise ValueError(f"Opérateur de comparaison non supporté : {op}")
+    # ConditionNode : évaluer left (et right si binaire)
+    left_mask = _eval_ast_numpy(node.left, X, name_to_idx)
+    if node.op == "NOT":
+        return ~left_mask
+    if node.right is None:
+        raise ValueError(f"Opérateur {node.op} requiert un nœud right")
+    right_mask = _eval_ast_numpy(node.right, X, name_to_idx)
+    if node.op == "AND":
+        return left_mask & right_mask
+    if node.op == "OR":
+        return left_mask | right_mask
+    if node.op == "XOR":
+        return left_mask ^ right_mask
+    raise ValueError(f"Opérateur logique non supporté : {node.op}")
+
+def simplify_ast(ast: Condition | ConditionNode) -> Condition | ConditionNode:
+    """Simplifie un AST de conditions en fusionnant les bornes redondantes.
+
+    FIX QUALITE (2026-08-21) : les chemins XGBoost produisent parfois des
+    conditions redondantes sur le meme feature (ex. `RSI_14 < 70 AND RSI_14 < 50`
+    -> logiquement equivalent a `RSI_14 < 50`). On les fusionne pour eviter des
+    Einhers doublons / inutilement complexes.
+
+    Regles (sur un AND plat, cas courant apres path_to_ast) :
+      x < a AND x < b  -> x < min(a,b)          (le plus contraignant)
+      x <= a AND x <= b -> x <= min(a,b)
+      x >  a AND x >  b  -> x > max(a,b)        (le plus contraignant)
+      x >= a AND x >= b -> x >= max(a,b)
+      conditions identiques (doublon) -> une seule
+      Bornes croisees (x< a AND x>b avec a<=b) -> inutilement serre mais on conserve.
+
+    La simplification SEULEMENT sur les noeuds AND compose d'atomes, a un niveau
+    a la fois (pas de transformation algebrique profonde).
+
+    Returns:
+        AST simplifie (moins de noeuds, bornes fusionnees).
+    """
+    # Gathering : collecter les atomes d'un AND plat
+    def collect(node, atoms):
+        if isinstance(node, Condition):
+            atoms.append(node)
+        elif isinstance(node, ConditionNode) and node.op == "AND":
+            collect(node.left, atoms)
+            if node.right is not None:
+                collect(node.right, atoms)
+        else:
+            atoms.append(node)  # noeud non-AND : on le laisse tel quel
+        return atoms
+
+    # Si pas un AND pur, retourner tel quel
+    if not (isinstance(ast, ConditionNode) and ast.op == "AND"):
+        return ast
+
+    atoms = []
+    collect(ast, atoms)
+    # Regrouper par feature et operande (<,<=,>,>=,==,!=)
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for a in atoms:
+        if isinstance(a, Condition):
+            groups[(a.feature_ref, a.operator)].append(a.value)
+        else:
+            groups[(id(a), "NODE")].append(a)
+
+    simplified = []
+    for key, vals in groups.items():
+        if key[1] == "NODE":
+            simplified.extend(vals)
+            continue
+        feat, op = key
+        if op in ("<", "<="):
+            # conserver le MIN (le plus contraignant)
+            chosen = min(vals)
+        elif op in (">", ">="):
+            chosen = max(vals)
+        else:
+            chosen = vals[0]  # == et != : on garde la 1ere (dedup simple)
+        simplified.append(Condition(feature_ref=feat, operator=op, value=chosen,
+                                    transformation=None))
+
+    # Reconstruire l'AND chaine
+    if len(simplified) == 1:
+        return simplified[0]
+    result = simplified[0]
+    for c in simplified[1:]:
+        result = ConditionNode(op="AND", left=result, right=c)
+    return result
+

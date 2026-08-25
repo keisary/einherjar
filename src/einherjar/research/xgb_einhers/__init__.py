@@ -30,7 +30,6 @@ __all__ = [
     "einher_builder",
     "backtester",
     "admission",
-    "scope_determiner",
     "einher_io",
     "runner",
 ]

@@ -15,9 +15,9 @@ from typing import Any
 
 import numpy as np
 
-from einherjar.research.xgb_einhers.condition_tree import path_to_ast
-from einherjar.research.xgb_einhers.path_extractor import XGBPath
-from einherjar.research.xgb_einhers.types import (
+from .condition_tree import path_to_ast
+from .path_extractor import XGBPath
+from .types import (
     Condition,
     ConditionNode,
     Einher,
@@ -74,6 +74,10 @@ def build_einher_from_path(
 
     # AST de la condition
     ast = path_to_ast(path)
+    # FIX QUALITE (2026-08-21) : simplifier les bornes redondantes
+    # (ex. RSI_14<70 AND RSI_14<50 -> RSI_14<50) pour eviter les doublons.
+    from .condition_tree import simplify_ast
+    ast = simplify_ast(ast)
 
     # ID unique
     einher_id = f"xgb_{asset}_{timeframe}_{horizon_str}_{path.tree_idx:04d}_{path.path_idx:04d}_{uuid.uuid4().hex[:6]}"

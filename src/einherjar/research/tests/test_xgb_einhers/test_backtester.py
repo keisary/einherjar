@@ -208,9 +208,15 @@ class TestComputeMetrics(unittest.TestCase):
         self.assertEqual(m.n_trades, 10)
         self.assertEqual(m.n_tp, 10)
         self.assertEqual(m.win_rate, 1.0)
-        self.assertAlmostEqual(m.total_return, 0.18, places=4)
+        # FIX METRICS (2026-08-21) : total_return est maintenant COMPOSE
+        # (prod(1+rets)-1), plus une simple somme. Somme additive=0.18 mais
+        # compose=0.19525.
+        import numpy as np
+        rets = np.array([0.018 + o for o in offsets])
+        expected = float(np.prod(1.0 + rets) - 1.0)
+        self.assertAlmostEqual(m.total_return, expected, places=4)
         self.assertGreater(m.sharpe_ratio, 0)
-        self.assertAlmostEqual(m.alpha, 0.18 - 0.05, places=4)
+        self.assertAlmostEqual(m.alpha, expected - 0.05, places=4)
 
     def test_identical_returns_sharpe_zero(self):
         """FIX BASELINE-01 : retours identiques -> Sharpe/t-stat non definis (0)."""

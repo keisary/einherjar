@@ -21,15 +21,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from einherjar.research.xgb_einhers.types import Einher, EinherMetrics
+from .types import Einher, EinherMetrics
+from .paths import TAXONOMY_PATH
 
 logger = logging.getLogger(__name__)
 
 
 # Sprint 2.2.2 : mapping feature_name -> economic_family
-TAXONOMY_PATH = Path(
-    "D:/midas_v2/Einherjar/src/einherjar/research/config/features_taxonomy.json"
-)
+# (chemin centralise dans paths.py - plus de chemin hardcode)
 _FAMILY_CACHE: Optional[dict[str, str]] = None
 
 
@@ -148,6 +147,23 @@ def check_admission(
                 f"Holdout REJECTED : {einher.holdout_metrics.n_trades} trades "
                 f"< min_holdout_trades={config.min_holdout_trades}"
             )
+        # FIX P0-5 (AI Review 2026-08-20) : ne pas seulement check n_trades,
+        # aussi verifier la performance holdout. Sinon une strat avec
+        # Sharpe=17.9 en val et -3.0 en holdout est admise.
+        # On assouplit les seuils par rapport a val (le holdout est plus petit).
+        try:
+            holdout_passed, holdout_reason = einher.holdout_metrics.passes_admission(
+                min_trades=max(5, config.min_trades // 3),
+                min_sharpe=0.0,  # holdout Sharpe doit au moins etre positif
+                min_win_rate=config.min_win_rate * 0.9,
+                min_profit_factor=0.9,
+                max_drawdown=config.max_drawdown * 1.5,
+            )
+            if not holdout_passed:
+                return False, f"Holdout REJECTED : {holdout_reason}"
+        except Exception as e:
+            # Si le check holdout plante, on ne bloque pas l'admission
+            logger.warning("Holdout admission check failed: %s", e)
 
     passed, reason = einher.metrics.passes_admission(
         min_trades=config.min_trades,

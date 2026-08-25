@@ -28,7 +28,17 @@ from einherjar.research.xgb_einhers.einher_io import iter_einhers
 from einherjar.research.xgb_einhers.backtester import backtest_einher
 
 
+import pytest
+
+
 BTC_EINHERS_JSONL = Path("D:/midas_v2/Einherjar/outputs/einhers_btcusd_2d_sprint_2_5.jsonl")
+
+pytestmark = [
+    pytest.mark.skipif(
+        not BTC_EINHERS_JSONL.exists(),
+        reason=f"Fixture sprint supprimee absente : {BTC_EINHERS_JSONL}",
+    )
+]
 CROSS_ASSETS = ["ETHUSD", "LTCUSD", "ADAUSD", "BCHUSD"]  # actifs a tester
 MIN_TRADES = 5
 MIN_WIN_RATE = 0.40

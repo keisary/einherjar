@@ -20,11 +20,20 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class XGBPath:
-    """Un chemin dans un arbre GBDT."""
+    """Un chemin dans un arbre GBDT.
+
+    log (2026-08-21, problème 3) : on étend pour supporter la génération
+    de variantes logiques (OR/NOT/XOR) en plus des chemins AND purs.
+    - logical_op : 'AND' (défaut) | 'OR' | 'NOT' | 'XOR'
+    - sub_paths   : pour OR/XOR, liste des sous-chemins combinés (chacun
+                    un XGBPath AND). Pour NOT, conditions déjà négativées.
+    """
     conditions: tuple[tuple[str, str, float], ...]
     score: float
     tree_idx: int
     path_idx: int
+    logical_op: str = "AND"
+    sub_paths: tuple["XGBPath", ...] = ()
 
 
 # --------------------------------------------------------------------------- #
@@ -190,6 +199,113 @@ def _walk_sklearn(
 # --------------------------------------------------------------------------- #
 
 
+def _negate_condition(cond: tuple[str, str, float]) -> tuple[str, str, float]:
+    """Négation d'une condition atomique (feature op value)."""
+    f, op, v = cond
+    neg = {"<": ">=", "<=": ">", ">": "<=", ">=": "<", "==": "!=", "!=": "=="}
+    return (f, neg.get(op, "!="), v)
+
+
+_VARIANT_UID_COUNTER = [0]
+
+
+def _next_variant_uid(kind_base: int) -> int:
+    """P2-1bis : uid STRICTEMENT unique pour une variante logique.
+
+    L'ancien encodage 20000+path_idx entrait en collision des que deux chemins
+    partageaient le meme path_idx dans des arbres differents.
+    """
+    _VARIANT_UID_COUNTER[0] = (_VARIANT_UID_COUNTER[0] + 1) % 9000
+    return kind_base + _VARIANT_UID_COUNTER[0]
+
+
+def build_logical_variants(
+    paths: list[XGBPath],
+    top_n: int = 5,
+) -> list[XGBPath]:
+    """Génère des variantes OR/NOT/XOR depuis les chemins AND (problème 3).
+
+    Stratégie (validée Jovanny) :
+    - DNF/OR : combine les top chemins AND (ceux qui capturent des régimes
+      complémentaires) en OR — (P1 AND ...) OR (P2 AND ...).
+    - NOT : pour chaque chemin, génère une variante qui NÉGIE une condition
+      atomique (ex. `feat < th` → `feat >= th`) pour capter le complémentaire.
+    - XOR : combine 2 conditions d'un même feature en disjonction exclusive.
+
+    Returns:
+        Liste des variantes logiques (logical_op != 'AND'), en plus des AND.
+    """
+    variants: list[XGBPath] = []
+    if not paths:
+        return variants
+    # --- OR : combiner les top_n chemins AND en OR (DNF) ---
+    if len(paths) >= 2:
+        top = sorted(paths, key=lambda p: abs(p.score), reverse=True)[:top_n]
+        # OR sur les 2 meilleurs chemins de direction opposée si possible
+        best_pair = None
+        for i in range(len(top)):
+            for j in range(i + 1, len(top)):
+                if top[i].conditions and top[j].conditions:
+                    best_pair = (top[i], top[j])
+                    break
+            if best_pair:
+                break
+        if best_pair:
+            p1, p2 = best_pair
+            # P2-1bis : path_idx UNIQUE (l'ancien 10001 fixe entrait en collision
+            # entre arbres -> ids d'Einhers instables).
+            _or_uid = _next_variant_uid(10000)
+            variants.append(XGBPath(
+                conditions=(),
+                score=max(p1.score, p2.score),
+                tree_idx=p1.tree_idx,
+                path_idx=_or_uid,
+                logical_op="OR",
+                sub_paths=(p1, p2),
+            ))
+
+    # --- NOT : négation d'une condition atomique d'un chemin ---
+    # Le condition d'origine (non niée) est passé tel quel ; c'est
+    # path_to_ast qui applique le NOT() autour. Si on pré-négatait ici
+    # ET que path_to_ast en remettait un → double négation = condition
+    # d'origine (variante tautologique inutile).
+    for p in paths[:top_n]:
+        if not p.conditions:
+            continue
+        # P2-1bis : uid unique par (tree_idx, path_idx)
+        _not_uid = _next_variant_uid(20000)
+        # On marque le chemin comme NOT ; path_to_ast fera NOT(c1) AND reste
+        variants.append(XGBPath(
+            conditions=p.conditions,   # pas négativé ici
+            score=p.score,
+            tree_idx=p.tree_idx,
+            path_idx=_not_uid,
+            logical_op="NOT",
+        ))
+
+    # --- XOR : 2 conditions complémentaires sur le même feature ---
+    for p in paths[:top_n]:
+        if len(p.conditions) < 2:
+            continue
+        # Cherche 2 conditions sur le même feature
+        by_feat: dict[str, list[tuple]] = {}
+        for c in p.conditions:
+            by_feat.setdefault(c[0], []).append(c)
+        for feat, conds in by_feat.items():
+            if len(conds) >= 2:
+                c1, c2 = conds[0], conds[1]
+                _xor_uid = _next_variant_uid(30000)
+                variants.append(XGBPath(
+                    conditions=(c1, c2),
+                    score=p.score,
+                    tree_idx=p.tree_idx,
+                    path_idx=_xor_uid,
+                    logical_op="XOR",
+                ))
+                break
+    return variants
+
+
 def extract_paths(
     model: Any,
     backend: str,
@@ -197,10 +313,23 @@ def extract_paths(
     min_score: float = 0.0005,
     max_score: float = 0.10,
     min_path_length: int = 1,
-    max_path_length: int = 4,
+    max_path_length: int = 6,
     max_paths: int = 100,
+    enable_logical_variants: bool = False,
 ) -> list[XGBPath]:
     """Extrait et filtre les chemins d'un modèle GBDT (xgboost ou sklearn).
+
+    FIX (2026-08-21, problème 2) :
+    - max_path_length relève à 6 par défaut (le grid peut choisir depth=6 ;
+      auparavant 4 excluait tous les chemins d'arbres profonds → 1 filtré / 4294).
+    - si min_score <= 0 (auto) : on calcule un seuil RELATIF = 33e percentile des
+      |scores| des chemins. Un seuil quasi-nul (1e-9) gardait les feuilles extrêmes
+      et rares → 0 trades au backtest. Le percentile ne garde que les feuilles
+      vraiment significatives, adapté à la vol (crypto vs forex).
+
+    Args:
+        enable_logical_variants : si True (problème 3), ajoute des variantes
+            OR/NOT/XOR générées depuis les chemins AND purs.
 
     Returns:
         Liste de XGBPath triée par |score| décroissant.
@@ -209,17 +338,49 @@ def extract_paths(
         all_paths = _extract_xgb(model, feature_names)
     else:
         all_paths = _extract_sklearn(model, feature_names)
+
+    # Auto min_score : percentile des |scores| des chemins (volée-adaptée)
+    effective_min = min_score
+    if effective_min <= 0 and all_paths:
+        abs_scores = sorted(abs(p.score) for p in all_paths)
+        # 33e percentile : on garde ~2/3 des feuilles les plus marquées
+        effective_min = float(np.percentile(abs_scores, 33))
+        effective_min = max(effective_min, 1e-9)
+        logger.info("extract_paths auto-min_score : p33 des |scores| = %.6g", effective_min)
+
     # Filtrer
     filtered = [
         p for p in all_paths
         if min_path_length <= len(p.conditions) <= max_path_length
-        and min_score <= abs(p.score) <= max_score
+        and effective_min <= abs(p.score) <= max_score
     ]
     filtered.sort(key=lambda p: abs(p.score), reverse=True)
-    result = filtered[:max_paths]
+    # FIX DIVERSITE (2026-08-21) : la selection top-max_paths par |score| seul
+    # concentrait les chemins sur les 2-3 features a plus fort gain (les premiers
+    # arbres), ecrasant les 210+ autres. On applique un CAP par feature dominante
+    # (la 1ere condition = trigger principal) pour forcer la diversite.
+    cap_per_feature = max(1, max_paths // 8)
+    result: list[XGBPath] = []
+    feat_count: dict[str, int] = {}
+    for p in filtered:
+        if len(result) >= max_paths:
+            break
+        head = p.conditions[0][0] if p.conditions else p.tree_idx
+        head_key = str(head)
+        if feat_count.get(head_key, 0) >= cap_per_feature:
+            continue
+        feat_count[head_key] = feat_count.get(head_key, 0) + 1
+        result.append(p)
+    # Problème 3 : ajouter les variantes logiques depuis les chemins retenus
+    if enable_logical_variants and result:
+        variants = build_logical_variants(result, top_n=min(5, len(result)))
+        result = result + variants
+        # Re-trier : les AND purs d'abord, puis les variantes
+        result = sorted(result, key=lambda p: (p.logical_op != "AND", -abs(p.score)))
     logger.info(
-        "extract_paths (backend=%s) : %d bruts → %d filtrés → top %d retenus",
-        backend, len(all_paths), len(filtered), len(result),
+        "extract_paths (backend=%s) : %d bruts → %d filtrés → top %d retenus (+%d variantes logiques)",
+        backend, len(all_paths), len(filtered), len(result) - (len(variants) if enable_logical_variants and result else 0),
+        (len(variants) if enable_logical_variants and result else 0),
     )
     return result
 
@@ -256,9 +417,21 @@ def _extract_sklearn(model: Any, feature_names: list[str]) -> list[XGBPath]:
 
 
 def _name_features_in_dump(dump_str: str, feature_names: list[str]) -> str:
-    """Remplace les indices 'f0', 'f1', ... par les noms réels (xgboost)."""
-    out = dump_str
-    for i, name in enumerate(feature_names):
-        for op in ("<", "<=", ">", ">=", "==", "!="):
-            out = out.replace(f"[f{i}{op}", f"[{name}{op}")
-    return out
+    """Remplace les indices 'f0', 'f1', ... par les noms réels (xgboost).
+
+    FIX PERF (2026-08-21) : l'ancienne version faisait jusqu'à F×6 = ~1308
+    scans de la chaîne (`.replace()`) par arbre. Maintenant un seul `re.sub`
+    avec une fonction de lookup : O(dump) en une passe.
+    """
+    import re
+    # Seul le motif "[f<N><op>" (avec un opérateur de comparaison) doit être
+    # renommé : on évite de toucher aux feuilles "leaf=".
+    name_by_idx = {i: n for i, n in enumerate(feature_names)}
+
+    def _repl(m: "re.Match") -> str:
+        idx = int(m.group(1))
+        name = name_by_idx.get(idx, m.group(0)[1:])
+        return f"[{name}{m.group(2)}"
+
+    # motif : '[f' + digits + (l'un des opérateurs) + -> remplace l'indice
+    return re.sub(r"\[f(\d+)(<=|>=|==|!=|<|>)", _repl, dump_str)

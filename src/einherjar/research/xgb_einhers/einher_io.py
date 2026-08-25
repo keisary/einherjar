@@ -1,8 +1,15 @@
 """einher_io.py - Sérialisation JSONL des Einhers.
 
-Réponse Q20 : format JSON.
-Un fichier par (asset, TF, horizon) : outputs/einhers_{asset}_{tf}_{horizon}.jsonl
 Format JSONL : un Einher par ligne.
+
+FIX P0-2 (2026-08-24) : round-trip FIDELE.
+- Les noeuds ConditionNode unaires (NOT) sont serialises SANS cle "right" ;
+  l'ancien _dict_to_ast exigeait la presence de "right" pour reconstruire un
+  ConditionNode -> tout Einher contenant un NOT etait relu comme une Condition
+  atomique (KeyError feature_ref). Desormais : presence de "op"+"left" suffit.
+- t_statistic, p_value, tp_hit_rate sont restaures (avant : defauts silencieux
+  0.0/1.0/0.0 -> toute re-analyse BH depuis le corpus etait fausse).
+- trade_returns est restaure s'il est present (peut etre absent pour alléger).
 """
 from __future__ import annotations
 
@@ -11,7 +18,7 @@ import logging
 from pathlib import Path
 from typing import Iterator
 
-from einherjar.research.xgb_einhers.types import Einher
+from .types import Einher
 
 logger = logging.getLogger(__name__)
 
@@ -58,57 +65,45 @@ def iter_einhers(path: Path) -> Iterator[Einher]:
             yield _dict_to_einher(d)
 
 
+def _metrics_from_dict(m: dict):
+    """Reconstruit un EinherMetrics depuis son dict (round-trip fidele)."""
+    from .types import EinherMetrics
+
+    tr = m.get("trade_returns") or ()
+    return EinherMetrics(
+        n_trades=m["n_trades"],
+        n_tp=m["n_tp"],
+        n_sl=m["n_sl"],
+        n_timeout=m["n_timeout"],
+        win_rate=m["win_rate"],
+        avg_net_return=m["avg_net_return"],
+        total_return=m["total_return"],
+        sharpe_ratio=m["sharpe_ratio"],
+        max_drawdown=m["max_drawdown"],
+        profit_factor=m["profit_factor"],
+        avg_holding_bars=m["avg_holding_bars"],
+        buy_hold_return=m.get("buy_hold_return", 0.0),
+        alpha=m.get("alpha", 0.0),
+        # FIX P0-2 : restaurer les champs perdus (BH re-analyse correcte)
+        t_statistic=float(m.get("t_statistic", 0.0)),
+        p_value=float(m.get("p_value", 1.0)),
+        tp_hit_rate=float(m.get("tp_hit_rate", 0.0)),
+        trade_returns=tuple(float(x) for x in tr),
+    )
+
+
 def _dict_to_einher(d: dict) -> Einher:
     """Reconstruit un Einher depuis son dict JSON."""
-    from einherjar.research.xgb_einhers.types import (
-        Condition, ConditionNode, EinherMetrics,
-    )
-    # condition_tree : récursif
-    ct = d["condition_tree"]
-    if "op" in ct and "left" in ct and "right" in ct:
-        condition_tree = ConditionNode(
-            op=ct["op"],
-            left=_dict_to_ast(ct["left"]),
-            right=_dict_to_ast(ct["right"]) if ct.get("right") is not None else None,
-        )
-    else:
-        condition_tree = _dict_to_ast(ct)
+    from .types import ConditionNode
 
-    metrics_d = d["metrics"]
-    metrics = EinherMetrics(
-        n_trades=metrics_d["n_trades"],
-        n_tp=metrics_d["n_tp"],
-        n_sl=metrics_d["n_sl"],
-        n_timeout=metrics_d["n_timeout"],
-        win_rate=metrics_d["win_rate"],
-        avg_net_return=metrics_d["avg_net_return"],
-        total_return=metrics_d["total_return"],
-        sharpe_ratio=metrics_d["sharpe_ratio"],
-        max_drawdown=metrics_d["max_drawdown"],
-        profit_factor=metrics_d["profit_factor"],
-        avg_holding_bars=metrics_d["avg_holding_bars"],
-        buy_hold_return=metrics_d["buy_hold_return"],
-        alpha=metrics_d["alpha"],
-    )
-    # Sprint 2.4.1 : holdout_metrics (optionnel)
+    ct = d["condition_tree"]
+    condition_tree = _dict_to_ast(ct)
+
+    metrics = _metrics_from_dict(d["metrics"])
     holdout_metrics = None
-    if "holdout_metrics" in d and d["holdout_metrics"] is not None:
-        hm = d["holdout_metrics"]
-        holdout_metrics = EinherMetrics(
-            n_trades=hm["n_trades"],
-            n_tp=hm["n_tp"],
-            n_sl=hm["n_sl"],
-            n_timeout=hm["n_timeout"],
-            win_rate=hm["win_rate"],
-            avg_net_return=hm["avg_net_return"],
-            total_return=hm["total_return"],
-            sharpe_ratio=hm["sharpe_ratio"],
-            max_drawdown=hm["max_drawdown"],
-            profit_factor=hm["profit_factor"],
-            avg_holding_bars=hm["avg_holding_bars"],
-            buy_hold_return=hm.get("buy_hold_return", 0.0),
-            alpha=hm.get("alpha", 0.0),
-        )
+    hm_raw = d.get("holdout_metrics")
+    if hm_raw is not None:
+        holdout_metrics = _metrics_from_dict(hm_raw)
 
     return Einher(
         id=d["id"],
@@ -124,22 +119,34 @@ def _dict_to_einher(d: dict) -> Einher:
         source=d.get("source", {}),
         created_at=d.get("created_at", ""),
         data_version=d.get("data_version", ""),
-        holdout_metrics=holdout_metrics,  # Sprint 2.4.1
+        holdout_metrics=holdout_metrics,
     )
+
+
+def _is_node(d: dict) -> bool:
+    """True si le dict represente un ConditionNode (binaire AND/OR/XOR ou unaire NOT).
+
+    FIX P0-2 : un NOT unaire est serialise {op, left} sans right. L'ancien test
+    exigeait 'right' -> le NOT etait mal reconstruit en Condition atomique.
+    """
+    return isinstance(d, dict) and "op" in d and "left" in d
 
 
 def _dict_to_ast(d: dict):
     """Reconstruit récursivement un AST depuis son dict."""
-    from einherjar.research.xgb_einhers.types import Condition, ConditionNode
-    if "op" in d and "left" in d and "right" in d:
+    from .types import Condition, ConditionNode
+
+    if _is_node(d):
         return ConditionNode(
             op=d["op"],
             left=_dict_to_ast(d["left"]),
             right=_dict_to_ast(d["right"]) if d.get("right") is not None else None,
         )
+    expr = d.get("expr")
     return Condition(
         feature_ref=d["feature_ref"],
         operator=d["operator"],
         value=d["value"],
         transformation=d.get("transformation"),
+        expr=expr,
     )

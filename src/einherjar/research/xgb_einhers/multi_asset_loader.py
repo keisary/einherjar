@@ -21,12 +21,12 @@ from typing import Optional
 
 import numpy as np
 
-from einherjar.research.xgb_einhers.data_loader import (
+from .data_loader import (
     COMPILED_DIR,
     load_xy,
     temporal_split,
 )
-from einherjar.research.xgb_einhers.types import LoadedData
+from .types import LoadedData
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ def list_available_assets(
     if require_ohlcv:
         # Si ohlcv_dir n'est pas passe, on prend le defaut connu
         if ohlcv_dir is None:
-            from einherjar.research.xgb_einhers.data_loader import OHLCV_DIR
+            from .data_loader import OHLCV_DIR
             ohlcv_dir = OHLCV_DIR
         # Sprint 3.6 FIX BUG-12 : les sous-classes stocks (growth/tech/value)
         # partagent le meme dossier OHLCV "stocks/". On doit resoudre la

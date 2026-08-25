@@ -39,10 +39,5 @@
     "stocks_us": 8,
     "indices": 4,
     "commodities": 3
-  },
-  "broker_coverage": {
-    "binance": ["BTCUSD", "ETHUSD", "ADAUSD", "BCHUSD", "LTCUSD"],
-    "alpaca": ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "TSLA", "JPM", "XOM"],
-    "oanda": ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "EURGBP", "XAUUSD", "SP500", "NASDAQ100", "DOWJONES", "DAX40", "WTIUSD", "BRENT", "COPPER"]
   }
 }

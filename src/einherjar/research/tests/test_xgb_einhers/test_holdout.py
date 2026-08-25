@@ -28,7 +28,17 @@ from einherjar.research.xgb_einhers.einher_io import iter_einhers
 from einherjar.research.xgb_einhers.backtester import backtest_einher
 
 
+import pytest
+
+
 HOLDOUT_JSONL = Path("D:/midas_v2/Einherjar/outputs/einhers_btcusd_2d_sprint_3_1_strict.jsonl")
+
+pytestmark = [
+    pytest.mark.skipif(
+        not HOLDOUT_JSONL.exists(),
+        reason=f"Fixture sprint supprimee absente : {HOLDOUT_JSONL}",
+    )
+]
 
 # Seuils de cohérence : un Einher dont le holdout est trop dégradé
 # par rapport au val est suspect.

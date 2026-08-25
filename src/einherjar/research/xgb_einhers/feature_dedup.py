@@ -18,7 +18,6 @@ on preserve le signal en gardant la plus importante.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 import numpy as np
 
@@ -33,7 +32,11 @@ def compute_corr_matrix(X: np.ndarray) -> np.ndarray:
     """
     # np.corrcoef avec rowvar=False : features en colonnes
     # Il gere les std=0 en retournant nan, qu'on remplace par 0
-    corr = np.corrcoef(X, rowvar=False)
+    # FIX (2026-08-22) : supprimer les RuntimeWarning "invalid value in divide"
+    # emis quand une feature est constante (std=0). Le NaN est deja gere
+    # apres par nan_to_num, donc le warning etait du bruit pur.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        corr = np.corrcoef(X, rowvar=False)
     # Remplacer les NaN (features constantes) par 0
     corr = np.nan_to_num(corr, nan=0.0)
     # Forcer la diagonale a 0 (auto-correlation)
@@ -67,20 +70,29 @@ def select_features_to_drop(
     X: np.ndarray,
     feature_names: list[str],
     importances: dict[str, float],
-    corr_threshold: float = 0.85,
+    corr_threshold: float = 0.95,
 ) -> list[str]:
     """Selectionne les features a drop pour eviter la duplication.
 
-    Strategie gloutonne : tant qu'il existe une paire |r| > threshold,
-    drop la moins importante des deux.
+    FIX (2026-08-21) :
+    - corr_threshold releve de 0.85 -> 0.95 : 0.85 supprimait trop agressivement
+      des features (RSI_14/RSI_28 correlees a ~0.85) dont l'information relationnelle
+      pouvait servir de strategie. 0.95 ne garde que le vrai quasi-doublon.
+    - Suppression du code mort `keep_mask_global` (variable calculee puis ecrasee).
+    - Recherche de la paire max vectorisee (np.unravel_index(nanargmax)) au lieu
+      de la double boucle Python O(F^2).
+    - La matrice de correlation est recalculee a chaque iteration (adaptatif) mais
+      l'argmax est vectorise ; on remplace la double boucle.
+    Stratégie gloutonne : tant qu'une paire |r| > threshold, drop la moins importante.
 
     Returns:
         Liste des noms de features a dropper (a enlever de X).
     """
     F = X.shape[1]
     if F != len(feature_names):
-        raise ValueError(f"X et feature_names ont des tailles differentes : {F} vs {len(feature_names)}")
-    # Importance par defaut = 0 si non fournie
+        raise ValueError(
+            f"X et feature_names ont des tailles differentes : {F} vs {len(feature_names)}"
+        )
     imp_vec = np.array([importances.get(name, 0.0) for name in feature_names], dtype=np.float64)
     keep_mask = np.ones(F, dtype=bool)
     current_names = list(feature_names)
@@ -89,53 +101,43 @@ def select_features_to_drop(
 
     # Iterer jusqu'a stabilisation
     while True:
-        if current_X.shape[1] < 2:
+        n_cur = current_X.shape[1]
+        if n_cur < 2:
             break
         corr = compute_corr_matrix(current_X)
-        # Trouver la paire la plus correlee
-        F_curr = corr.shape[0]
-        max_r = 0.0
-        max_i, max_j = -1, -1
-        for i in range(F_curr):
-            for j in range(i + 1, F_curr):
-                if corr[i, j] > max_r:
-                    max_r = corr[i, j]
-                    max_i, max_j = i, j
-        if max_r <= corr_threshold:
+        # Trouver la paire la plus correlee (vectorise, on ecrase la diag par -1)
+        with np.errstate(invalid="ignore"):
+            corr[0, 0] = -1.0
+            flat_max = np.nanmax(corr)
+        if flat_max <= corr_threshold:
             break
+        max_i, max_j = np.unravel_index(np.nanargmax(corr), corr.shape)
+
         # Drop la moins importante
         if current_imp[max_i] < current_imp[max_j]:
             drop_idx = max_i
         else:
             drop_idx = max_j
-        # Retirer
-        keep_mask_global = np.array([
-            keep_mask_global for keep_mask_global, name in zip(keep_mask, feature_names)
-            if name in current_names
-        ])
-        # Reconstruire keep_mask dans l'espace original
+        drop_name = current_names[drop_idx]
+
+        # Retirer (mise a jour des structures de suivi)
         new_keep = np.zeros(F, dtype=bool)
         new_names = []
         new_imp = []
         for k, name in enumerate(current_names):
             if k != drop_idx:
-                global_idx = feature_names.index(name)
-                new_keep[global_idx] = True
+                new_keep[feature_names.index(name)] = True
                 new_names.append(name)
                 new_imp.append(current_imp[k])
         keep_mask = new_keep
         current_names = new_names
         current_X = X[:, keep_mask]
         current_imp = np.array(new_imp, dtype=np.float64)
-        logger.debug(
-            "Dedup : drop %s (|r|=%.3f avec %s), reste %d features",
-            current_names[drop_idx] if drop_idx < len(current_names) else "?",
-            max_r,
-            "?",
-            len(current_names),
-        )
+        logger.debug("Dedup : drop %s (|r|=%.3f), reste %d features",
+                     drop_name, flat_max, len(current_names))
 
     dropped = [name for name, keep in zip(feature_names, keep_mask) if not keep]
+    return dropped
     return dropped
 
 
@@ -143,7 +145,7 @@ def apply_dedup(
     X: np.ndarray,
     feature_names: list[str],
     importances: dict[str, float],
-    corr_threshold: float = 0.85,
+    corr_threshold: float = 0.95,  # FIX 2026-08-21 : 0.85 trop agressif
 ) -> tuple[np.ndarray, list[str], list[str]]:
     """Pipeline complet : retourne X dedup + noms retenus + noms droppes.
 

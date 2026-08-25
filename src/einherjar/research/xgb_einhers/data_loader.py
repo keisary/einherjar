@@ -19,22 +19,14 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import polars as pl
 
-from einherjar.research.xgb_einhers.types import LoadedData, TrainValHoldoutSplit
+from .types import LoadedData, TrainValHoldoutSplit
+from .paths import COMPILED_DIR, OHLCV_DIR, TAXONOMY_PATH
 
 logger = logging.getLogger(__name__)
-
-
-# Chemins par défaut
-COMPILED_DIR = Path("D:/midas_v2/midasV3/src/data/compiled")
-OHLCV_DIR = Path("D:/midas_v2/technical_agent_dataset_brut")
-TAXONOMY_PATH = Path(
-    "D:/midas_v2/Einherjar/src/einherjar/research/config/features_taxonomy.json"
-)
 
 # Features OHLCV toujours exclues (réponse Q6 : on a les prix via CSV bruts)
 OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
@@ -54,6 +46,25 @@ def load_usable_feature_names() -> set[str]:
     with open(TAXONOMY_PATH) as f:
         tax = json.load(f)
     return {k for k, v in tax["features"].items() if not v.get("excluded", False)}
+
+
+def load_feature_meta(
+    asset: str,
+    timeframe: str,
+    asset_class: str = "crypto",
+    compiled_dir: Path = COMPILED_DIR,
+) -> tuple[list[str], list[str]]:
+    """Lit (feature_names, horizons) depuis metadata.json SANS charger les arrays.
+
+    FIX MEM-01 (2026-08-24) : remplace load_multi_asset() quand on n'a besoin
+    QUE des metadonnees. Les feature_names/horizons sont identiques entre actifs
+    d'un meme (asset_class, timeframe) - verifie par la coherence imposee dans
+    load_multi_asset_split.
+    """
+    meta_path = Path(compiled_dir) / asset_class / timeframe / "metadata.json"
+    with open(meta_path) as f:
+        meta = json.load(f)
+    return list(meta["feature_names"]), list(meta["horizons"])
 
 
 # --------------------------------------------------------------------------- #
@@ -150,12 +161,12 @@ def load_ohlcv(
     """Charge les OHLCV depuis les CSV annuels bruts.
 
     Returns:
-        DataFrame polars avec colonnes [timestamp (datetime[us, UTC]), open, high, low, close, volume].
-        Trié ASC par timestamp.
+        DataFrame polars avec colonnes [timestamp (datetime[us, UTC]),
+        open, high, low, close, volume]. Trié ASC par timestamp.
     """
     # FIX BUG-12 (Sprint 3.6) : les 3 sous-classes stocks (growth/tech/value)
     # partagent le meme dossier OHLCV "stocks/".
-    from einherjar.research.xgb_einhers.multi_asset_loader import resolve_ohlcv_class
+    from .multi_asset_loader import resolve_ohlcv_class
     ohlcv_class = resolve_ohlcv_class(asset_class)
     root = Path(ohlcv_dir) / ohlcv_class / asset / timeframe
     if not root.is_dir():
@@ -207,7 +218,10 @@ def align_xy_with_ohlcv(
     # Convertir les timestamps ms epoch en datetime[us, UTC] pour le join
     ts_dt = pl.from_numpy(loaded.timestamps.astype(np.int64), schema=["ts_ms"])
     ts_dt = ts_dt.with_columns(
-        pl.from_epoch(pl.col("ts_ms"), time_unit="ms").dt.replace_time_zone("UTC").dt.cast_time_unit("us").alias("timestamp")
+        pl.from_epoch(pl.col("ts_ms"), time_unit="ms")
+        .dt.replace_time_zone("UTC")
+        .dt.cast_time_unit("us")
+        .alias("timestamp")
     )
 
     # DF avec timestamp + indices originaux
@@ -215,21 +229,31 @@ def align_xy_with_ohlcv(
     xy_df = ts_dt.with_row_index(name="orig_idx").select(
         pl.col("timestamp"), pl.col("orig_idx")
     )
-    # Join inner
-    ohlcv_with_idx = ohlcv_df.with_row_index(name="ohlcv_idx")
-    joined = ohlcv_with_idx.join(xy_df, on="timestamp", how="inner").sort("timestamp")
+    # P1-ALIGN (2026-08-24) : l'ancienne version faisait un filter() PUIS un
+    # second join() sur les memes donnees - deux copies inutiles du DataFrame
+    # OHLCV. Un unique gather par ohlcv_idx suffit : moins de RAM, ~2x plus vite.
+    # NB : si ohlcv_df contenait des timestamps dupliques, le join inner les
+    # dupliquerait aussi cote X ; on deduplique donc explicitement en amont.
+    if ohlcv_df["timestamp"].is_duplicated().any():
+        logger.warning(
+            "align_xy_with_ohlcv : %d timestamps dupliques dans OHLCV -> keep=first",
+            int(ohlcv_df["timestamp"].is_duplicated().sum()),
+        )
+        ohlcv_df = ohlcv_df.unique(subset=["timestamp"], keep="first").sort("timestamp")
 
-    # Réindexer X selon l'ordre du join
+    joined = (
+        ohlcv_df.with_row_index(name="ohlcv_idx")
+        .join(xy_df, on="timestamp", how="inner")
+        .sort("timestamp")
+    )
+
+    # Réindexer X selon l'ordre du join (gather numpy, pas de copie intermediaire)
     orig_idx = joined["orig_idx"].to_numpy()
     X_aligned = loaded.X[orig_idx]
     ts_aligned = joined["timestamp"]
 
-    # Réindexer OHLCV selon le même ordre
-    ohlcv_aligned = ohlcv_df.filter(pl.col("timestamp").is_in(joined["timestamp"])).sort("timestamp")
-    # Note : ci-dessus est un filter() simple, mais comme on a fait inner join, tous les
-    # timestamps du join sont dans ohlcv_df. On peut directement utiliser joined.
-    # Pour éviter un second select, on reconstruit depuis joined:
-    ohlcv_aligned = ohlcv_df.join(joined.select("timestamp"), on="timestamp", how="inner").sort("timestamp")
+    # OHLCV aligne = gather des lignes du join (meme ordre que X_aligned)
+    ohlcv_aligned = ohlcv_df[joined["ohlcv_idx"].to_numpy()]
 
     logger.info(
         "align_xy_with_ohlcv : %d/%d lignes conservées (%.1f%%)",
@@ -280,9 +304,11 @@ def temporal_split(
     Args:
         X : (N, F)
         y : (N,) ou (N, ...)
-        train_ratio, val_ratio, holdout_ratio : doivent sommer à 1.0
-        embargo_bars : nb de bougies exclues aux frontières (minimum)
-        horizon_bars : horizon du label en bars (Sprint 3.0 FIX #2)
+        train_ratio : proportion pour le train (defaut 0.6).
+        val_ratio : proportion pour la val (defaut 0.2).
+        holdout_ratio : proportion pour le holdout (defaut 0.2).
+        embargo_bars : nb de bougies exclues aux frontières (minimum).
+        horizon_bars : horizon du label en bars (Sprint 3.0 FIX #2).
                        L'embargo effectif est max(embargo_bars, horizon_bars)
                        pour eviter le leakage du target entre splits.
 

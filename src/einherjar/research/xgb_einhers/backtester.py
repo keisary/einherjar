@@ -24,10 +24,10 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-from einherjar.research.xgb_einhers.condition_tree import (
+from .condition_tree import (
     evaluate_ast_on_array,
 )
-from einherjar.research.xgb_einhers.types import (
+from .types import (
     Condition,
     ConditionNode,
     Einher,
@@ -60,19 +60,26 @@ def compute_atr(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: in
         atr : (N,) float64, NaN pour les premières 'period' bougies.
     """
     n = len(high)
+    # FIX PERF (2026-08-21) : True Range vectorisé (au lieu de la boucle Python).
     tr = np.zeros(n, dtype=np.float64)
-    tr[0] = high[0] - low[0]
-    for i in range(1, n):
-        tr[i] = max(
-            high[i] - low[i],
-            abs(high[i] - close[i - 1]),
-            abs(low[i] - close[i - 1]),
-        )
-    # Wilder smoothing (RMA)
+    if n > 0:
+        tr[0] = high[0] - low[0]  # équivaut à l'ancienne boucle (tr[0] initial)
+    tr[1:] = np.maximum(
+        high[1:] - low[1:],
+        np.maximum(
+            np.abs(high[1:] - close[:-1]),
+            np.abs(low[1:] - close[:-1]),
+        ),
+    )
+    # Wilder smoothing (RMA) : séquentiel, garde la formule exacte
+    # atr[i] = (atr[i-1]*(period-1)+tr[i])/period.
     atr = np.full(n, np.nan, dtype=np.float64)
     if n < period:
         return atr
-    # Premier ATR = moyenne simple des period premières TR
+    atr[period - 1] = np.mean(tr[:period])
+    for i in range(period, n):
+        atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period
+    return atr
     atr[period - 1] = np.mean(tr[:period])
     for i in range(period, n):
         atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period
@@ -186,9 +193,12 @@ def compute_metrics(
     n_sl = int((reasons == "sl").sum())
     n_timeout = int((reasons == "timeout").sum())
 
-    win_rate = n_tp / n
-    avg_net = float(np.mean(rets))
-    total = float(np.sum(rets))
+    win_rate = float((rets > 0).mean()) if n > 0 else 0.0   # FIX: inclut timeouts gagnants
+    tp_hit_rate = n_tp / n if n > 0 else 0.0
+    avg_net = float(np.mean(rets)) if n > 0 else 0.0
+    # FIX METRICS (2026-08-21) : total_return COMPOSE, pas une somme.
+    # sum(+10%,+10%,+10%) = 30% mais prod(1.1^3)-1 = 33.1%.
+    total = float(np.prod(1.0 + rets) - 1.0) if n > 0 else 0.0
 
     # Sprint 3.0 FIX #1 : Sharpe annualisé CORRECT
     # AVANT (bug) : sharpe = avg_net / std * sqrt(n_trades)
@@ -207,25 +217,37 @@ def compute_metrics(
 
     # Sprint 3.3 FIX BUG-02 : vraie t-stat pour correction multi-tests (BH)
     # t = mean(rets) / (std(rets) / sqrt(n))
-    # p-value bilaterale H0: mean(rets) = 0
-    # On utilise Student t (approx normale si n > 30)
+    # FIX P1-1 (AI Review 2026-08-20) : p-value one-sided upper tail.
+    # H0: mean(rets) <= 0 (pas H0: mean = 0).
+    # En bilaterale, une strat perdante (t=-3.5) avait p=0.0005 et volait
+    # le quota BH aux strategies gagnantes. En one-sided upper :
+    #   t <= 0  -> p = 1.0 (ne peut pas rejeter H0)
+    #   t >  0  -> p = 1 - Phi(t)
     if n > 1 and std > 0 and not degenerate:
         t_stat = float(avg_net / (std / np.sqrt(n)))
         from math import erf, sqrt
-        if n > 30:
-            p_val = 2.0 * (1.0 - 0.5 * (1.0 + erf(abs(t_stat) / sqrt(2.0))))
+        # Tolerance pour eviter les artefacts de precision flottante
+        # (mean=0 mais t_stat=1e-17 a cause de float64)
+        if t_stat <= 1e-9:
+            # t <= epsilon : ne peut pas rejeter H0: mu <= 0
+            p_val = 1.0
         else:
-            p_val = 2.0 * (1.0 - 0.5 * (1.0 + erf(abs(t_stat) / sqrt(2.0))))
-        p_val = max(p_val, 1e-10)
+            # One-sided upper tail : P(X > t_stat | H0)
+            p_val = 1.0 - 0.5 * (1.0 + erf(t_stat / sqrt(2.0)))
+            p_val = max(p_val, 1e-10)
     else:
         t_stat = 0.0
         p_val = 1.0
 
-    # Max drawdown sur equity_curve
-    eq = np.cumsum(rets)
-    peak = np.maximum.accumulate(eq)
-    dd = eq - peak
-    max_dd = float(np.min(dd)) if len(dd) > 0 else 0.0
+    # Max drawdown sur EQUITY COMPOSEE (FIX METRICS 2026-08-21).
+    # Avant : eq = cumsum(rets) (approche additive, fausse pour gros rendements).
+    # Apres : eq = cumprod(1+rets), sauf si certains rets <= -1 (protection).
+    eq_comp = np.cumprod(np.maximum(1.0 + rets, 1e-9))
+    peak = np.maximum.accumulate(eq_comp)
+    dd = eq_comp - peak
+    # drawdown en fraction : (eq - peak)/peak
+    dd_frac = dd / np.maximum(peak, 1e-12)
+    max_dd = float(np.min(dd_frac)) if len(dd_frac) > 0 else 0.0
 
     # Profit factor
     gains = rets[rets > 0].sum()
@@ -247,12 +269,87 @@ def compute_metrics(
         profit_factor=pf,
         avg_holding_bars=avg_hold,
         buy_hold_return=buy_hold_return,
-        alpha=total - buy_hold_return,
+        alpha=total - buy_hold_return,   # excess return vs buy&hold (composé)
         t_statistic=t_stat,
         p_value=p_val,
         trade_returns=tuple(rets.tolist()),
+        tp_hit_rate=tp_hit_rate,
     )
 
+
+
+
+def backtest_einher_multi(
+    einher: Einher,
+    per_asset: list[tuple[pl.DataFrame, np.ndarray]],
+    feature_names: list[str],
+    costs_pct: float = 0.0010,
+    val_frac: float = 0.6,
+    holdout_embargo: int = 50,
+    phase: str = "val",
+) -> BacktestResult:
+    """Backtest multi-actif : evalue l'Einher sur CHACUN des actifs du scope
+    (per_asset = liste de (ohlcv_df, X) alignes), puis AGREGGE les trades.
+
+    FIX BUG-1 (2026-08-21) : avant, en scope=market/general, le modele etait
+    entraine multi-actif mais le backtest ne tournait que sur l'actif primaire.
+    Les metriques d'admission ne refletent alors qu'UN actif de l'univers.
+    Ici on backteste sur tous les actifs et on fusionne les trades (meme split
+    temporel val 60-80% applique par actif), puis on recalcule les metriques
+    sur l'union. Retourne aussi la metrique de l'actif primaire pour reference.
+
+    Returns:
+        BacktestResult agr e g e (trades = union des trades val sur tous actifs).
+    """
+    all_trades: list[TradeResult] = []
+    primary_result = None
+    n_aligned_list = [len(o) for o, _ in per_asset]
+    n_total = sum(n_aligned_list)
+    # Bornes temporelles communes (proportionnelles a chaque serie)
+    def _phase_slice(n):
+        te = int(n * val_frac)
+        ve_1 = min(n, te + int(n * 0.2))
+        hs = ve_1 + max(holdout_embargo, einher.amplitude_bars)
+        if phase == "val":
+            vs = te + max(holdout_embargo, einher.amplitude_bars)
+            ve = min(n, vs + int(n * 0.2))
+            return vs, ve
+        else:  # holdout
+            return hs, n
+    for ohlcv_df, X in per_asset:
+        n_this = len(ohlcv_df)
+        if n_this == 0:
+            continue
+        vs, ve = _phase_slice(n_this)
+        if vs < ve:
+            r = backtest_einher(einher, ohlcv_df[vs:ve], X[vs:ve], feature_names, costs_pct)
+        else:
+            r = backtest_einher(einher, ohlcv_df[:0], X[:0], feature_names, costs_pct)
+        if primary_result is None:
+            primary_result = r
+        all_trades.extend(r.trades)
+    if not all_trades:
+        # pas de trades : on retourne des metriques vides (val)
+        return primary_result if primary_result else BacktestResult(
+            trades=[], metrics=backtest_einher(einher, per_asset[0][0][:0], per_asset[0][1][:0], feature_names, costs_pct).metrics if per_asset else None,
+            equity_curve=np.array([0.0]))
+    # Recalculer les metriques sur l'union (agreg)
+    # Recalculer les metriques sur l'union (agreg)
+    buy_hold = 0.0
+    import numpy as _np
+    # FIX : estimer les annees a partir des timestamps reels (ms) des trades
+    _ts_min = min(t.entry_timestamp_ms for t in all_trades)
+    _ts_max = max(t.exit_timestamp_ms for t in all_trades)
+    dur_h = (_ts_max - _ts_min) / 3_600_000.0 if _ts_max > _ts_min else 1.0
+    years = max(dur_h / 8_760.0, 1.0 / 365.0)  # minimum ~1 jour
+    metrics = compute_metrics(all_trades, buy_hold, years_in_period=years)
+    _tp = primary_result.effective_tp_pct if primary_result else 0.0
+    _sl = primary_result.effective_sl_pct if primary_result else 0.0
+    return BacktestResult(
+        trades=all_trades, metrics=metrics,
+        equity_curve=_np.concatenate([[0.0], _np.cumsum([t.net_return for t in all_trades])]),
+        effective_tp_pct=_tp, effective_sl_pct=_sl,
+    )
 
 def backtest_einher(
     einher: Einher,
@@ -295,15 +392,32 @@ def backtest_einher(
     signal_indices = signal_indices[valid_mask]
 
     # 2. SL/TP : utiliser ceux de l'Einher directement, ou défauts si 0
-    #    (les Einhers issus d'XGBoost ont tp_pct=0, on utilise les défauts ATR)
-    if einher.tp_pct > 0:
+    # FIX P0-1 (AI Review 2026-08-20) : défauts dynamiques ATR-based au lieu
+    # de hardcoder 2.5%/1.5% (qui tuent forex/indices où 6h = 0.05-0.20%).
+    if einher.tp_pct > 0 and einher.sl_pct > 0:
         tp_pct = einher.tp_pct
-    else:
-        tp_pct = 0.025  # 2.5% défaut
-    if einher.sl_pct > 0:
         sl_pct = einher.sl_pct
     else:
-        sl_pct = 0.015  # 1.5% défaut
+        # Calcul median ATR sur la serie
+        atr_arr = compute_atr(highs, lows, closes, period=atr_period)
+        valid_atr = atr_arr[~np.isnan(atr_arr)]
+        if len(valid_atr) > 0:
+            median_atr = float(np.median(valid_atr))
+            median_price = float(np.median(closes))
+            median_atr_pct = median_atr / max(median_price, 1e-12)
+        else:
+            # Fallback : 1% du prix median
+            median_atr_pct = 0.01
+        # Scale TP/SL avec l'amplitude (sqrt scaling)
+        horizon_factor = float(np.sqrt(max(1.0, einher.amplitude_bars / 6.0)))
+        # Planchers adaptes par classe de vol
+        tp_pct = max(0.0010, 2.5 * median_atr_pct * horizon_factor)
+        sl_pct = max(0.0005, 1.5 * median_atr_pct * horizon_factor)
+        logger.debug(
+            "ATR-based SL/TP : median_atr=%.6f, median_price=%.4f, "
+            "median_atr_pct=%.5f, horizon_factor=%.2f -> tp=%.5f sl=%.5f",
+            median_atr, median_price, median_atr_pct, horizon_factor, tp_pct, sl_pct,
+        )
 
     # 2.5 Exposer les SL/TP effectifs (pour sauvegarde correcte)
     #    (cf. bug 2.1.1 du Sprint 2.1 : avant, les Einhers étaient sauvés avec 0)

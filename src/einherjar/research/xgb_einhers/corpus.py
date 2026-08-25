@@ -18,7 +18,7 @@ import threading
 from pathlib import Path
 from typing import Iterator, Optional
 
-from einherjar.research.xgb_einhers.types import Einher
+from .types import Einher
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class CorpusStore:
 
     def iter(self) -> Iterator[Einher]:
         """Itere sur tous les Einhers du corpus."""
-        from einherjar.research.xgb_einhers.einher_io import _dict_to_einher
+        from .einher_io import _dict_to_einher
         with open(self.path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()

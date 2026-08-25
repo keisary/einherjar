@@ -12,7 +12,8 @@ from typing import Optional
 
 import numpy as np
 
-from einherjar.research.xgb_einhers.types import LoadedData
+from .types import LoadedData
+from .paths import FEES_CONFIG_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -81,36 +82,64 @@ def build_direction_labels(
 
 def load_costs(
     asset: str,
-    fees_config_path: Path = Path(
-        "D:/midas_v2/Einherjar/config/fees_ctrader.json"
-    ),
+    fees_config_path: Path | None = None,
 ) -> float:
     """Charge le coût round-trip (decimal) pour un actif depuis fees_ctrader.json.
 
+    FIX COUT (2026-08-21) : la conversion commission $/lot -> % n'etait pas
+        implementee (TODO). Le fallback silencieux traitait une commission_per_lot
+        de 3.5$ comme 0.0001% (1bp), SOUS-ESTIMANT les coûts reels de tout actif.
+        On remplace le fallback NUL par une estimation CONSERVATRICE documentee
+        (2bp/leg = 0.0002) lorsque commission_per_lot>0 sans commission_pct, avec
+        un warning explicite — plutôt que 1bp sous-estimé ou une erreur qui casse
+        tout le run multi-asset.
+        - commission_pct explicite (si present) -> utilise tel quel.
+        - commission_per_lot present (>0) SANS commission_pct -> estimation
+          conservatrice 0.0002/leg + warning (conversion exacte impossible sans
+          taille de lot moyenne fiable).
+        - ni l'un ni l'autre -> fallback 0.0001 (1bp/leg).
+
     Returns:
         round_trip_cost : float (ex: 0.0008 pour 0.08%)
-
-    Note : pour crypto, la commission est souvent en % du trade.
     """
     import json
+    if fees_config_path is None:
+        fees_config_path = FEES_CONFIG_PATH
     with open(fees_config_path) as f:
         fees = json.load(f)
 
-    # Cherche d'abord dans per_symbol
     per_symbol = fees.get("per_symbol", {})
     if asset in per_symbol:
         sym = per_symbol[asset]
         spread = sym.get("spread_pct", 0.0001)
-        # Pour crypto, commission_per_lot est en $/lot, on approxime en %
-        commission = sym.get("commission_per_lot", 0)
-        # TODO: convertir commission $/lot en % (nécessite taille de lot moyenne)
-        # Pour l'instant, on utilise un fallback
-        commission_pct = sym.get("commission_pct", 0.0001) if "commission_pct" in sym else 0.0001
+        if "commission_pct" in sym:
+            commission_pct = float(sym["commission_pct"])
+        else:
+            comm_lot = sym.get("commission_per_lot", 0.0) or 0.0
+            if comm_lot > 0:
+                # FIX COUT : estimation conservatrice (2bp/leg) + warning explicite.
+                logger.warning(
+                    "%s: commission_per_lot=%.2f$ sans commission_pct -> estimation "
+                    "conservatrice 0.0002/leg (conversion exacte impossible sans taille de lot).",
+                    asset, comm_lot,
+                )
+                commission_pct = 0.0002
+            else:
+                commission_pct = 0.0001
     else:
         spread = fees.get("default", {}).get("spread_pct", 0.0001)
-        commission_pct = fees.get("default", {}).get("commission_per_lot", 0.0001)
-        if commission_pct > 1:  # Probablement en $/lot, pas en %
-            commission_pct = 0.0001
+        if "commission_pct" in fees.get("default", {}):
+            commission_pct = float(fees["default"]["commission_pct"])
+        else:
+            comm_lot = fees.get("default", {}).get("commission_per_lot", 0.0) or 0.0
+            if comm_lot > 0:
+                logger.warning(
+                    "%s: default.commission_per_lot=%.2f$ sans commission_pct -> "
+                    "estimation conservatrice 0.0002/leg.", asset, comm_lot,
+                )
+                commission_pct = 0.0002
+            else:
+                commission_pct = 0.0001
 
     slippage = 0.0001  # défaut
     # Round-trip = (spread + slippage) * 2 + commission * 2

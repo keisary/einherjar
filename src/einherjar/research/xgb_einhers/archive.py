@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Optional
 
-from einherjar.research.xgb_einhers.types import Einher
+from .types import Einher
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ class ArchiveStore:
                 if not line:
                     continue
                 d = json.loads(line)
-                from einherjar.research.xgb_einhers.einher_io import _dict_to_einher
+                from .einher_io import _dict_to_einher
                 yield ArchiveEntry(
                     einher=_dict_to_einher(d["einher"]),
                     rejection_reason=d["rejection_reason"],

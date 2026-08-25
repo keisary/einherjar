@@ -103,9 +103,17 @@ class EinherMetrics:
     p_value: float = 1.0      # p-value bilaterale H0: mean(rets) = 0
     # Rendements par trade (utilises pour vrai bootstrap si on veut)
     trade_returns: tuple[float, ...] = field(default_factory=tuple)
+    # FIX METRICS (2026-08-21) : taux de sorties par TP, distinct du win_rate.
+    # win_rate = % de trades avec net_return > 0 (inclut les timeouts gagnants).
+    # tp_hit_rate = % de trades sortis par take-profit uniquement.
+    tp_hit_rate: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
-        return {k: v for k, v in asdict(self).items() if k != "trade_returns"}
+        # FIX P0-2 : trade_returns serialise aussi (round-trip fidele).
+        # L'ancien dict l'excluait -> impossible de re-analyser un corpus.
+        d = {k: v for k, v in asdict(self).items()}
+        d["trade_returns"] = list(self.trade_returns)
+        return d
 
     def passes_admission(
         self,
