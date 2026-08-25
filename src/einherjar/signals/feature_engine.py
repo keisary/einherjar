@@ -188,9 +188,9 @@ class FeatureEngine:
 
     def _compute_indicators(self, data: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """Calcule les 52 indicateurs techniques via le bridge."""
-        o = data["open"]
+        data["open"]
         h = data["high"]
-        l = data["low"]
+        low_ = data["low"]
         c = data["close"]
         v = data["volume"]
 
@@ -220,20 +220,20 @@ class FeatureEngine:
         features["volume_ratio"] = np.where(vol_sma > 0, v / vol_sma, 1.0).astype(np.float32)
 
         # --- ATR ---
-        features["atr_14"] = self.indicator_bridge.atr(h, l, c, 14)
-        features["atr_21"] = self.indicator_bridge.atr(h, l, c, 21)
+        features["atr_14"] = self.indicator_bridge.atr(h, low_, c, 14)
+        features["atr_21"] = self.indicator_bridge.atr(h, low_, c, 21)
 
         # --- Stochastic ---
-        features.update(self.indicator_bridge.stochastic(h, l, c, 14, 3))
+        features.update(self.indicator_bridge.stochastic(h, low_, c, 14, 3))
 
         # --- Williams %R ---
-        features["williams_r"] = self.indicator_bridge.williams_r(h, l, c, 14)
+        features["williams_r"] = self.indicator_bridge.williams_r(h, low_, c, 14)
 
         # --- CCI ---
-        features["cci_20"] = self.indicator_bridge.cci(h, l, c, 20)
+        features["cci_20"] = self.indicator_bridge.cci(h, low_, c, 20)
 
         # --- ADX ---
-        features.update(self.indicator_bridge.adx(h, l, c, 14))
+        features.update(self.indicator_bridge.adx(h, low_, c, 14))
 
         # --- OBV + OBV EMA ---
         obv = self.indicator_bridge.obv(c, v)
@@ -255,28 +255,28 @@ class FeatureEngine:
         features["trix_14"] = self.indicator_bridge.trix(c, 14)
 
         # --- Ultimate Oscillator ---
-        features["ultimate_oscillator"] = self.indicator_bridge.ultimate_oscillator(h, l, c)
+        features["ultimate_oscillator"] = self.indicator_bridge.ultimate_oscillator(h, low_, c)
 
         # --- Money Flow Index ---
-        features["money_flow_index"] = self.indicator_bridge.mfi(h, l, c, v, 14)
+        features["money_flow_index"] = self.indicator_bridge.mfi(h, low_, c, v, 14)
 
         # --- Chaikin Oscillator ---
-        features["chaikin_oscillator"] = self.indicator_bridge.chaikin_oscillator(h, l, c, v, 3, 10)
+        features["chaikin_oscillator"] = self.indicator_bridge.chaikin_oscillator(h, low_, c, v, 3, 10)
 
         # --- Aroon ---
-        features.update(self.indicator_bridge.aroon(h, l, 14))
+        features.update(self.indicator_bridge.aroon(h, low_, 14))
 
         # --- Parabolic SAR ---
-        features["parabolic_sar"] = self.indicator_bridge.parabolic_sar(h, l)
+        features["parabolic_sar"] = self.indicator_bridge.parabolic_sar(h, low_)
 
         # --- SuperTrend ---
-        features.update(self.indicator_bridge.supertrend(h, l, c, 10, 3.0))
+        features.update(self.indicator_bridge.supertrend(h, low_, c, 10, 3.0))
 
         # --- Choppiness Index ---
-        features["choppiness_index"] = self.indicator_bridge.choppiness_index(h, l, c, 14)
+        features["choppiness_index"] = self.indicator_bridge.choppiness_index(h, low_, c, 14)
 
         # --- Vortex ---
-        features.update(self.indicator_bridge.vortex(h, l, c, 14))
+        features.update(self.indicator_bridge.vortex(h, low_, c, 14))
 
         return features
 

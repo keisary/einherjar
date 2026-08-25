@@ -17,9 +17,10 @@ from __future__ import annotations
 import json
 import logging
 import threading
+from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import UTC
 from pathlib import Path
-from typing import Iterator, Optional
 
 from .types import Einher
 
@@ -39,6 +40,7 @@ class ArchiveEntry:
     rejected_at: str = ""
 
     def to_dict(self) -> dict:
+        """to_dict."""
         return {
             "einher": self.einher.to_dict(),
             "rejection_reason": self.rejection_reason,
@@ -55,6 +57,11 @@ class ArchiveStore:
     """Append-only JSONL store pour les Einhers rejetes (avec raison)."""
 
     def __init__(self, path: Path | str):
+        """__init__.
+
+        Args:
+            path: TODO document.
+        """
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
@@ -72,7 +79,7 @@ class ArchiveStore:
         horizon: str = "",
     ) -> None:
         """Append une entree d'archive."""
-        from datetime import datetime, timezone
+        from datetime import datetime
         entry = ArchiveEntry(
             einher=einher,
             rejection_reason=rejection_reason,
@@ -81,7 +88,7 @@ class ArchiveStore:
             asset_class=asset_class,
             timeframe=timeframe,
             horizon=horizon,
-            rejected_at=datetime.now(timezone.utc).isoformat(),
+            rejected_at=datetime.now(UTC).isoformat(),
         )
         line = json.dumps(entry.to_dict(), ensure_ascii=False, default=str)
         with self._lock:
@@ -101,8 +108,8 @@ class ArchiveStore:
         """Append N Einhers avec la meme raison (rapide)."""
         if not einhers:
             return 0
-        from datetime import datetime, timezone
-        ts = datetime.now(timezone.utc).isoformat()
+        from datetime import datetime
+        ts = datetime.now(UTC).isoformat()
         with self._lock:
             with open(self.path, "a", encoding="utf-8") as f:
                 for e in einhers:
@@ -121,7 +128,7 @@ class ArchiveStore:
 
     def iter(self) -> Iterator[ArchiveEntry]:
         """Itere sur toutes les entrees archivees."""
-        with open(self.path, "r", encoding="utf-8") as f:
+        with open(self.path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -140,10 +147,11 @@ class ArchiveStore:
                 )
 
     def count(self) -> int:
+        """Count."""
         if not self.path.exists():
             return 0
         n = 0
-        with open(self.path, "r", encoding="utf-8") as f:
+        with open(self.path, encoding="utf-8") as f:
             for _ in f:
                 n += 1
         return n
@@ -156,5 +164,6 @@ class ArchiveStore:
         return out
 
     def clear(self) -> None:
+        """Clear."""
         with self._lock:
             self.path.write_text("", encoding="utf-8")

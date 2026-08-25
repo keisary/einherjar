@@ -52,6 +52,7 @@ _TAXONOMY = "src/einherjar/research/feature_taxonomy_corrected.json"
 
 
 def _load_taxonomy() -> dict[str, Any]:
+    """_load_taxonomy."""
     with open(_TAXONOMY, encoding="utf-8") as fh:
         data = json.load(fh)
     return data.get("features", data)
@@ -257,6 +258,11 @@ def _report(
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Main.
+
+    Args:
+        argv: TODO document.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--asset", default="BTCUSD")
     parser.add_argument("--asset-class", default="crypto")

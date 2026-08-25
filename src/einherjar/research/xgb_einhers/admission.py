@@ -18,18 +18,16 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Optional
 
-from .types import Einher, EinherMetrics
 from .paths import TAXONOMY_PATH
+from .types import Einher
 
 logger = logging.getLogger(__name__)
 
 
 # Sprint 2.2.2 : mapping feature_name -> economic_family
 # (chemin centralise dans paths.py - plus de chemin hardcode)
-_FAMILY_CACHE: Optional[dict[str, str]] = None
+_FAMILY_CACHE: dict[str, str] | None = None
 
 
 def load_feature_family_map() -> dict[str, str]:
@@ -62,7 +60,7 @@ def get_einher_families(einher: Einher) -> set[str]:
             if "feature_ref" in node:
                 features.add(node["feature_ref"])
             for v in node.values():
-                if isinstance(v, (dict, list)):
+                if isinstance(v, dict | list):
                     _walk(v)
         elif isinstance(node, list):
             for item in node:
@@ -96,7 +94,7 @@ class AdmissionConfig:
     apply_bh: bool = True
 
     @classmethod
-    def debug(cls) -> "AdmissionConfig":
+    def debug(cls) -> AdmissionConfig:
         """Seuils très souples pour tester le pipeline (debug uniquement)."""
         return cls(
             min_trades=5,
@@ -114,8 +112,8 @@ class AdmissionConfig:
 def check_admission(
     einher: Einher,
     config: AdmissionConfig = AdmissionConfig(),
-    bh_rejected: Optional[bool] = None,
-) -> tuple[bool, Optional[str]]:
+    bh_rejected: bool | None = None,
+) -> tuple[bool, str | None]:
     """Vérifie si un Einher passe les critères d'admission.
 
     Args:

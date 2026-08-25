@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -95,7 +95,7 @@ async def health() -> dict[str, Any]:
         }
     return {
         "status": "paused" if app.state.store.kill_switch_enabled() else "ok",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "components": {
             "database": "ok",
             "config": "ok" if CONFIG_PATH.exists() else "missing",

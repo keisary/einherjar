@@ -6,7 +6,6 @@ Couvre :
 - P2-1 : merge_paths_or pour DNF
 - P0-2 : cost floor crypto-only (implicite dans runner)
 """
-import math
 import unittest
 from datetime import datetime
 
@@ -18,7 +17,11 @@ from einherjar.research.xgb_einhers.backtester import compute_metrics
 from einherjar.research.xgb_einhers.condition_tree import merge_paths_or
 from einherjar.research.xgb_einhers.path_extractor import XGBPath
 from einherjar.research.xgb_einhers.types import (
-    Condition, ConditionNode, Einher, EinherMetrics, TradeResult,
+    Condition,
+    ConditionNode,
+    Einher,
+    EinherMetrics,
+    TradeResult,
 )
 
 
@@ -93,6 +96,7 @@ class TestP1_1_OneSidedPValue(unittest.TestCase):
 
     def test_two_sided_was_buggy(self):
         """Test que confirme le bug P1-1 etait bien present.
+
         Avant le fix : un strat tres perdante avait p_value petit
         (parce que deux-sided utilise abs(t)).
         Apres le fix : p_value=1.0 pour t<=0.

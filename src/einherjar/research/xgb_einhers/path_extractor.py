@@ -1,8 +1,9 @@
-"""path_extractor.py - Extraction des chemins d'arbres GBDT (xgboost + sklearn).
+r"""path_extractor.py - Extraction des chemins d'arbres GBDT (xgboost + sklearn).
 
 Supporte deux formats de sortie :
 - xgboost : `booster.get_dump()` → texte avec format `0:[f5<70] yes=1,no=2,missing=1\n1:leaf=0.012`
-- sklearn : `estimator.estimators_` → array 2D de `_tree.Tree` avec attributs `feature`, `threshold`, `children_left`, `children_right`, `value`
+- sklearn : `estimator.estimators_` -> array 2D de `_tree.Tree` avec attributs
+  `feature`, `threshold`, `children_left`, `children_right`, `value`
 
 API unifiée : `extract_paths(model, backend, feature_names, ...)`.
 """
@@ -11,7 +12,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -33,7 +34,7 @@ class XGBPath:
     tree_idx: int
     path_idx: int
     logical_op: str = "AND"
-    sub_paths: tuple["XGBPath", ...] = ()
+    sub_paths: tuple[XGBPath, ...] = ()
 
 
 # --------------------------------------------------------------------------- #
@@ -328,6 +329,16 @@ def extract_paths(
       vraiment significatives, adapté à la vol (crypto vs forex).
 
     Args:
+            backend: TODO: documenter.
+            feature_names: TODO: documenter.
+            max_path_length: TODO: documenter.
+            max_paths: TODO: documenter.
+            max_score: TODO: documenter.
+            min_path_length: TODO: documenter.
+            min_score: TODO: documenter.
+            model: TODO: documenter.
+
+    Args:
         enable_logical_variants : si True (problème 3), ajoute des variantes
             OR/NOT/XOR générées depuis les chemins AND purs.
 
@@ -379,7 +390,10 @@ def extract_paths(
         result = sorted(result, key=lambda p: (p.logical_op != "AND", -abs(p.score)))
     logger.info(
         "extract_paths (backend=%s) : %d bruts → %d filtrés → top %d retenus (+%d variantes logiques)",
-        backend, len(all_paths), len(filtered), len(result) - (len(variants) if enable_logical_variants and result else 0),
+        backend,
+        len(all_paths),
+        len(filtered),
+        len(result) - (len(variants) if enable_logical_variants and result else 0),
         (len(variants) if enable_logical_variants and result else 0),
     )
     return result
@@ -428,7 +442,7 @@ def _name_features_in_dump(dump_str: str, feature_names: list[str]) -> str:
     # renommé : on évite de toucher aux feuilles "leaf=".
     name_by_idx = {i: n for i, n in enumerate(feature_names)}
 
-    def _repl(m: "re.Match") -> str:
+    def _repl(m: re.Match) -> str:
         idx = int(m.group(1))
         name = name_by_idx.get(idx, m.group(0)[1:])
         return f"[{name}{m.group(2)}"

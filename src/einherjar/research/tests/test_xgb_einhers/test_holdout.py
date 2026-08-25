@@ -16,20 +16,15 @@ import unittest
 from pathlib import Path
 
 import numpy as np
-import polars as pl
+import pytest
 
+from einherjar.research.xgb_einhers.backtester import backtest_einher
 from einherjar.research.xgb_einhers.data_loader import (
     align_xy_with_ohlcv,
     load_ohlcv,
     load_xy,
-    temporal_split,
 )
 from einherjar.research.xgb_einhers.einher_io import iter_einhers
-from einherjar.research.xgb_einhers.backtester import backtest_einher
-
-
-import pytest
-
 
 HOLDOUT_JSONL = Path("D:/midas_v2/Einherjar/outputs/einhers_btcusd_2d_sprint_3_1_strict.jsonl")
 

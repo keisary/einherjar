@@ -3,19 +3,18 @@
 P2 : tests standards, pas P0.
 """
 import unittest
+
 import numpy as np
 
 from einherjar.research.xgb_einhers.model import (
     GBDTConfig,
-    has_xgboost,
-    train_gbdt,
-    predict_gbdt,
     feature_importance,
+    has_xgboost,
+    predict_gbdt,
+    train_gbdt,
 )
 from einherjar.research.xgb_einhers.path_extractor import (
     extract_paths,
-    parse_xgb_dump,
-    parse_sklearn_tree,
 )
 
 

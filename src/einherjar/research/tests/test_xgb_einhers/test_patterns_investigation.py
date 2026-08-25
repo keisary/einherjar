@@ -32,7 +32,6 @@ from einherjar.research.xgb_einhers.model import (
     train_gbdt,
 )
 
-
 TAXONOMY_PATH = Path(
     "D:/midas_v2/Einherjar/src/einherjar/research/config/features_taxonomy.json"
 )

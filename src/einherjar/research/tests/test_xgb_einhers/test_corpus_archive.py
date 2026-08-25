@@ -1,5 +1,4 @@
 """test_corpus_archive.py - Tests pour corpus.py et archive.py (Sprint 3.6)."""
-import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,7 +6,9 @@ from pathlib import Path
 from einherjar.research.xgb_einhers.archive import ArchiveEntry, ArchiveStore
 from einherjar.research.xgb_einhers.corpus import CorpusStore
 from einherjar.research.xgb_einhers.types import (
-    Condition, ConditionNode, Einher, EinherMetrics,
+    Condition,
+    Einher,
+    EinherMetrics,
 )
 
 
@@ -60,8 +61,10 @@ class TestCorpusStore(unittest.TestCase):
                     store.add(make_einher(f"{prefix}_{i}"))
             t1 = threading.Thread(target=add_batch, args=("a",))
             t2 = threading.Thread(target=add_batch, args=("b",))
-            t1.start(); t2.start()
-            t1.join(); t2.join()
+            t1.start()
+            t2.start()
+            t1.join()
+            t2.join()
             self.assertEqual(store.count(), 100)
 
     def test_clear(self):

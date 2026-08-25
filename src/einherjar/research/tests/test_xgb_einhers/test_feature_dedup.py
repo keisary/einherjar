@@ -18,7 +18,6 @@ from einherjar.research.xgb_einhers.feature_dedup import (
     apply_dedup,
     compute_corr_matrix,
     find_duplicate_pairs,
-    select_features_to_drop,
 )
 
 
@@ -30,7 +29,6 @@ class TestCorrelation(unittest.TestCase):
         rng = np.random.default_rng(42)
         x = rng.standard_normal(100)
         X = np.column_stack([x, x, rng.standard_normal(100)])  # col 0 == col 1
-        names = ["a", "b", "c"]
         corr = compute_corr_matrix(X)
         # |corr(a, b)| doit etre 1.0
         self.assertAlmostEqual(corr[0, 1], 1.0, places=5)

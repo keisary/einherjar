@@ -4,21 +4,18 @@ from __future__ import annotations
 import dataclasses
 
 import numpy as np
-import pytest
 
 from einherjar.research.search_engine.admission import (
-    DEFAULT_MIN_TRADES,
     Candidate,
     admit_batch,
     benjamini_hochberg,
-    jaccard,
 )
 from einherjar.research.search_engine.bootstrap import block_bootstrap_ci
 from einherjar.research.search_engine.builder import build_einher
 from einherjar.research.search_engine.corpus import append_einher, fingerprint_of, load_corpus
 from einherjar.research.search_engine.dsr import dsr_probability
 from einherjar.research.search_engine.expression import Cmp, Feature
-from einherjar.research.xgb_einhers.types import Einher, EinherMetrics
+from einherjar.research.xgb_einhers.types import EinherMetrics
 
 
 def _metrics(
@@ -180,8 +177,10 @@ def test_dedup_cross_batch_rejects_duplicate() -> None:
 
 
 def test_dedup_cross_batch_allows_distinct() -> None:
-    """Un candidat nouveau (features disjointes, masque décorrélé) passe malgré
-    un historique non vide."""
+    """Un candidat nouveau (features disjointes, masque décorrélé) passe malgré.
+
+    un historique non vide.
+    """
     # features disjointes + masque décorrélé vs l'historique
     b = _mk_strong(2.5, features={"rsi", "kurt"}, mask_slice=slice(200, 500))
     outcomes = admit_batch([b], initial_accepted=[_mk_strong(2.0)], dup_jaccard=0.30, dup_corr=0.50)

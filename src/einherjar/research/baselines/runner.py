@@ -1,4 +1,4 @@
-"""runner.py — CLI des baselines anti-hasard (Option B du plan).
+r"""runner.py — CLI des baselines anti-hasard (Option B du plan).
 
 Baselines calculées sur les mêmes conventions que le pipeline xgb_einhers
 (entrée à OPEN[t+1], TP/SL 2.5%/1.5% par défaut, une position à la fois,
@@ -21,7 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -218,6 +218,12 @@ def run(
     bh_ho = _buy_and_hold(ohlcv_ho)
 
     def _always(direction: str, tag: str) -> dict[str, Any]:
+        """_always.
+
+        Args:
+            direction: TODO document.
+            tag: TODO document.
+        """
         e = _trivial_einher(
             asset, asset_class, timeframe, horizon, horizon_bars,
             direction, feature_names[0], tag,
@@ -245,6 +251,11 @@ def run(
         trigger_rates.append(float(eval_cond_ast(e.condition_tree, X_val, feature_names).mean()))
 
     def _key(m: dict[str, Any]) -> float:
+        """_key.
+
+        Args:
+            m: TODO document.
+        """
         return float(m["sharpe_ratio"])
 
     # 6. Statistiques
@@ -313,7 +324,7 @@ def run(
             "seed": seed,
             "costs_pct": costs_pct,
             "costs_source": costs_source,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "n_rows": int(len(X)),
         },
         "windows": {
@@ -379,7 +390,7 @@ def _verdict(report: dict[str, Any] | None) -> dict[str, Any]:
         return {}
     rnd = report["random_search"]["val"]
     sharpe = rnd["sharpe"]
-    bh = report["buy_hold"]["val"]["total_return"]
+    report["buy_hold"]["val"]["total_return"]
     n_pos = rnd["n_positive_sharpe"]
     n = sharpe["n"]
     pos_rate = n_pos / n if n else 0.0
@@ -413,6 +424,7 @@ def _verdict(report: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def main() -> None:
+    """Main."""
     parser = argparse.ArgumentParser(description="Baselines anti-hasard Einherjar")
     parser.add_argument("--asset", default="BTCUSD")
     parser.add_argument("--asset-class", default="crypto")
@@ -424,7 +436,9 @@ def main() -> None:
     parser.add_argument("--output", default=None, help="Chemin du rapport JSON")
     args = parser.parse_args()
 
-    output = Path(args.output) if args.output else OUTPUTS_DIR / f"baselines_{args.asset}_{args.timeframe}_{args.horizon}.json"
+    output = Path(args.output) if args.output else OUTPUTS_DIR / (
+        f"baselines_{args.asset}_{args.timeframe}_{args.horizon}.json"
+    )
     run(
         asset=args.asset,
         timeframe=args.timeframe,

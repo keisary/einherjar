@@ -11,7 +11,7 @@ Reference : Benjamini & Hochberg (1995) "Controlling the False Discovery Rate"
 from __future__ import annotations
 
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 

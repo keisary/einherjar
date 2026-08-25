@@ -4,13 +4,14 @@ Vérifie que le data_loader lit correctement les features : X[:, i] doit
 correspondre à feature_names[i]. Aucune colonne ne doit être décalée ou
 swappée.
 """
-import unittest
-import numpy as np
-import tempfile
 import json
+import tempfile
+import unittest
 from pathlib import Path
 
-from einherjar.research.xgb_einhers.data_loader import load_xy, load_usable_feature_names
+import numpy as np
+
+from einherjar.research.xgb_einhers.data_loader import load_usable_feature_names, load_xy
 
 
 class TestNoColumnSwap(unittest.TestCase):
@@ -57,13 +58,15 @@ class TestNoColumnSwap(unittest.TestCase):
         )
 
     def test_inject_extreme_value_first_column(self):
-        """Inject une valeur extrême dans la première colonne, vérifie qu'elle
-        est lue correctement. Test d'intégration."""
+        """Inject une valeur extrême dans la première colonne, vérifie qu'elle.
+
+        est lue correctement. Test d'intégration.
+        """
         # Créer une copie de X
         X = self.loaded.X.copy()
         # Injecter une valeur extrême dans la première colonne
         # (premier feature du loaded.feature_names)
-        first_feature = self.loaded.feature_names[0]
+        self.loaded.feature_names[0]
         X[:, 0] = 999.0  # valeur extrême
         # Vérifier que la valeur est bien là
         self.assertTrue(np.all(X[:, 0] == 999.0))

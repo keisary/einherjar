@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -219,6 +219,13 @@ def load_features_from_npy(
         + 1 alias) sont filtrées ici.
 
     Args:
+            asset: TODO: documenter.
+            asset_class: TODO: documenter.
+            config: TODO: documenter.
+            data_root: TODO: documenter.
+            timeframe: TODO: documenter.
+
+    Args:
         validity_mask: Masque optionnel (np.ndarray de bool) indiquant
             quelles bougies sont valides (alignement avec l'OHLCV sanitisé).
             Si fourni, on filtre les features avec ce masque.
@@ -353,4 +360,4 @@ def _sanitize_ohlcv(df: pl.DataFrame) -> pl.DataFrame:
 
 def _ts_to_datetime(ts_ms: int) -> datetime:
     """Convertit un timestamp Unix ms en datetime UTC."""
-    return datetime.fromtimestamp(int(ts_ms) / 1000, tz=timezone.utc)
+    return datetime.fromtimestamp(int(ts_ms) / 1000, tz=UTC)

@@ -10,7 +10,7 @@ validation lourde (C1-C6) n'intervient qu'à l'admission.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 import polars as pl
@@ -20,13 +20,13 @@ from einherjar.research.search_engine.fitness import cheap_fitness
 from einherjar.research.search_engine.generator import (
     crossover,
     generate_population,
-    generate_random_bool_expr,
     mutate,
 )
 
 
 @dataclass
 class CellEntry:
+    """CellEntry."""
     expr: object
     einher: object
     fitness: float
@@ -37,6 +37,11 @@ class MapElitesArchive:
     """Archive par cellules (meilleur candidat par descripteur)."""
 
     def __init__(self, max_cells: int = 512) -> None:
+        """__init__.
+
+        Args:
+            max_cells: TODO document.
+        """
         self.cells: dict[tuple[str, str, str], CellEntry] = {}
         self.max_cells = max_cells
 
@@ -49,6 +54,7 @@ class MapElitesArchive:
         return False
 
     def occupied_cells(self) -> list[tuple[str, str, str]]:
+        """occupied_cells."""
         return sorted(self.cells)
 
     def sample_parent(self, rng: np.random.Generator) -> CellEntry:
@@ -58,6 +64,7 @@ class MapElitesArchive:
         return self.cells[cell]
 
     def best(self) -> CellEntry | None:
+        """Best."""
         if not self.cells:
             return None
         return max(self.cells.values(), key=lambda e: e.fitness)
@@ -88,6 +95,12 @@ def run_map_elites(
     feature_names: list[str] = data["feature_names"]
 
     def evaluate(expr: object, direction: str):
+        """Evaluate.
+
+        Args:
+            expr: TODO document.
+            direction: TODO document.
+        """
         fitness, einher, sub = cheap_fitness(
             expr, direction, amplitude_bars, universe,
             ohlcv_df, X, feature_names, rng,

@@ -27,6 +27,11 @@ def condition_from_dict(d: dict[str, Any]) -> Any:
     from einherjar.research.xgb_einhers.types import Condition, ConditionNode
 
     def rebuild_expr(x: dict[str, Any]) -> Any:
+        """rebuild_expr.
+
+        Args:
+            x: TODO document.
+        """
         if x.get("kind") == "feature":
             return Feature(x["feature_ref"])
         if x.get("kind") == "const":
@@ -55,10 +60,15 @@ def fingerprint_of(ast: Any) -> str:
 
 
 def load_corpus(path: Path | None = None) -> list[dict[str, Any]]:
+    """load_corpus.
+
+    Args:
+        path: TODO document.
+    """
     path = path or OUTPUT_DIR / CORPUS_FILENAME
     if not path.exists():
         return []
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
 
 

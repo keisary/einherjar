@@ -10,7 +10,6 @@ Couverture :
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -28,7 +27,6 @@ from einherjar.research.xgb_einhers.path_extractor import (
     build_logical_variants,
 )
 from einherjar.research.xgb_einhers.runner import parse_horizon
-
 
 # --------------------------------------------------------------------------- #
 # Problème 1 : assets_v1.json, 28 actifs exacts

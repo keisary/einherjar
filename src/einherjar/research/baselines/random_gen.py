@@ -127,6 +127,12 @@ def generate_random_einhers(
     """Génère n Einhers aléatoires (conditions AND, seuils du train uniquement).
 
     Args:
+            asset: TODO: documenter.
+            asset_class: TODO: documenter.
+            horizon: TODO: documenter.
+            timeframe: TODO: documenter.
+
+    Args:
         rng : générateur numpy (seed fixe pour reproductibilité).
         n : nombre d'Einhers.
         asset, asset_class, timeframe, horizon : univers de l'Einher.

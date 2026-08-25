@@ -2,8 +2,12 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
+from einherjar.research.search_engine.evaluator import (
+    from_condition_tree,
+    has_expr_atoms,
+    to_condition_tree,
+)
 from einherjar.research.search_engine.expression import (
     BinNum,
     BoolOp,
@@ -16,12 +20,6 @@ from einherjar.research.search_engine.expression import (
     eval_num,
     render,
     size,
-)
-from einherjar.research.search_engine.evaluator import (
-    eval_condition_ast,
-    from_condition_tree,
-    has_expr_atoms,
-    to_condition_tree,
 )
 from einherjar.research.xgb_einhers.condition_tree import evaluate_ast_on_array
 from einherjar.research.xgb_einhers.types import Condition, ConditionNode

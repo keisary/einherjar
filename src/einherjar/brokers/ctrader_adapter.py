@@ -19,20 +19,17 @@ import threading
 import time
 import uuid
 from concurrent.futures import Future as ConcurrentFuture
-from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import polars as pl
 
-from einherjar.brokers.adapter import BrokerAdapter
-from einherjar.brokers.broker_utils import (
+from einherjar.brokers.broker_utils import (  # noqa: F401
     denormalize_symbol,
     load_fees,
     normalize_symbol,
     now_utc_ms,
     ohlcv_to_polars,
-    retry_with_backoff,
     timeframe_to_ctrader_period,
 )
 from einherjar.brokers.resilience import CircuitBreaker, RateLimiter
@@ -45,15 +42,17 @@ logger = logging.getLogger("einherjar.ctrader")
 # Detection librairie cTrader
 # ---------------------------------------------------------------------------
 try:
-    from ctrader_open_api import Client, EndPoints, Protobuf, TcpProtocol
-    from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import (
-        ProtoOAErrorRes,
+    from ctrader_open_api import Client, EndPoints, Protobuf, TcpProtocol  # noqa: F401
+    from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import (  # noqa: F401
+        ProtoOAErrorRes,  # noqa: F401
     )
-    from ctrader_open_api.messages.OpenApiMessages_pb2 import (
+    from ctrader_open_api.messages.OpenApiMessages_pb2 import (  # noqa: F401
         ProtoOAAccountAuthReq,
-        ProtoOAAccountAuthRes,
+        ProtoOAAccountAuthRes,  # noqa: F401
         ProtoOAApplicationAuthReq,
-        ProtoOAApplicationAuthRes,
+        ProtoOAApplicationAuthRes,  # noqa: F401
+        ProtoOAClosePositionReq,
+        ProtoOAExecutionEvent,
         ProtoOAGetAccountListReq,
         ProtoOAGetAccountListRes,
         ProtoOAGetPositionListReq,
@@ -63,8 +62,6 @@ try:
         ProtoOASymbolsListRes,
         ProtoOATrendbarReq,
         ProtoOATrendbarRes,
-        ProtoOAClosePositionReq,
-        ProtoOAExecutionEvent,
     )
 
     CTRADER_AVAILABLE = True
@@ -331,7 +328,7 @@ class _CTraderTwistedThread:
             filled_qty=fill_qty,
             filled_price=float(fill_price),
             fee=0.0,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
 
     def get_positions_sync(self) -> list[Position]:
@@ -356,7 +353,7 @@ class _CTraderTwistedThread:
                     direction=Direction.LONG if getattr(p, "tradeSide", 1) == 1 else Direction.SHORT,
                     quantity=getattr(p, "volume", 0) / 100.0,
                     avg_entry_price=float(getattr(getattr(p, "tradeData", None), "price", 0)),
-                    opened_at=datetime.now(timezone.utc),
+                    opened_at=datetime.now(UTC),
                     asset_class=AssetClass.CRYPTO,
                 )
             )
@@ -506,7 +503,7 @@ class CTraderAdapter:
             self.circuit.record_success()
             self._last_ping = time.time()
             return result
-        except Exception as exc:
+        except Exception:
             self.circuit.record_failure()
             raise
 

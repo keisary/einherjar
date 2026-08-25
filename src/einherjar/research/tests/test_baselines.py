@@ -7,7 +7,6 @@ import pytest
 from einherjar.research.baselines.random_gen import (
     MAX_TRIGGER_RATE,
     MIN_AND_TRIGGER_RATE,
-    MIN_TRIGGER_RATE,
     generate_random_einhers,
 )
 from einherjar.research.baselines.runner import condition_str, n_leaves, parse_horizon

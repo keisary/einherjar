@@ -3,12 +3,13 @@
 Tous les dataclasses sont frozen (immutables) pour reproductibilité.
 """
 from __future__ import annotations
-import numpy as np
+
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
+import numpy as np
 
 # --------------------------------------------------------------------------- #
 # Données brutes
@@ -31,29 +32,32 @@ class LoadedData:
 
     @property
     def n_samples(self) -> int:
+        """n_samples."""
         return self.X.shape[0]
 
     @property
     def n_features(self) -> int:
+        """n_features."""
         return self.X.shape[1]
 
     @property
     def n_horizons(self) -> int:
+        """n_horizons."""
         return len(self.horizons)
 
 
 @dataclass(frozen=True)
 class TrainValHoldoutSplit:
     """Split temporel 60/20/20 avec embargo."""
-    train_X: 'np.ndarray'
-    train_y: 'np.ndarray'
-    val_X: 'np.ndarray'
-    val_y: 'np.ndarray'
-    holdout_X: 'np.ndarray'
-    holdout_y: 'np.ndarray'
-    train_indices: 'np.ndarray'
-    val_indices: 'np.ndarray'
-    holdout_indices: 'np.ndarray'
+    train_X: np.ndarray
+    train_y: np.ndarray
+    val_X: np.ndarray
+    val_y: np.ndarray
+    holdout_X: np.ndarray
+    holdout_y: np.ndarray
+    train_indices: np.ndarray
+    val_indices: np.ndarray
+    holdout_indices: np.ndarray
     embargo_bars: int
 
 
@@ -111,6 +115,7 @@ class EinherMetrics:
     def to_dict(self) -> dict[str, Any]:
         # FIX P0-2 : trade_returns serialise aussi (round-trip fidele).
         # L'ancien dict l'excluait -> impossible de re-analyser un corpus.
+        """to_dict."""
         d = {k: v for k, v in asdict(self).items()}
         d["trade_returns"] = list(self.trade_returns)
         return d
@@ -156,10 +161,11 @@ class Condition:
     feature_ref: str
     operator: str              # '<' | '<=' | '>' | '>=' | '==' | '!='
     value: float | int
-    transformation: Optional[str] = None
-    expr: Optional[object] = None  # STGP: expression numerique (search_engine) sinon None
+    transformation: str | None = None
+    expr: object | None = None  # STGP: expression numerique (search_engine) sinon None
 
     def to_dict(self) -> dict[str, Any]:
+        """to_dict."""
         d = {k: v for k, v in asdict(self).items() if v is not None}
         if self.expr is not None and hasattr(self.expr, "to_dict"):
             d["expr"] = self.expr.to_dict()
@@ -170,10 +176,11 @@ class Condition:
 class ConditionNode:
     """Noeud d'un arbre de conditions : AND/OR/NOT/XOR + enfants."""
     op: str                    # 'AND' | 'OR' | 'NOT' | 'XOR'
-    left: 'Condition | ConditionNode'
-    right: Optional['Condition | ConditionNode'] = None  # None pour NOT unaire
+    left: Condition | ConditionNode
+    right: Condition | ConditionNode | None = None  # None pour NOT unaire
 
     def to_dict(self) -> dict[str, Any]:
+        """to_dict."""
         d = {"op": self.op, "left": self.left.to_dict()}
         if self.right is not None:
             d["right"] = self.right.to_dict()
@@ -197,14 +204,15 @@ class Einher:
     universe: dict[str, Any]          # {asset, asset_class, timeframe, horizon, horizon_bars}
     metrics: EinherMetrics
     scope: str                        # 'asset' | 'general' | 'market'
-    cross_asset_test: Optional[dict[str, Any]] = None
+    cross_asset_test: dict[str, Any] | None = None
     source: dict[str, Any] = field(default_factory=dict)
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     data_version: str = ""
     # Sprint 2.4.1 : holdout metrics pour filtrer les Einhers non significatifs
-    holdout_metrics: Optional[EinherMetrics] = None
+    holdout_metrics: EinherMetrics | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """to_dict."""
         return {
             "id": self.id,
             "condition_tree": self.condition_tree.to_dict(),
@@ -223,6 +231,6 @@ class Einher:
         }
 
     @classmethod
-    def to_jsonl_line(cls, einher: "Einher") -> str:
+    def to_jsonl_line(cls, einher: Einher) -> str:
         """Sérialise un Einher en une ligne JSON (JSONL)."""
         return json.dumps(einher.to_dict(), ensure_ascii=False) + "\n"

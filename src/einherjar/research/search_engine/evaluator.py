@@ -11,14 +11,11 @@ Le chemin xgb classique (Condition sans expr) est inchangé.
 """
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 from einherjar.research.search_engine.expression import (
     BoolOp,
     Cmp,
-    eval_bool,
     eval_num,
 )
 from einherjar.research.xgb_einhers.types import Condition, ConditionNode

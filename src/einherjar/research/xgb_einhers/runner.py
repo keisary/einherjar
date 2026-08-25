@@ -36,6 +36,7 @@ import argparse
 import json
 import logging
 import sys
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -73,7 +74,6 @@ from .path_extractor import extract_paths
 from .paths import (
     ARCHIVE_PATH,
     CORPUS_PATH,
-    DISCOVER_REPORT_PATH,
     DISCOVER_STATE_PATH,
     OUTPUTS_DIR,
     resolve_output,
@@ -127,14 +127,14 @@ def _load_done_triplets(state_path=None) -> set[str]:
 def _mark_triplet_done(triplet_id: str, status: str, extra: dict | None = None, state_path=None) -> None:
     """Append une entree au journal de progression (flush immediat sur disque)."""
     import json as _json
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     p = state_path or DISCOVER_STATE_PATH
     p.parent.mkdir(parents=True, exist_ok=True)
     entry = {
         "triplet_id": triplet_id,
         "status": status,
-        "finished_at": datetime.now(timezone.utc).isoformat(),
+        "finished_at": datetime.now(UTC).isoformat(),
     }
     if extra:
         entry.update(extra)
@@ -170,7 +170,7 @@ def _cuda_available() -> bool:
 
 
 def _probe_cuda() -> bool:
-    """Probe leger : un petit fit device=cuda reussit-il ? (une fois par process)"""
+    """Probe leger : un petit fit device=cuda reussit-il ? (une fois par process)."""
     global _CUDA_PROBED
     if _CUDA_PROBED is not None:
         return _CUDA_PROBED

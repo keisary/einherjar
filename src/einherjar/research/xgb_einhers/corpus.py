@@ -15,8 +15,8 @@ from __future__ import annotations
 import json
 import logging
 import threading
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, Optional
 
 from .types import Einher
 
@@ -30,6 +30,11 @@ class CorpusStore:
     """
 
     def __init__(self, path: Path | str):
+        """__init__.
+
+        Args:
+            path: TODO document.
+        """
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
@@ -57,7 +62,7 @@ class CorpusStore:
     def iter(self) -> Iterator[Einher]:
         """Itere sur tous les Einhers du corpus."""
         from .einher_io import _dict_to_einher
-        with open(self.path, "r", encoding="utf-8") as f:
+        with open(self.path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -69,7 +74,7 @@ class CorpusStore:
         if not self.path.exists():
             return 0
         n = 0
-        with open(self.path, "r", encoding="utf-8") as f:
+        with open(self.path, encoding="utf-8") as f:
             for _ in f:
                 n += 1
         return n

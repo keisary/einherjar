@@ -27,6 +27,7 @@ DEFAULT_DUP_CORR = 0.50
 
 @dataclass
 class Candidate:
+    """Candidate."""
     einher: Any
     val_mask: np.ndarray
     features: set[str]
@@ -36,6 +37,7 @@ class Candidate:
 
 @dataclass
 class AdmissionOutcome:
+    """AdmissionOutcome."""
     admitted: bool
     reasons: dict[str, Any] = field(default_factory=dict)
 
@@ -54,12 +56,24 @@ def benjamini_hochberg(pvalues: list[float], alpha: float = DEFAULT_FDR_ALPHA) -
 
 
 def jaccard(a: set[str], b: set[str]) -> float:
+    """Jaccard.
+
+    Args:
+        a: TODO document.
+        b: TODO document.
+    """
     inter = len(a & b)
     union = len(a | b)
     return inter / union if union else 0.0
 
 
 def _mask_corr(m_a: np.ndarray, m_b: np.ndarray) -> float:
+    """_mask_corr.
+
+    Args:
+        m_a: TODO document.
+        m_b: TODO document.
+    """
     a, b = m_a.astype(np.float64), m_b.astype(np.float64)
     sa, sb = a.std(), b.std()
     if sa == 0.0 or sb == 0.0:

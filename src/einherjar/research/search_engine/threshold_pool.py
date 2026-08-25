@@ -40,7 +40,7 @@ class ThresholdPool:
         cfg: SpaceConfig,
         rng: np.random.Generator,
         n_probes: int = 96,
-    ) -> "ThresholdPool":
+    ) -> ThresholdPool:
         """Construit le pool depuis la matrice TRAIN (jamais val/holdout)."""
         qs = np.asarray(cfg.threshold_quantiles, dtype=np.float64)
         per_feature: dict[str, np.ndarray] = {}

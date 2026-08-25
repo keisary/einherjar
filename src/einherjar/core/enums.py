@@ -1,6 +1,6 @@
 """Enumeration centralisee pour tous les etats, types et directions du systeme."""
 
-from enum import Enum, StrEnum
+from enum import StrEnum
 
 
 class EinherState(StrEnum):

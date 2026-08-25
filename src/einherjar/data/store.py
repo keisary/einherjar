@@ -10,7 +10,6 @@ Reference : Section 4.4 du CDC EINHERJAR.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -265,7 +264,11 @@ class DataStore:
                 rejection.signal.direction.value,
                 rejection.reason,
                 rejection.timestamp,
-                str(rejection.signal.context) if isinstance(rejection.signal.context, str) else json.dumps(rejection.signal.context),
+                (
+        str(rejection.signal.context)
+        if isinstance(rejection.signal.context, str)
+        else json.dumps(rejection.signal.context)
+    ),
             ),
         )
 
@@ -442,7 +445,9 @@ class DataStore:
         self.conn.close()
 
     def __enter__(self) -> DataStore:
+        """Entre dans le contexte manager (retourne self)."""
         return self
 
     def __exit__(self, *args: Any) -> None:
+        """Sort du contexte manager et ferme la connexion."""
         self.close()

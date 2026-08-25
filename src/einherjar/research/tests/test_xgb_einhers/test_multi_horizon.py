@@ -17,16 +17,8 @@ from pathlib import Path
 
 import numpy as np
 
-from einherjar.research.xgb_einhers.data_loader import (
-    align_xy_with_ohlcv,
-    load_ohlcv,
-    load_xy,
-    temporal_split,
-)
 from einherjar.research.xgb_einhers.einher_io import iter_einhers
-from einherjar.research.xgb_einhers.label_engineer import build_target
 from einherjar.research.xgb_einhers.runner import run_pipeline
-
 
 HORIZONS = ["6h", "12h", "1d"]  # 2d deja teste dans sprint 2.5
 N_ESTIMATORS = 100
@@ -197,9 +189,12 @@ class TestMultiHorizon(unittest.TestCase):
                 print(f"  {h}: 0 Einher")
             else:
                 v = data["val"]
-                ho = data["holdout"]
+                data["holdout"]
                 ratio = data.get("ratio_val_holdout_median", "N/A")
-                print(f"  {h}: {data['n_einhers']} Einhers, val_sharpe={v['sharpe_median']}, val_wr={v['win_rate_mean']:.2%}, ratio_ho={ratio}")
+                print(
+        f"  {h}: {data['n_einhers']} Einhers, val_sharpe={v['sharpe_median']}, "
+        f"val_wr={v['win_rate_mean']:.2%}, ratio_ho={ratio}"
+    )
         # Sanity check : au moins 2 horizons (hors 2d) doivent avoir >= 1 Einher
         n_horizons_with_einhers = sum(
             1 for h, data in report["horizons"].items()
@@ -207,8 +202,8 @@ class TestMultiHorizon(unittest.TestCase):
         )
         self.assertGreaterEqual(
             n_horizons_with_einhers, 1,
-            f"Aucun horizon supplementaire (6h, 12h, 1d) n'a produit d'Einher. "
-            f"L'approche n'est pas robuste.",
+            "Aucun horizon supplementaire (6h, 12h, 1d) n'a produit d'Einher. "
+            "L'approche n'est pas robuste.",
         )
 
 

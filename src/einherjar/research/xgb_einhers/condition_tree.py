@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+
 import numpy as np
 
 from .path_extractor import XGBPath
@@ -213,7 +214,6 @@ def evaluate_ast_on_array(
     from einherjar.research.search_engine import evaluator  # import lazy (cycle)
     if evaluator.has_expr_atoms(ast):
         return evaluator.eval_condition_ast(ast, X, feature_names)
-    import numpy as np
     name_to_idx = {n: i for i, n in enumerate(feature_names)}
     return _eval_ast_numpy(ast, X, name_to_idx)
 

@@ -1,26 +1,22 @@
-"""
-Enrichissement avec 24 features quantitatives ULTRA-OPTIMISÉES - VERSION INSTITUTIONNELLE
+"""Enrichissement avec 24 features quantitatives ULTRA-OPTIMISÉES - VERSION INSTITUTIONNELLE.
+
 Agent Technique MIDAS V3 - Features Quantitatives Essentielles
-OPTIMISATIONS COMPLÈTES: Numba + Dask + Shared Memory + Memory Mapping + Vectorisation + Cache + Types optimaux
+OPTIMISATIONS COMPLÈTES: Numba + Dask + Shared Memory + Memory Mapping + Vectorisation + Cache + Types optimaux.
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Union, Tuple
-import warnings
 import gc
-import psutil
-import os
-import time
-from multiprocessing import Pool, cpu_count, shared_memory
-from functools import partial, lru_cache
 import hashlib
-from scipy import stats
-from pathlib import Path
-import tempfile
-import threading
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import logging
+import os
+import threading
+import time
+import warnings
+from functools import lru_cache
+from multiprocessing import Pool, cpu_count, shared_memory
+
+import numpy as np
+import pandas as pd
+import psutil
 
 # Configuration du logging pour optimisations
 logging.basicConfig(level=logging.INFO)
@@ -28,11 +24,11 @@ logger = logging.getLogger(__name__)
 
 # Dask imports pour parallélisme distribué OPTIMISÉ
 try:
-    import dask
+    import dask  # noqa: F401
     import dask.dataframe as dd
-    from dask.distributed import Client, LocalCluster, as_completed
-    from dask import delayed
+    from dask import delayed  # noqa: F401
     from dask.diagnostics import ProgressBar
+    from dask.distributed import Client, LocalCluster, as_completed  # noqa: F401
 
     DASK_AVAILABLE = True
     logger.info("✅ Dask disponible - Parallélisme distribué activé")
@@ -42,7 +38,7 @@ except ImportError:
 
 # Memory mapping pour gros datasets OPTIMISÉ
 try:
-    import mmap
+    import mmap  # noqa: F401
 
     MMAP_AVAILABLE = True
     logger.info("✅ Memory mapping disponible")
@@ -52,8 +48,8 @@ except ImportError:
 
 # Shared memory pour performance OPTIMISÉE
 try:
+    import multiprocessing as mp  # noqa: F401
     from multiprocessing import shared_memory
-    import multiprocessing as mp
 
     SHARED_MEMORY_AVAILABLE = True
     logger.info("✅ Shared memory disponible")
@@ -71,9 +67,9 @@ _NUMBA_MESSAGE_SHOWN = False
 
 # OPTIMISATION NUMBA AVANCÉE avec fallback intelligent
 try:
-    from numba import jit, njit, prange, types
-    from numba.typed import Dict as NumbaDict
-    from numba.core import types as nb_types
+    from numba import jit, njit, prange, types  # noqa: F401
+    from numba.core import types as nb_types  # noqa: F401
+    from numba.typed import Dict as NumbaDict  # noqa: F401
 
     NUMBA_AVAILABLE = True
     if not _NUMBA_MESSAGE_SHOWN:
@@ -132,14 +128,14 @@ if NUMBA_AVAILABLE:
 
     @lru_cache(maxsize=CACHE_SIZE)
     def _get_data_hash(data_tuple):
-        """Cache intelligent basé sur hash des données"""
+        """Cache intelligent basé sur hash des données."""
         return hashlib.md5(str(data_tuple).encode()).hexdigest()
 
     # ========== VOLATILITÉ (5 FEATURES) ==========
 
     @jit(nopython=True, cache=True)
     def _numba_realized_volatility(returns, window=20):
-        """Realized Volatility ultra-rapide"""
+        """Realized Volatility ultra-rapide."""
         N = len(returns)
         if N < window:
             return np.full(N, np.std(returns), dtype=OPTIMAL_FLOAT)
@@ -160,7 +156,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_garch_volatility(returns, alpha=0.1, beta=0.8):
-        """GARCH(1,1) volatility ultra-rapide"""
+        """GARCH(1,1) volatility ultra-rapide."""
         N = len(returns)
         if N < 2:
             return np.array([0.1], dtype=OPTIMAL_FLOAT)
@@ -180,8 +176,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_volatility_clustering(returns, threshold_factor=2.0, window=100):
-        """
-        Clustering de volatilité ROLLING ultra-rapide (NO DATA LEAKAGE).
+        """Clustering de volatilité ROLLING ultra-rapide (NO DATA LEAKAGE).
 
         CORRECTION: Version précédente calculait UN SEUL scalaire pour tout le dataset.
         Cette version calcule le clustering sur rolling window.
@@ -213,8 +208,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_volatility_persistence(returns, window=100):
-        """
-        Persistance de volatilité ROLLING ultra-rapide (NO DATA LEAKAGE).
+        """Persistance de volatilité ROLLING ultra-rapide (NO DATA LEAKAGE).
 
         CORRECTION: Version précédente calculait UN SEUL scalaire pour tout le dataset.
         Cette version calcule la persistance sur rolling window.
@@ -258,90 +252,88 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_hurst_rs(prices, window=252):
-        """
-        Hurst Exponent avec R/S analysis ROLLING (NO DATA LEAKAGE).
-        
+        """Hurst Exponent avec R/S analysis ROLLING (NO DATA LEAKAGE).
+
         CORRECTION: Version précédente calculait UN SEUL Hurst pour tout le dataset.
         Cette version calcule Hurst sur rolling window de `window` jours.
-        
+
         Args:
             prices: Array de prix
             window: Taille fenêtre rolling (défaut 252 = 1 an trading)
-        
+
         Returns:
             Array de Hurst exponents (même taille que prices)
         """
         n = len(prices)
         hurst_array = np.full(n, 0.5, dtype=OPTIMAL_FLOAT)  # Default: random walk
-        
+
         # Scales pour R/S analysis (ajustées pour window)
         scales = np.array([10, 20, 50, min(100, window // 4)], dtype=np.int32)
-        
+
         for i in range(window, n):
             # Lookback window
             window_prices = prices[i - window : i]
-            
+
             # Calculer rendements sur window
             window_returns = np.diff(window_prices) / window_prices[:-1]
             N = len(window_returns)
-            
+
             if N < 10:
                 continue
-            
+
             rs_values = np.zeros(len(scales), dtype=OPTIMAL_FLOAT)
-            
+
             # Pour chaque échelle
             for scale_idx, scale in enumerate(scales):
                 if scale >= N:
                     continue
-                
+
                 n_segments = N // scale
                 rs_segment = np.zeros(n_segments, dtype=OPTIMAL_FLOAT)
-                
+
                 for j in range(n_segments):
                     start_idx = j * scale
                     end_idx = start_idx + scale
                     segment = window_returns[start_idx:end_idx]
-                    
+
                     mean_return = np.mean(segment)
                     cumulative_devs = np.cumsum(segment - mean_return)
-                    
+
                     R = np.max(cumulative_devs) - np.min(cumulative_devs)
                     S = np.std(segment)
-                    
+
                     if S > 0:
                         rs_segment[j] = R / S
                     else:
                         rs_segment[j] = 1.0
-                
+
                 rs_values[scale_idx] = np.mean(rs_segment)
-            
+
             # Log-log regression
             valid_scales = scales[scales < N]
             valid_rs = rs_values[:len(valid_scales)]
-            
+
             if len(valid_scales) >= 2:
                 log_scales = np.log(valid_scales.astype(OPTIMAL_FLOAT))
                 log_rs = np.log(valid_rs)
-                
+
                 # Linear regression slope = Hurst exponent
                 n_points = len(log_scales)
                 sum_x = np.sum(log_scales)
                 sum_y = np.sum(log_rs)
                 sum_xy = np.sum(log_scales * log_rs)
                 sum_x2 = np.sum(log_scales * log_scales)
-                
+
                 denominator = n_points * sum_x2 - sum_x * sum_x
                 if abs(denominator) > 1e-10:
                     h = (n_points * sum_xy - sum_x * sum_y) / denominator
                     hurst_array[i] = max(0.0, min(1.0, h))
-        
+
         return hurst_array
 
     @jit(nopython=True, cache=True)
     def _numba_autocorrelation(prices, max_lag=20, window=252):
-        """
-        Autocorrélation ROLLING ultra-rapide (NO DATA LEAKAGE).
+        """Autocorrélation ROLLING ultra-rapide (NO DATA LEAKAGE).
 
         CORRECTION: Version précédente calculait UN SEUL scalaire pour tout le dataset.
         Cette version calcule l'autocorrélation sur rolling window.
@@ -384,47 +376,46 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_shannon_entropy(prices, bins=50, window=252):
-        """
-        Entropie de Shannon ROLLING (NO DATA LEAKAGE).
-        
+        """Entropie de Shannon ROLLING (NO DATA LEAKAGE).
+
         CORRECTION: Version précédente calculait UNE entropie pour tout le dataset.
         Cette version calcule entropy sur rolling window.
-        
+
         Args:
             prices: Array de prix
             bins: Nombre de bins pour histogramme
             window: Taille fenêtre rolling (défaut 252)
-        
+
         Returns:
             Array d'entropies (même taille que prices)
         """
         n = len(prices)
         entropy_array = np.zeros(n, dtype=OPTIMAL_FLOAT)
-        
+
         for i in range(window, n):
             # Lookback window
             window_prices = prices[i - window : i]
-            
+
             if len(window_prices) < 2:
                 continue
-            
+
             # Normaliser les prix
             min_val = np.min(window_prices)
             max_val = np.max(window_prices)
             if max_val == min_val:
                 continue
-            
+
             # Créer les bins
             bin_width = (max_val - min_val) / bins
             hist = np.zeros(bins, dtype=OPTIMAL_FLOAT)
-            
+
             # Compter les occurrences
             for price in window_prices:
                 bin_idx = int((price - min_val) / bin_width)
                 if bin_idx >= bins:
                     bin_idx = bins - 1
                 hist[bin_idx] += 1
-            
+
             # Calculer l'entropie
             total = len(window_prices)
             entropy = 0.0
@@ -432,78 +423,76 @@ if NUMBA_AVAILABLE:
                 if count > 0:
                     p = count / total
                     entropy -= p * np.log2(p)
-            
+
             entropy_array[i] = entropy
-        
+
         return entropy_array
 
     @jit(nopython=True, cache=True)
     def _numba_sample_entropy(prices, m=2, r=0.2, window=252):
-        """
-        Sample Entropy (SampEn) ROLLING SIMPLIFIED (NO DATA LEAKAGE).
-        
+        """Sample Entropy (SampEn) ROLLING SIMPLIFIED (NO DATA LEAKAGE).
+
         CORRECTION: Version précédente calculait UNE entropy pour tout le dataset.
         Cette version calcule sample entropy sur rolling window (simplifiée pour performance).
-        
+
         NOTE: Simplified implementation - full SampEn is O(n^2) too expensive for rolling.
         Uses approximation based on consecutive differences.
-        
+
         Args:
             prices: Array de prix
             m: Embedding dimension (default 2)
             r: Tolerance factor (default 0.2)
             window: Taille fenêtre rolling (défaut 252)
-        
+
         Returns:
             Array d'entropies (même taille que prices)
         """
         n = len(prices)
         entropy_array = np.zeros(n, dtype=OPTIMAL_FLOAT)
-        
+
         for idx in range(window, n):
             # Lookback window
             window_prices = prices[idx - window : idx]
             N = len(window_prices)
-            
+
             if N < m + 1:
                 continue
-            
+
             # SIMPLIFIED: Use std of differences as entropy proxy
             std_dev = np.std(window_prices)
             if std_dev == 0:
                 continue
-            
+
             # Calculate consecutive differences
             diffs = np.diff(window_prices)
             norm_diffs = np.abs(diffs) / std_dev
-            
+
             # Count how many diffs are within tolerance
             within_tolerance = np.sum(norm_diffs < r)
             total = len(norm_diffs)
-            
+
             # Entropy = -log(ratio) (simplified SampEn approximation)
             if within_tolerance > 0:
                 ratio = within_tolerance / total
                 entropy_array[idx] = -np.log(ratio + 1e-10)
             else:
                 entropy_array[idx] = 5.0  # High entropy (random)
-        
+
         return entropy_array
 
     @jit(nopython=True, cache=True)
     def _numba_approximate_entropy(prices, m=2, r=0.2, window=252):
-        """
-        Approximate Entropy (ApEn) ROLLING SIMPLIFIED (NO DATA LEAKAGE).
-        
+        """Approximate Entropy (ApEn) ROLLING SIMPLIFIED (NO DATA LEAKAGE).
+
         CORRECTION: Version précédente calculait UNE entropy pour tout le dataset.
         This version uses simplified rolling approximation (same as Sample Entropy for performance).
-        
+
         Args:
             prices: Array de prix
             m: Embedding dimension (default 2)
             r: Tolerance factor (default 0.2)
             window: Taille fenêtre rolling (défaut 252)
-        
+
         Returns:
             Array d'entropies (même taille que prices)
         """
@@ -513,8 +502,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_permutation_entropy(prices, order=3, delay=1, window=100):
-        """
-        Permutation Entropy ROLLING ultra-rapide (NO DATA LEAKAGE).
+        """Permutation Entropy ROLLING ultra-rapide (NO DATA LEAKAGE).
 
         CORRECTION: Version précédente calculait UN SEUL scalaire pour tout le dataset.
         Cette version calcule l'entropie de permutation sur rolling window.
@@ -573,201 +561,197 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_dominant_frequency(prices, window=252):
-        """
-        Fréquence dominante ROLLING (NO DATA LEAKAGE).
-        
+        """Fréquence dominante ROLLING (NO DATA LEAKAGE).
+
         CORRECTION: Version précédente calculait UNE fréquence pour tout le dataset.
         Cette version calcule fréquence dominante sur rolling window.
-        
+
         Args:
             prices: Array de prix
             window: Taille fenêtre rolling (défaut 252)
-        
+
         Returns:
             Array de fréquences dominantes (même taille que prices)
         """
         n = len(prices)
         freq_array = np.zeros(n, dtype=OPTIMAL_FLOAT)
-        
+
         for idx in range(window, n):
             # Lookback window
             window_prices = prices[idx - window : idx]
             n_window = len(window_prices)
-            
+
             if n_window < 4:
                 continue
-            
+
             # Centrer les données
             mean_price = np.mean(window_prices)
             centered = window_prices - mean_price
-            
+
             # FFT simplifiée
             max_freq_idx = 0
             max_magnitude = 0.0
-            
+
             # Tester différentes fréquences
             for k in range(1, min(n_window // 2, 20)):
                 # Calcul manuel des coefficients de Fourier
                 real_part = 0.0
                 imag_part = 0.0
-                
+
                 for i in range(n_window):
                     angle = 2.0 * np.pi * k * i / n_window
                     real_part += centered[i] * np.cos(angle)
                     imag_part += centered[i] * np.sin(angle)
-                
+
                 magnitude = np.sqrt(real_part * real_part + imag_part * imag_part)
-                
+
                 if magnitude > max_magnitude:
                     max_magnitude = magnitude
                     max_freq_idx = k
-            
+
             # Fréquence normalisée
             freq_array[idx] = max_freq_idx / n_window if n_window > 0 else 0.0
-        
+
         return freq_array
 
     @jit(nopython=True, cache=True)
     def _numba_spectral_centroid(prices, window=252):
-        """
-        Centroïde spectral ROLLING (NO DATA LEAKAGE).
-        
+        """Centroïde spectral ROLLING (NO DATA LEAKAGE).
+
         CORRECTION: Version précédente calculait UN centroïde pour tout le dataset.
         Cette version calcule centroïde spectral sur rolling window.
-        
+
         Args:
             prices: Array de prix
             window: Taille fenêtre rolling (défaut 252)
-        
+
         Returns:
             Array de centroïdes spectraux (même taille que prices)
         """
         n = len(prices)
         centroid_array = np.zeros(n, dtype=OPTIMAL_FLOAT)
-        
+
         for idx in range(window, n):
             # Lookback window
             window_prices = prices[idx - window : idx]
             n_window = len(window_prices)
-            
+
             if n_window < 4:
                 continue
-            
+
             mean_price = np.mean(window_prices)
             centered = window_prices - mean_price
-            
+
             weighted_sum = 0.0
             magnitude_sum = 0.0
-            
+
             # Calcul approximatif du centroïde spectral
             for k in range(1, min(n_window // 2, 20)):
                 real_part = 0.0
                 imag_part = 0.0
-                
+
                 for i in range(n_window):
                     angle = 2.0 * np.pi * k * i / n_window
                     real_part += centered[i] * np.cos(angle)
                     imag_part += centered[i] * np.sin(angle)
-                
+
                 magnitude = np.sqrt(real_part * real_part + imag_part * imag_part)
                 frequency = k / n_window
-                
+
                 weighted_sum += frequency * magnitude
                 magnitude_sum += magnitude
-            
+
             centroid_array[idx] = weighted_sum / magnitude_sum if magnitude_sum > 0 else 0.0
-        
+
         return centroid_array
 
     # ========== FRACTALES (2 FEATURES) ==========
 
     @jit(nopython=True, cache=True)
     def _numba_fractal_dimension(prices, window=252):
-        """
-        Dimension fractale avec box-counting ROLLING (NO DATA LEAKAGE).
-        
+        """Dimension fractale avec box-counting ROLLING (NO DATA LEAKAGE).
+
         CORRECTION: Version précédente calculait UNE dimension pour tout le dataset.
         Cette version calcule dimension fractale sur rolling window.
-        
+
         Args:
             prices: Array de prix
             window: Taille fenêtre rolling (défaut 252)
-        
+
         Returns:
             Array de dimensions fractales (même taille que prices)
         """
         n = len(prices)
         fractal_array = np.ones(n, dtype=OPTIMAL_FLOAT)  # Default: 1.0
-        
+
         for i in range(window, n):
             # Lookback window
             window_prices = prices[i - window : i]
             N = len(window_prices)
-            
+
             if N < 4:
                 continue
-            
+
             # Normaliser les prix
             min_price = np.min(window_prices)
             max_price = np.max(window_prices)
             if max_price == min_price:
                 continue
-            
+
             normalized = (window_prices - min_price) / (max_price - min_price)
-            
+
             # Différentes tailles de boîtes
             box_sizes = np.array([2, 4, 8, 16, min(32, N // 4)], dtype=np.int32)
             box_counts = np.zeros(len(box_sizes), dtype=OPTIMAL_FLOAT)
-            
+
             for box_idx, box_size in enumerate(box_sizes):
                 if box_size >= N:
                     continue
-                
+
                 # Compter les boîtes nécessaires
                 n_boxes_x = N // box_size
                 n_boxes_y = box_size
-                
+
                 boxes_needed = 0
                 for x in range(n_boxes_x):
                     start_idx = x * box_size
                     end_idx = min(start_idx + box_size, N)
                     segment = normalized[start_idx:end_idx]
-                    
+
                     min_val = np.min(segment)
                     max_val = np.max(segment)
-                    
+
                     # Nombre de boîtes verticales nécessaires
                     boxes_y = int((max_val - min_val) * n_boxes_y) + 1
                     boxes_needed += boxes_y
-                
+
                 box_counts[box_idx] = boxes_needed
-            
+
             # Régression log-log
             valid_sizes = box_sizes[box_sizes < N]
             valid_counts = box_counts[:len(valid_sizes)]
-            
+
             if len(valid_sizes) >= 2:
                 log_sizes = np.log(1.0 / valid_sizes.astype(OPTIMAL_FLOAT))
                 log_counts = np.log(valid_counts)
-                
+
                 # Calcul de la pente (dimension fractale)
                 n_points = len(log_sizes)
                 sum_x = np.sum(log_sizes)
                 sum_y = np.sum(log_counts)
                 sum_xy = np.sum(log_sizes * log_counts)
                 sum_x2 = np.sum(log_sizes * log_sizes)
-                
+
                 denominator = n_points * sum_x2 - sum_x * sum_x
                 if abs(denominator) > 1e-10:
                     slope = (n_points * sum_xy - sum_x * sum_y) / denominator
                     fractal_array[i] = max(1.0, min(2.0, slope))
-        
+
         return fractal_array
 
     @jit(nopython=True, cache=True)
     def _numba_dfa(prices, window=252):
-        """
-        Detrended Fluctuation Analysis ROLLING (NO DATA LEAKAGE).
+        """Detrended Fluctuation Analysis ROLLING (NO DATA LEAKAGE).
 
         CORRECTION: Version précédente retournait UN SEUL scalaire pour tout
         le dataset. Cette version calcule le DFA sur une rolling window.
@@ -851,7 +835,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_rolling_skewness(prices, window=50):
-        """Skewness roulante ultra-rapide"""
+        """Skewness roulante ultra-rapide."""
         n = len(prices)
         if n < window:
             return np.full(n, 0.0, dtype=OPTIMAL_FLOAT)
@@ -880,7 +864,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_rolling_kurtosis(prices, window=50):
-        """Kurtosis roulante ultra-rapide"""
+        """Kurtosis roulante ultra-rapide."""
         n = len(prices)
         if n < window:
             return np.full(n, 3.0, dtype=OPTIMAL_FLOAT)  # Kurtosis normale = 3
@@ -909,7 +893,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_dynamic_var(returns, confidence=0.05, window=50):
-        """VaR dynamique ultra-rapide"""
+        """VaR dynamique ultra-rapide."""
         n = len(returns)
         if n < window:
             return np.full(n, 0.0, dtype=OPTIMAL_FLOAT)
@@ -934,7 +918,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_dynamic_cvar(returns, confidence=0.05, window=50):
-        """CVaR (Expected Shortfall) dynamique ultra-rapide"""
+        """CVaR (Expected Shortfall) dynamique ultra-rapide."""
         n = len(returns)
         if n < window:
             return np.full(n, 0.0, dtype=OPTIMAL_FLOAT)
@@ -961,7 +945,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_max_drawdown(prices, window=100):
-        """Maximum Drawdown roulant ultra-rapide"""
+        """Maximum Drawdown roulant ultra-rapide."""
         n = len(prices)
         if n < window:
             return np.full(n, 0.0, dtype=OPTIMAL_FLOAT)
@@ -993,7 +977,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_regime_detection(returns, lookback=50):
-        """Détection de régime adaptative ultra-rapide (z-score, asset-agnostique)"""
+        """Détection de régime adaptative ultra-rapide (z-score, asset-agnostique)."""
         n = len(returns)
         if n < lookback:
             return np.full(n, 0.0, dtype=OPTIMAL_FLOAT)  # Régime neutre
@@ -1041,162 +1025,162 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def _numba_amihud_illiquidity(returns, volume, window=20):
-        """Amihud Illiquidity ultra-rapide"""
+        """Amihud Illiquidity ultra-rapide."""
         n = len(returns)
         if n < window:
             return np.full(n, 0.0, dtype=OPTIMAL_FLOAT)
-            
+
         illiquidity = np.zeros(n, dtype=OPTIMAL_FLOAT)
-        
+
         # Amihud = Mean( |Return| / (Price * Volume) )
         # Simplification pour compatibilité dimensionnelle: |Return| / Volume
         # Car Price * Volume = Dollar Volume, mais ici on veut l'impact par unité de volume
-        
+
         abs_returns = np.abs(returns)
-        
+
         for i in range(window - 1, n):
             window_ret = abs_returns[i - window + 1 : i + 1]
             window_vol = volume[i - window + 1 : i + 1]
-            
+
             sum_ratio = 0.0
             count = 0
-            
+
             for j in range(window):
                 if window_vol[j] > 1e-5:
                     sum_ratio += window_ret[j] / window_vol[j]
                     count += 1
-                    
+
             if count > 0:
                 illiquidity[i] = sum_ratio / count * 1e6  # Mettre à l'échelle
             else:
                 illiquidity[i] = 0.0
-                
+
         # Remplir
         for i in range(window - 1):
             illiquidity[i] = illiquidity[window - 1]
-            
+
         return illiquidity
 
     @jit(nopython=True, cache=True)
     def _numba_kyles_lambda(prices, volume, window=20):
-        """Kyle's Lambda (Simplifié) ultra-rapide"""
+        """Kyle's Lambda (Simplifié) ultra-rapide."""
         n = len(prices)
         if n < window:
             return np.full(n, 0.0, dtype=OPTIMAL_FLOAT)
-            
+
         lambdas = np.zeros(n, dtype=OPTIMAL_FLOAT)
-        
+
         # Lambda ~ Pente de régression PriceChange vs NetVolume
         # Approximation: High-Low / Volume (Volatilité par unité de volume)
-        
-        range_val = np.zeros(n, dtype=OPTIMAL_FLOAT)
+
+        np.zeros(n, dtype=OPTIMAL_FLOAT)
         # Calculer ranges simples si High/Low non dispos dans cette fonction
         # On utilise une approximation basée sur abs(diff(prices))
-        
+
         abs_diff = np.abs(np.diff(prices))
         abs_diff = np.concatenate((np.array([0.0], dtype=OPTIMAL_FLOAT), abs_diff))
-        
+
         for i in range(window - 1, n):
             window_diff = abs_diff[i - window + 1 : i + 1]
             window_vol = volume[i - window + 1 : i + 1]
-            
+
             sum_ratio = 0.0
             count = 0
-            
+
             for j in range(window):
                 if window_vol[j] > 1e-5:
                     sum_ratio += window_diff[j] / window_vol[j]
                     count += 1
-                    
+
             if count > 0:
                 lambdas[i] = sum_ratio / count * 1e6
             else:
                 lambdas[i] = 0.0
-                
+
         # Remplir
         for i in range(window - 1):
             lambdas[i] = lambdas[window - 1]
-            
+
         return lambdas
 
     # ========== EFFICIENCE (2 FEATURES) ==========
 
     @jit(nopython=True, cache=True)
     def _numba_kaufman_efficiency(prices, window=20):
-        """Ratio d'efficience de Kaufman ultra-rapide"""
+        """Ratio d'efficience de Kaufman ultra-rapide."""
         n = len(prices)
         if n < window:
             return np.full(n, 0.5, dtype=OPTIMAL_FLOAT)
-            
+
         er = np.zeros(n, dtype=OPTIMAL_FLOAT)
-        
+
         abs_diff = np.abs(np.diff(prices))
         abs_diff = np.concatenate((np.array([0.0], dtype=OPTIMAL_FLOAT), abs_diff))
-        
+
         for i in range(window, n):
             # Directional movement: |Price_t - Price_t-n|
             direction = np.abs(prices[i] - prices[i - window])
-            
+
             # Volatility: Sum(|Price_i - Price_i-1|)
             volatility = np.sum(abs_diff[i - window + 1 : i + 1])
-            
+
             if volatility > 1e-10:
                 er[i] = direction / volatility
             else:
                 er[i] = 1.0 if direction == 0 else 0.0
-                
+
         # Remplir
         for i in range(window):
             er[i] = er[window] if window < n else 0.5
-            
+
         return er
 
     @jit(nopython=True, cache=True)
     def _numba_variance_ratio(returns, lags=20):
-        """Test de Ratio de Variance (Random Walk) ultra-rapide"""
+        """Test de Ratio de Variance (Random Walk) ultra-rapide."""
         n = len(returns)
         if n < lags * 2:
             return np.full(n, 1.0, dtype=OPTIMAL_FLOAT)
-            
+
         vr = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)  # NaN pour ffill correct en post-processing
-        
+
         # VR(q) = Var(r_q) / (q * Var(r_1))
         # Var(r_q) est la variance des rendements sur q périodes
-        
+
         for i in range(n - 1, 30, -1): # Ne pas calculer pour tout l'historique (trop lent), focus récent
             # Fenêtre locale pour "Rolling VR"
             window_size = min(i, 100)
-            if window_size < lags: 
+            if window_size < lags:
                 continue
-                
+
             local_rets = returns[i - window_size + 1 : i + 1]
-            
+
             # Variance 1-période
             var_1 = np.var(local_rets)
-            
+
             # Variance q-périodes
             # Somme mobile des rendements sur lags
             sum_rets_q = np.zeros(len(local_rets) - lags + 1)
             for j in range(len(sum_rets_q)):
                 sum_rets_q[j] = np.sum(local_rets[j : j + lags])
-                
+
             var_q = np.var(sum_rets_q)
-            
+
             if var_1 > 1e-10:
                 vr[i] = var_q / (lags * var_1)
             else:
                 vr[i] = 1.0
-                
+
         # Remplir les trous (forward fill inversé ou simple fill)
         # Numba ne supporte pas ffill simple, on laisse les 0 qui seront ffill plus tard par pandas
-        
+
         return vr
 
     # ========== FONCTIONS NUMBA ADDITIONNELLES POUR OPTIMISATIONS ==========
 
     @jit(nopython=True, cache=True)
     def calculate_returns_numba(prices):
-        """Calcul ultra-rapide des rendements avec Numba"""
+        """Calcul ultra-rapide des rendements avec Numba."""
         n = len(prices)
         if n < 2:
             return np.zeros(1, dtype=OPTIMAL_FLOAT)
@@ -1214,7 +1198,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def calculate_rolling_mean_numba(data, window):
-        """Moyenne mobile ultra-rapide avec Numba"""
+        """Moyenne mobile ultra-rapide avec Numba."""
         n = len(data)
         if n < window:
             return np.full(n, np.mean(data), dtype=OPTIMAL_FLOAT)
@@ -1240,7 +1224,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def calculate_rolling_std_numba(data, window):
-        """Écart-type mobile ultra-rapide avec Numba"""
+        """Écart-type mobile ultra-rapide avec Numba."""
         n = len(data)
         if n < window:
             return np.full(n, np.std(data), dtype=OPTIMAL_FLOAT)
@@ -1266,7 +1250,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def calculate_momentum_numba(prices, window=14):
-        """Momentum ultra-rapide avec Numba"""
+        """Momentum ultra-rapide avec Numba."""
         n = len(prices)
         if n < window:
             return np.zeros(n, dtype=OPTIMAL_FLOAT)
@@ -1288,7 +1272,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def calculate_price_position_numba(prices, window=20):
-        """Position du prix dans la range ultra-rapide"""
+        """Position du prix dans la range ultra-rapide."""
         n = len(prices)
         if n < window:
             return np.full(n, 0.5, dtype=OPTIMAL_FLOAT)
@@ -1313,7 +1297,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def calculate_optimal_actions_numba(prices, returns, volatility):
-        """Actions optimales basées sur prix, rendements et volatilité"""
+        """Actions optimales basées sur prix, rendements et volatilité."""
         n = len(prices)
         actions = np.zeros(n, dtype=OPTIMAL_FLOAT)
 
@@ -1336,7 +1320,7 @@ if NUMBA_AVAILABLE:
     def calculate_volatility_regime_numba(
         volatility, threshold_low=0.01, threshold_high=0.03
     ):
-        """Régime de volatilité ultra-rapide"""
+        """Régime de volatilité ultra-rapide."""
         n = len(volatility)
         regime = np.zeros(n, dtype=OPTIMAL_FLOAT)
 
@@ -1352,7 +1336,7 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, cache=True)
     def calculate_market_regime_numba(returns, volatility, window=50):
-        """Régime de marché combiné ultra-rapide"""
+        """Régime de marché combiné ultra-rapide."""
         n = len(returns)
         if n < window:
             return np.zeros(n, dtype=OPTIMAL_FLOAT)
@@ -1389,107 +1373,308 @@ if NUMBA_AVAILABLE:
 else:
     # Fallback functions si Numba non disponible
     def _numba_realized_volatility(returns, window=20):
+        """_numba_realized_volatility.
+
+        Args:
+            returns: TODO document.
+            window: TODO document.
+        """
         return np.full(len(returns), np.std(returns), dtype=OPTIMAL_FLOAT)
 
     def _numba_garch_volatility(returns, alpha=0.1, beta=0.8):
+        """_numba_garch_volatility.
+
+        Args:
+            returns: TODO document.
+            alpha: TODO document.
+            beta: TODO document.
+        """
         return np.full(len(returns), np.std(returns), dtype=OPTIMAL_FLOAT)
 
     def _numba_volatility_clustering(returns, threshold_factor=2.0, window=100):
+        """_numba_volatility_clustering.
+
+        Args:
+            returns: TODO document.
+            threshold_factor: TODO document.
+            window: TODO document.
+        """
         return np.full(len(returns), 0.1, dtype=OPTIMAL_FLOAT)
 
     def _numba_volatility_persistence(returns, window=100):
+        """_numba_volatility_persistence.
+
+        Args:
+            returns: TODO document.
+            window: TODO document.
+        """
         return np.full(len(returns), 0.3, dtype=OPTIMAL_FLOAT)
 
     def _numba_hurst_rs(prices, window=252):
+        """_numba_hurst_rs.
+
+        Args:
+            prices: TODO document.
+            window: TODO document.
+        """
         return np.full(len(prices), 0.5, dtype=OPTIMAL_FLOAT)  # Neutral: random walk
 
     def _numba_autocorrelation(prices, max_lag=20, window=252):
+        """_numba_autocorrelation.
+
+        Args:
+            prices: TODO document.
+            max_lag: TODO document.
+            window: TODO document.
+        """
         return np.zeros(len(prices), dtype=OPTIMAL_FLOAT)
 
     def _numba_shannon_entropy(prices, bins=50, window=252):
-        """Fallback: retourne un array constant (entropie globale)"""
+        """Fallback: retourne un array constant (entropie globale)."""
         hist, _ = np.histogram(prices, bins=bins)
         hist = hist[hist > 0]
         entropy_val = -np.sum((hist / len(prices)) * np.log2(hist / len(prices)))
         return np.full(len(prices), entropy_val, dtype=OPTIMAL_FLOAT)
 
     def _numba_sample_entropy(prices, m=2, r=0.2, window=252):
+        """_numba_sample_entropy.
+
+        Args:
+            prices: TODO document.
+            m: TODO document.
+            r: TODO document.
+            window: TODO document.
+        """
         return np.full(len(prices), 1.0, dtype=OPTIMAL_FLOAT)  # Neutral entropy
 
     def _numba_dominant_frequency(prices, window=252):
+        """_numba_dominant_frequency.
+
+        Args:
+            prices: TODO document.
+            window: TODO document.
+        """
         return np.full(len(prices), 0.1, dtype=OPTIMAL_FLOAT)
 
     def _numba_spectral_centroid(prices, window=252):
+        """_numba_spectral_centroid.
+
+        Args:
+            prices: TODO document.
+            window: TODO document.
+        """
         return np.full(len(prices), 0.5, dtype=OPTIMAL_FLOAT)
 
     def _numba_fractal_dimension(prices, window=252):
+        """_numba_fractal_dimension.
+
+        Args:
+            prices: TODO document.
+            window: TODO document.
+        """
         return np.full(len(prices), 1.5, dtype=OPTIMAL_FLOAT)  # Neutral: between 1 and 2
 
     def _numba_dfa(prices, window=252):
+        """_numba_dfa.
+
+        Args:
+            prices: TODO document.
+            window: TODO document.
+        """
         return np.full(len(prices), 0.5, dtype=OPTIMAL_FLOAT)  # Neutral: random walk
 
     def _numba_rolling_skewness(prices, window=50):
+        """_numba_rolling_skewness.
+
+        Args:
+            prices: TODO document.
+            window: TODO document.
+        """
         return np.zeros(len(prices), dtype=OPTIMAL_FLOAT)
 
     def _numba_rolling_kurtosis(prices, window=50):
+        """_numba_rolling_kurtosis.
+
+        Args:
+            prices: TODO document.
+            window: TODO document.
+        """
         return np.full(len(prices), 3.0, dtype=OPTIMAL_FLOAT)
 
     def _numba_dynamic_var(returns, confidence=0.05, window=50):
+        """_numba_dynamic_var.
+
+        Args:
+            returns: TODO document.
+            confidence: TODO document.
+            window: TODO document.
+        """
         return np.zeros(len(returns), dtype=OPTIMAL_FLOAT)
 
     def _numba_dynamic_cvar(returns, confidence=0.05, window=50):
+        """_numba_dynamic_cvar.
+
+        Args:
+            returns: TODO document.
+            confidence: TODO document.
+            window: TODO document.
+        """
         return np.zeros(len(returns), dtype=OPTIMAL_FLOAT)
 
     def _numba_max_drawdown(prices, window=100):
+        """_numba_max_drawdown.
+
+        Args:
+            prices: TODO document.
+            window: TODO document.
+        """
         return np.zeros(len(prices), dtype=OPTIMAL_FLOAT)
 
     def _numba_regime_detection(returns, lookback=50):
+        """_numba_regime_detection.
+
+        Args:
+            returns: TODO document.
+            lookback: TODO document.
+        """
         return np.zeros(len(returns), dtype=OPTIMAL_FLOAT)
 
     def _numba_approximate_entropy(prices, m=2, r=0.2, window=252):
+        """_numba_approximate_entropy.
+
+        Args:
+            prices: TODO document.
+            m: TODO document.
+            r: TODO document.
+            window: TODO document.
+        """
         return np.full(len(prices), 1.0, dtype=OPTIMAL_FLOAT)  # Neutral entropy
 
     def _numba_permutation_entropy(prices, order=3, delay=1, window=100):
+        """_numba_permutation_entropy.
+
+        Args:
+            prices: TODO document.
+            order: TODO document.
+            delay: TODO document.
+            window: TODO document.
+        """
         return np.full(len(prices), 1.5, dtype=OPTIMAL_FLOAT)
 
     # Fallback functions pour les nouvelles fonctions Numba
     def _numba_amihud_illiquidity(returns, volume, window=20):
+        """_numba_amihud_illiquidity.
+
+        Args:
+            returns: TODO document.
+            volume: TODO document.
+            window: TODO document.
+        """
         return np.zeros(len(returns), dtype=OPTIMAL_FLOAT)
 
     def _numba_kyles_lambda(prices, volume, window=20):
+        """_numba_kyles_lambda.
+
+        Args:
+            prices: TODO document.
+            volume: TODO document.
+            window: TODO document.
+        """
         return np.zeros(len(prices), dtype=OPTIMAL_FLOAT)
 
     def _numba_kaufman_efficiency(prices, window=20):
+        """_numba_kaufman_efficiency.
+
+        Args:
+            prices: TODO document.
+            window: TODO document.
+        """
         return np.full(len(prices), 0.5, dtype=OPTIMAL_FLOAT)
 
     def _numba_variance_ratio(returns, lags=20):
+        """_numba_variance_ratio.
+
+        Args:
+            returns: TODO document.
+            lags: TODO document.
+        """
         return np.full(len(returns), 1.0, dtype=OPTIMAL_FLOAT)
 
     # Fallback functions pour les nouvelles fonctions Numba
     def calculate_returns_numba(prices):
+        """calculate_returns_numba.
+
+        Args:
+            prices: TODO document.
+        """
         return np.diff(prices) / prices[:-1] if len(prices) > 1 else np.array([0.0])
 
     def calculate_rolling_mean_numba(data, window):
+        """calculate_rolling_mean_numba.
+
+        Args:
+            data: TODO document.
+            window: TODO document.
+        """
         return pd.Series(data).rolling(window).mean().fillna(method="bfill").values
 
     def calculate_rolling_std_numba(data, window):
+        """calculate_rolling_std_numba.
+
+        Args:
+            data: TODO document.
+            window: TODO document.
+        """
         return pd.Series(data).rolling(window).std().fillna(method="bfill").values
 
     def calculate_momentum_numba(prices, window=14):
+        """calculate_momentum_numba.
+
+        Args:
+            prices: TODO document.
+            window: TODO document.
+        """
         return np.zeros(len(prices), dtype=OPTIMAL_FLOAT)
 
     def calculate_price_position_numba(prices, window=20):
+        """calculate_price_position_numba.
+
+        Args:
+            prices: TODO document.
+            window: TODO document.
+        """
         return np.full(len(prices), 0.5, dtype=OPTIMAL_FLOAT)
 
     def calculate_optimal_actions_numba(prices, returns, volatility):
+        """calculate_optimal_actions_numba.
+
+        Args:
+            prices: TODO document.
+            returns: TODO document.
+            volatility: TODO document.
+        """
         return np.zeros(len(prices), dtype=OPTIMAL_FLOAT)
 
     def calculate_volatility_regime_numba(
         volatility, threshold_low=0.01, threshold_high=0.03
     ):
+        """calculate_volatility_regime_numba.
+
+        Args:
+            volatility: TODO document.
+            threshold_low: TODO document.
+            threshold_high: TODO document.
+        """
         return np.zeros(len(volatility), dtype=OPTIMAL_FLOAT)
 
     def calculate_market_regime_numba(returns, volatility, window=50):
+        """calculate_market_regime_numba.
+
+        Args:
+            returns: TODO document.
+            volatility: TODO document.
+            window: TODO document.
+        """
         return np.zeros(len(returns), dtype=OPTIMAL_FLOAT)
 
 # ============================================================================
@@ -1498,9 +1683,15 @@ else:
 
 
 class QuantitativeCache:
-    """Cache intelligent LRU avec optimisations avancées"""
+    """Cache intelligent LRU avec optimisations avancées."""
 
     def __init__(self, max_size: int = 1000, memory_limit_mb: float = 100.0):
+        """__init__.
+
+        Args:
+            max_size: TODO document.
+            memory_limit_mb: TODO document.
+        """
         self.max_size = max_size
         self.memory_limit_mb = memory_limit_mb
         self.cache = {}
@@ -1512,7 +1703,7 @@ class QuantitativeCache:
         self.current_memory_mb = 0.0
 
     def _get_key(self, prices, feature_name, **params):
-        """Génère une clé unique optimisée pour le cache"""
+        """Génère une clé unique optimisée pour le cache."""
         # OPTIMISATION: Cache basé sur taille et statistiques au lieu de hash complet
         n = len(prices)
         if n > 100:
@@ -1527,7 +1718,11 @@ class QuantitativeCache:
             sample_values = [prices[i] for i in sample_indices if i < n]
 
             # CORRECTION: Remplacer les caractères problématiques par des caractères sûrs
-            data_signature = f"{n}_{abs(mean_val):.6f}_{abs(std_val):.6f}_{abs(min_val):.6f}_{abs(max_val):.6f}_{'_'.join(f'{abs(v):.6f}' for v in sample_values)}"
+            _sample_part = "_".join(f"{abs(v):.6f}" for v in sample_values)
+            data_signature = (
+                f"{n}_{abs(mean_val):.6f}_{abs(std_val):.6f}_{abs(min_val):.6f}"
+                f"_{abs(max_val):.6f}_{_sample_part}"
+            )
         else:
             # Pour les petits datasets, utiliser un hash simple
             data_signature = f"{n}_{abs(hash(tuple(prices[: min(50, n)])))}"
@@ -1535,16 +1730,16 @@ class QuantitativeCache:
         # CORRECTION: Nettoyer les paramètres pour éviter les caractères problématiques
         clean_params = {}
         for k, v in sorted(params.items()):
-            if isinstance(v, (int, float)):
+            if isinstance(v, int | float):
                 clean_params[k] = abs(v)  # Utiliser la valeur absolue pour éviter les négatifs
             else:
                 clean_params[k] = str(v).replace('-', 'neg').replace('.', 'dot')
-        
+
         params_str = "_".join(f"{k}_{v}" for k, v in clean_params.items())
         return f"{feature_name}_{data_signature}_{params_str}"
 
     def get(self, prices, feature_name, **params):
-        """Récupère du cache avec statistiques avancées"""
+        """Récupère du cache avec statistiques avancées."""
         key = self._get_key(prices, feature_name, **params)
         if key in self.cache:
             self.access_count[key] = self.access_count.get(key, 0) + 1
@@ -1557,7 +1752,7 @@ class QuantitativeCache:
         return None
 
     def set(self, prices, feature_name, result, **params):
-        """Stocke dans le cache avec gestion mémoire intelligente"""
+        """Stocke dans le cache avec gestion mémoire intelligente."""
         # Vérification mémoire
         if self.current_memory_mb > self.memory_limit_mb:
             self._cleanup_memory()
@@ -1575,7 +1770,7 @@ class QuantitativeCache:
         self.current_memory_mb += len(str(result)) / (1024 * 1024)
 
     def _evict_smart(self):
-        """Éviction intelligente basée sur fréquence et récence"""
+        """Éviction intelligente basée sur fréquence et récence."""
         if not self.cache:
             return
 
@@ -1608,11 +1803,11 @@ class QuantitativeCache:
         self.current_memory_mb *= 0.75  # Estimation de la réduction
 
     def _cleanup_memory(self):
-        """Nettoyage mémoire agressif et sécurisé"""
+        """Nettoyage mémoire agressif et sécurisé."""
         try:
             # Supprimer 50% du cache de manière sécurisée
             keys_to_remove = self.access_order[::2] if self.access_order else []
-            
+
             for key in keys_to_remove:
                 try:
                     if key in self.cache:
@@ -1626,12 +1821,12 @@ class QuantitativeCache:
 
             # Nettoyer l'ordre d'accès
             self.access_order = self.access_order[1::2] if self.access_order else []
-            
+
             # Réinitialiser les statistiques
             self.current_memory_mb *= 0.5
             self.hit_count = max(0, self.hit_count // 2)
             self.miss_count = max(0, self.miss_count // 2)
-            
+
         except Exception as e:
             logger.warning(f"Erreur nettoyage mémoire cache: {e}")
             # En cas d'erreur, vider complètement le cache
@@ -1641,8 +1836,8 @@ class QuantitativeCache:
             self.access_order.clear()
             self.current_memory_mb = 0.0
 
-    def get_stats(self) -> Dict[str, any]:
-        """Statistiques du cache"""
+    def get_stats(self) -> dict[str, any]:
+        """Statistiques du cache."""
         total_requests = self.hit_count + self.miss_count
         hit_rate = (self.hit_count / total_requests * 100) if total_requests > 0 else 0
 
@@ -1662,9 +1857,16 @@ class QuantitativeCache:
 
 
 class DaskOptimizer:
-    """Optimiseur Dask pour traitement distribué des features quantitatives"""
+    """Optimiseur Dask pour traitement distribué des features quantitatives."""
 
     def __init__(self, n_workers=None, threads_per_worker=2, memory_limit="2GB"):
+        """__init__.
+
+        Args:
+            n_workers: TODO document.
+            threads_per_worker: TODO document.
+            memory_limit: TODO document.
+        """
         self.n_workers = n_workers or min(cpu_count(), 8)
         self.threads_per_worker = threads_per_worker
         self.memory_limit = memory_limit
@@ -1672,7 +1874,7 @@ class DaskOptimizer:
         self.cluster = None
 
     def setup_cluster(self):
-        """Configuration du cluster Dask optimisé"""
+        """Configuration du cluster Dask optimisé."""
         if not DASK_AVAILABLE:
             logger.warning("Dask non disponible, impossible de configurer le cluster")
             return False
@@ -1698,7 +1900,7 @@ class DaskOptimizer:
             return False
 
     def cleanup_cluster(self):
-        """Nettoyage du cluster Dask"""
+        """Nettoyage du cluster Dask."""
         try:
             if self.client:
                 self.client.close()
@@ -1709,7 +1911,7 @@ class DaskOptimizer:
             logger.error(f"⚠️ Erreur fermeture cluster Dask: {e}")
 
     def process_with_dask(self, df: pd.DataFrame, enricher_instance) -> pd.DataFrame:
-        """Traitement avec Dask DataFrame"""
+        """Traitement avec Dask DataFrame."""
         if not self.setup_cluster():
             logger.warning("Fallback vers traitement standard")
             return enricher_instance._process_single_chunk(df)
@@ -1739,7 +1941,7 @@ class DaskOptimizer:
             self.cleanup_cluster()
 
     def _compute_indicators_for_partition_safe(self, partition_df, enricher_instance):
-        """Calcul sécurisé des indicateurs pour une partition"""
+        """Calcul sécurisé des indicateurs pour une partition."""
         try:
             return enricher_instance._add_all_features(partition_df)
         except Exception as e:
@@ -1747,7 +1949,7 @@ class DaskOptimizer:
             return partition_df
 
     def _get_enriched_meta(self, sample_df):
-        """Obtenir le meta DataFrame pour Dask"""
+        """Obtenir le meta DataFrame pour Dask."""
         # Créer un échantillon pour déterminer les colonnes de sortie
         sample = sample_df.head(100).copy()
 
@@ -1795,14 +1997,15 @@ class DaskOptimizer:
 
 
 class SharedMemoryOptimizer:
-    """Optimiseur Shared Memory pour performance maximale"""
+    """Optimiseur Shared Memory pour performance maximale."""
 
     def __init__(self):
+        """__init__."""
         self.shared_blocks = {}
         self.lock = threading.Lock()
 
-    def setup_shared_memory(self, df: pd.DataFrame) -> Dict[str, any]:
-        """Configuration de la mémoire partagée"""
+    def setup_shared_memory(self, df: pd.DataFrame) -> dict[str, any]:
+        """Configuration de la mémoire partagée."""
         if not SHARED_MEMORY_AVAILABLE:
             logger.warning("Shared memory non disponible")
             return {}
@@ -1840,14 +2043,14 @@ class SharedMemoryOptimizer:
             return {}
 
     def cleanup_shared_memory(self):
-        """Nettoyage de la mémoire partagée"""
+        """Nettoyage de la mémoire partagée."""
         try:
             with self.lock:
                 for shm_name, shm in self.shared_blocks.items():
                     try:
                         shm.close()
                         shm.unlink()
-                    except:
+                    except Exception:  # noqa: E722 - cleanup best-effort
                         pass
 
                 self.shared_blocks.clear()
@@ -1859,7 +2062,7 @@ class SharedMemoryOptimizer:
     def process_with_shared_memory(
         self, df: pd.DataFrame, enricher_instance
     ) -> pd.DataFrame:
-        """Traitement avec mémoire partagée"""
+        """Traitement avec mémoire partagée."""
         shared_data = self.setup_shared_memory(df)
 
         if not shared_data:
@@ -1881,11 +2084,11 @@ class SharedMemoryOptimizer:
     def _compute_indicators_with_shared_memory(
         self, df, shared_data, enricher_instance
     ):
-        """Calcul des indicateurs avec mémoire partagée"""
+        """Calcul des indicateurs avec mémoire partagée."""
         # Utiliser les arrays partagés pour les calculs
         if "close" in shared_data:
             prices = shared_data["close"]["array"]
-            returns = calculate_returns_numba(prices)
+            calculate_returns_numba(prices)
 
             # Calculer les features avec les arrays partagés
             enriched_df = df.copy()
@@ -1902,9 +2105,9 @@ class SharedMemoryOptimizer:
 
 
 def process_asset_group_worker(asset_data):
-    """
-    Fonction worker globale pour le multiprocessing des features quantitatives
-    Doit être au niveau module pour être picklable
+    """Fonction worker globale pour le multiprocessing des features quantitatives.
+
+    Doit être au niveau module pour être picklable.
     """
     try:
         # Créer une instance temporaire de l'enrichisseur pour ce worker (sans objets non-sérialisables)
@@ -1932,13 +2135,14 @@ def process_asset_group_worker(asset_data):
 
 
 class MemoryMappingOptimizer:
-    """Optimiseur Memory Mapping pour gros fichiers"""
+    """Optimiseur Memory Mapping pour gros fichiers."""
 
     def __init__(self):
+        """__init__."""
         self.temp_files = []
 
     def process_file_with_mmap(self, file_path: str, enricher_instance) -> pd.DataFrame:
-        """Traitement de fichier avec memory mapping"""
+        """Traitement de fichier avec memory mapping."""
         if not MMAP_AVAILABLE:
             logger.warning("Memory mapping non disponible, lecture standard")
             return pd.read_csv(file_path)
@@ -1961,12 +2165,12 @@ class MemoryMappingOptimizer:
             return pd.read_csv(file_path)
 
     def cleanup_temp_files(self):
-        """Nettoyage des fichiers temporaires"""
+        """Nettoyage des fichiers temporaires."""
         for temp_file in self.temp_files:
             try:
                 if os.path.exists(temp_file):
                     os.remove(temp_file)
-            except:
+            except Exception:  # noqa: E722 - cleanup best-effort
                 pass
         self.temp_files.clear()
 
@@ -1977,22 +2181,23 @@ class MemoryMappingOptimizer:
 
 
 class OptimizationStrategy:
-    """Sélecteur intelligent de stratégie d'optimisation"""
+    """Sélecteur intelligent de stratégie d'optimisation."""
 
     def __init__(self):
+        """__init__."""
         self.dask_optimizer = DaskOptimizer()
         self.shared_memory_optimizer = SharedMemoryOptimizer()
         self.memory_mapping_optimizer = MemoryMappingOptimizer()
 
     def select_best_strategy(self, df: pd.DataFrame) -> str:
-        """Sélectionner la meilleure stratégie d'optimisation"""
+        """Sélectionner la meilleure stratégie d'optimisation."""
         data_size_gb = df.memory_usage(deep=True).sum() / (1024**3)
         n_rows = len(df)
         n_assets = df["asset"].nunique() if "asset" in df.columns else 1
         memory_info = psutil.virtual_memory()
         available_gb = memory_info.available / (1024**3)
 
-        logger.info(f"📊 Analyse stratégie optimisation:")
+        logger.info("📊 Analyse stratégie optimisation:")
         logger.info(f"   📏 Taille dataset: {data_size_gb:.2f}GB ({n_rows:,} lignes)")
         logger.info(f"   🏢 Nombre d'assets: {n_assets}")
         logger.info(f"   💾 Mémoire disponible: {available_gb:.1f}GB")
@@ -2015,7 +2220,7 @@ class OptimizationStrategy:
     def apply_strategy(
         self, df: pd.DataFrame, strategy: str, enricher_instance
     ) -> pd.DataFrame:
-        """Appliquer la stratégie sélectionnée"""
+        """Appliquer la stratégie sélectionnée."""
         logger.info(f"🚀 Application stratégie: {strategy}")
 
         try:
@@ -2040,7 +2245,7 @@ class OptimizationStrategy:
             return enricher_instance._process_single_chunk(df)
 
     def cleanup_all(self):
-        """Nettoyage de toutes les ressources"""
+        """Nettoyage de toutes les ressources."""
         self.dask_optimizer.cleanup_cluster()
         self.shared_memory_optimizer.cleanup_shared_memory()
         self.memory_mapping_optimizer.cleanup_temp_files()
@@ -2052,8 +2257,7 @@ class OptimizationStrategy:
 
 
 class OptimizedQuantitativeFeaturesEnricher:
-    """
-    Enrichissement avec 24 features quantitatives OPTIMISÉES - VERSION INSTITUTIONNELLE
+    """Enrichissement avec 24 features quantitatives OPTIMISÉES - VERSION INSTITUTIONNELLE.
 
     FEATURES INCLUSES (24 total):
     - Volatilité (5): realized_vol_10/20/50, garch_vol, vol_clustering
@@ -2073,6 +2277,14 @@ class OptimizedQuantitativeFeaturesEnricher:
         auto_optimize: bool = True,
     ):
         # CONFIGURATION OPTIMISÉE - 24 FEATURES INSTITUTIONNELLES
+        """__init__.
+
+        Args:
+            chunk_size: TODO document.
+            max_memory_gb: TODO document.
+            n_jobs: TODO document.
+            auto_optimize: TODO document.
+        """
         self.config = {
             # VOLATILITÉ (5 features) - CRITIQUE
             "realized_volatility": {"windows": [10, 20, 50]},  # 3 features
@@ -2154,17 +2366,20 @@ class OptimizedQuantitativeFeaturesEnricher:
             "adaptive_optimizations": 0,
         }
 
-        print(f"🚀 ENRICHISSEUR QUANTITATIF ULTRA-OPTIMISÉ INITIALISÉ")
-        print(f"   📊 24 features institutionnelles")
+        print("🚀 ENRICHISSEUR QUANTITATIF ULTRA-OPTIMISÉ INITIALISÉ")
+        print("   📊 24 features institutionnelles")
         print(f"   💾 Cache: {cache_size} entrées")
         print(f"   🧩 Chunk size: {chunk_size:,}")
         print(f"   👥 Workers: {self.n_jobs}")
-        print(
-            f"   🔧 Optimisations: Numba✅ Dask{'✅' if DASK_AVAILABLE else '❌'} SharedMem{'✅' if SHARED_MEMORY_AVAILABLE else '❌'} MMap{'✅' if MMAP_AVAILABLE else '❌'}"
+        _opt = (
+            f"   🔧 Optimisations: Numba✅ Dask{'✅' if DASK_AVAILABLE else '❌'} "
+            f"SharedMem{'✅' if SHARED_MEMORY_AVAILABLE else '❌'} "
+            f"MMap{'✅' if MMAP_AVAILABLE else '❌'}"
         )
+        print(_opt)
 
     def _compute_feature_cached(self, prices, feature_name, func, **params):
-        """Calcule une feature avec cache intelligent"""
+        """Calcule une feature avec cache intelligent."""
         # Vérifier le cache
         cached_result = self.cache.get(prices, feature_name, **params)
         if cached_result is not None:
@@ -2185,7 +2400,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         return result
 
     def _add_all_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Ajouter toutes les 24 features optimisées"""
+        """Ajouter toutes les 24 features optimisées."""
         prices = df["close"].astype(OPTIMAL_FLOAT).values
         returns = np.diff(prices) / prices[:-1]
         returns = np.concatenate([[0], returns]).astype(OPTIMAL_FLOAT)
@@ -2327,7 +2542,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         # LIQUIDITÉ (2 features)
         if "volume" in df.columns:
             volume = df["volume"].astype(OPTIMAL_FLOAT).values
-            
+
             df["quant_amihud_illiquidity"] = self._compute_feature_cached(
                 returns,
                 "amihud_illiquidity",
@@ -2365,7 +2580,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         return df
 
     def _validate_input_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validation et nettoyage des données d'entrée"""
+        """Validation et nettoyage des données d'entrée."""
         required_cols = ["timestamp", "open", "high", "low", "close", "volume"]
 
         # Vérifier les colonnes requises
@@ -2392,7 +2607,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         return df
 
     def _optimize_data_types(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Optimise les types de données pour réduire l'usage mémoire"""
+        """Optimise les types de données pour réduire l'usage mémoire."""
         start_memory = df.memory_usage(deep=True).sum() / 1024**2
 
         # Optimiser les colonnes OHLCV
@@ -2414,7 +2629,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         return df
 
     def _process_single_chunk(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Traiter un chunk unique avec les 24 features optimisées"""
+        """Traiter un chunk unique avec les 24 features optimisées."""
         start_time = time.time()
 
         # Validation des données
@@ -2453,8 +2668,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         return enriched_df
 
     def _post_process_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Post-traitement et nettoyage final des features"""
-
+        """Post-traitement et nettoyage final des features."""
         # Remplacer les infinis par NaN
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         df[numeric_cols] = df[numeric_cols].replace([np.inf, -np.inf], np.nan)
@@ -2496,8 +2710,8 @@ class OptimizedQuantitativeFeaturesEnricher:
         return df
 
     def enrich_dataset(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Enrichir un dataset avec les 24 features quantitatives ultra-optimisées"""
-        print(f"🚀 ENRICHISSEMENT QUANTITATIF ULTRA-OPTIMISÉ - 24 FEATURES")
+        """Enrichir un dataset avec les 24 features quantitatives ultra-optimisées."""
+        print("🚀 ENRICHISSEMENT QUANTITATIF ULTRA-OPTIMISÉ - 24 FEATURES")
         print(f"   📊 Dataset: {len(df):,} lignes")
 
         start_time = time.time()
@@ -2510,7 +2724,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             enriched_df = self._enrich_dataframe_smart(df)
         except Exception as e:
             logger.error(f"❌ Erreur enrichissement intelligent: {e}")
-            print(f"🔄 Fallback vers traitement standard")
+            print("🔄 Fallback vers traitement standard")
             enriched_df = self._process_single_chunk(df)
 
         # Statistiques finales
@@ -2519,7 +2733,7 @@ class OptimizedQuantitativeFeaturesEnricher:
 
         print(f"✅ ENRICHISSEMENT TERMINÉ en {total_time:.2f}s")
         print(f"   📈 {len(enriched_df):,} lignes enrichies")
-        print(f"   🎯 24 features quantitatives ajoutées")
+        print("   🎯 24 features quantitatives ajoutées")
 
         # Afficher les statistiques de performance
         self._display_final_stats()
@@ -2530,7 +2744,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         return enriched_df
 
     def _enrich_dataframe_smart(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Enrichissement intelligent avec sélection automatique de stratégie"""
+        """Enrichissement intelligent avec sélection automatique de stratégie."""
         # Sélectionner la meilleure stratégie
         strategy = self.optimization_strategy.select_best_strategy(df)
         self.performance_stats["optimization_strategy"] = strategy
@@ -2549,7 +2763,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         return enriched_df
 
     def enrich_from_file_optimized(self, file_path: str) -> pd.DataFrame:
-        """Enrichissement optimisé directement depuis un fichier"""
+        """Enrichissement optimisé directement depuis un fichier."""
         print(f"🚀 ENRICHISSEMENT DEPUIS FICHIER: {file_path}")
 
         # Analyser la taille du fichier
@@ -2565,7 +2779,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             return self._process_small_file_optimized(file_path)
 
     def _process_large_file_with_dask(self, file_path: str) -> pd.DataFrame:
-        """Traitement de gros fichier avec Dask"""
+        """Traitement de gros fichier avec Dask."""
         if not DASK_AVAILABLE:
             print("⚠️ Dask non disponible, lecture par chunks")
             return self._process_file_by_chunks(file_path)
@@ -2594,7 +2808,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             return self._process_file_by_chunks(file_path)
 
     def _process_file_with_shared_memory(self, file_path: str) -> pd.DataFrame:
-        """Traitement de fichier avec shared memory"""
+        """Traitement de fichier avec shared memory."""
         print("🧠 Traitement avec Shared Memory...")
 
         # Lire le fichier par chunks et utiliser shared memory
@@ -2612,14 +2826,14 @@ class OptimizedQuantitativeFeaturesEnricher:
         return result
 
     def _process_small_file_optimized(self, file_path: str) -> pd.DataFrame:
-        """Traitement optimisé de petit fichier"""
+        """Traitement optimisé de petit fichier."""
         print("📦 Traitement direct optimisé...")
 
         df = pd.read_csv(file_path)
         return self.enrich_dataset(df)
 
     def _process_file_by_chunks(self, file_path: str) -> pd.DataFrame:
-        """Traitement de fichier par chunks (fallback)"""
+        """Traitement de fichier par chunks (fallback)."""
         print("🔄 Traitement par chunks (fallback)...")
 
         chunk_size = OPTIMIZATION_CONFIG["chunk_size_large"]
@@ -2632,12 +2846,12 @@ class OptimizedQuantitativeFeaturesEnricher:
         return pd.concat(chunks, ignore_index=True)
 
     def _get_enriched_meta_from_file(self, file_path: str):
-        """Obtenir le meta DataFrame depuis un fichier"""
+        """Obtenir le meta DataFrame depuis un fichier."""
         sample = pd.read_csv(file_path, nrows=100)
         return self.optimization_strategy.dask_optimizer._get_enriched_meta(sample)
 
     def _process_large_dataset(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Traiter un gros dataset par chunks"""
+        """Traiter un gros dataset par chunks."""
         total_rows = len(df)
         overlap_size = 260  # Overlap réduit pour les 24 features
 
@@ -2680,8 +2894,8 @@ class OptimizedQuantitativeFeaturesEnricher:
 
         return enriched_df
 
-    def _check_memory_usage(self, df: pd.DataFrame = None) -> Dict[str, float]:
-        """Vérifier l'usage mémoire"""
+    def _check_memory_usage(self, df: pd.DataFrame = None) -> dict[str, float]:
+        """Vérifier l'usage mémoire."""
         memory_info = psutil.virtual_memory()
         memory_used_gb = (memory_info.total - memory_info.available) / (1024**3)
         memory_percent = memory_info.percent
@@ -2699,7 +2913,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         return memory_data
 
     def _should_use_multiprocessing(self, df: pd.DataFrame) -> bool:
-        """Déterminer si le multiprocessing est bénéfique"""
+        """Déterminer si le multiprocessing est bénéfique."""
         data_size_mb = df.memory_usage(deep=True).sum() / (1024**2)
         memory_info = self._check_memory_usage()
 
@@ -2710,7 +2924,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         has_enough_cores = self.n_jobs > 1
         has_sufficient_memory = memory_info["available_gb"] > 1  # Seuil réduit
 
-        print(f"   🔍 Analyse multiprocessing:")
+        print("   🔍 Analyse multiprocessing:")
         print(f"      📊 Taille: {len(df):,} lignes ({data_size_mb:.1f}MB)")
         print(f"      🧩 Chunk size: {self.chunk_size:,}")
         print(f"      👥 Workers: {self.n_jobs}")
@@ -2722,7 +2936,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         return is_large_enough and has_enough_cores and has_sufficient_memory
 
     def _process_asset_group(self, asset_data: pd.DataFrame) -> pd.DataFrame:
-        """Traite un groupe d'asset avec features quantitatives optimisées"""
+        """Traite un groupe d'asset avec features quantitatives optimisées."""
         try:
             # Trier par timestamp pour calculs corrects
             asset_data = asset_data.sort_values("timestamp").reset_index(drop=True)
@@ -2737,7 +2951,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             return asset_data
 
     def _process_with_multiprocessing_by_asset(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Multiprocessing intelligent par asset pour performance maximale"""
+        """Multiprocessing intelligent par asset pour performance maximale."""
         print(f"🚀 Multiprocessing quantitatif avec {self.n_jobs} workers disponibles")
 
         # Étape 1: Essayer de grouper par asset d'abord
@@ -2767,7 +2981,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             print(
                 f"⚠️ {len(large_assets)} assets volumineux détectés (>{max_lines_per_worker:,} lignes)"
             )
-            print(f"🔄 Division des gros assets en chunks pour optimiser la charge")
+            print("🔄 Division des gros assets en chunks pour optimiser la charge")
 
         # Reconstruire les groupes en divisant les gros assets
         final_groups = []
@@ -2829,7 +3043,7 @@ class OptimizedQuantitativeFeaturesEnricher:
                 print(
                     f"⚠️ Encore seulement {len(asset_groups)} groupes pour {self.n_jobs} workers"
                 )
-                print(f"🔄 Basculement vers chunking global par lignes")
+                print("🔄 Basculement vers chunking global par lignes")
 
             # Diviser en chunks par lignes avec overlap
             chunk_size = max(1000, len(df) // self.n_jobs)
@@ -2867,7 +3081,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         start_time = time.time()
         total_chunks = len(asset_groups)
 
-        print(f"📊 Progression du traitement:")
+        print("📊 Progression du traitement:")
 
         # Utiliser imap pour avoir la progression en temps réel avec fonction worker globale
         with Pool(processes=effective_workers) as pool:
@@ -2942,7 +3156,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         return enriched_df
 
     def _adaptive_optimization(self):
-        """Optimisation adaptative avancée en cours d'exécution"""
+        """Optimisation adaptative avancée en cours d'exécution."""
         memory_info = self._check_memory_usage()
 
         # Si la mémoire dépasse le seuil, optimiser
@@ -2981,7 +3195,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             print(f"   ✅ Mémoire libérée: {improvement:.2f}GB")
 
     def _enrich_with_dask_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Enrichissement avec Dask DataFrame optimisé"""
+        """Enrichissement avec Dask DataFrame optimisé."""
         if not DASK_AVAILABLE:
             return self._process_single_chunk(df)
 
@@ -3010,7 +3224,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             return self._process_single_chunk(df)
 
     def _compute_indicators_for_partition_safe(self, partition_df):
-        """Calcul sécurisé des indicateurs pour partition Dask"""
+        """Calcul sécurisé des indicateurs pour partition Dask."""
         try:
             return self._add_all_features(partition_df)
         except Exception as e:
@@ -3018,7 +3232,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             return partition_df
 
     def _enrich_with_shared_memory(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Enrichissement avec mémoire partagée optimisée"""
+        """Enrichissement avec mémoire partagée optimisée."""
         if not SHARED_MEMORY_AVAILABLE:
             return self._process_single_chunk(df)
 
@@ -3026,22 +3240,22 @@ class OptimizedQuantitativeFeaturesEnricher:
             df, self
         )
 
-    def _setup_shared_memory(self, df: pd.DataFrame) -> Dict[str, any]:
-        """Configuration de la mémoire partagée pour les données"""
+    def _setup_shared_memory(self, df: pd.DataFrame) -> dict[str, any]:
+        """Configuration de la mémoire partagée pour les données."""
         return self.optimization_strategy.shared_memory_optimizer.setup_shared_memory(
             df
         )
 
     def _compute_indicators_with_shared_memory(
-        self, df: pd.DataFrame, shared_data: Dict
+        self, df: pd.DataFrame, shared_data: dict
     ) -> pd.DataFrame:
-        """Calcul des indicateurs avec mémoire partagée"""
+        """Calcul des indicateurs avec mémoire partagée."""
         return self.optimization_strategy.shared_memory_optimizer._compute_indicators_with_shared_memory(
             df, shared_data, self
         )
 
     def _cleanup_resources(self):
-        """Nettoyage complet des ressources"""
+        """Nettoyage complet des ressources."""
         try:
             # Nettoyer le cache
             if hasattr(self, "cache") and self.cache is not None:
@@ -3081,11 +3295,11 @@ class OptimizedQuantitativeFeaturesEnricher:
             # Ne pas relancer l'exception pour éviter les boucles d'erreur
 
     def __del__(self):
-        """Destructeur avec nettoyage automatique"""
+        """Destructeur avec nettoyage automatique."""
         self._cleanup_resources()
 
     def _display_optimization_stats(self):
-        """Affiche les statistiques d'optimisation avancées"""
+        """Affiche les statistiques d'optimisation avancées."""
         stats = self.performance_stats
         cache_stats = self.cache.get_stats()
 
@@ -3094,7 +3308,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             (stats["cache_hits"] / total_calls * 100) if total_calls > 0 else 0
         )
 
-        print(f"\n📊 STATISTIQUES D'OPTIMISATION QUANTITATIVE:")
+        print("\n📊 STATISTIQUES D'OPTIMISATION QUANTITATIVE:")
         print(
             f"   💾 Cache hit rate: {cache_hit_rate:.1f}% ({stats['cache_hits']}/{total_calls})"
         )
@@ -3115,7 +3329,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             print(f"   🔄 Méthode grouping: {stats['grouping_method']}")
 
         # Statistiques du cache avancées
-        print(f"\n📦 STATISTIQUES CACHE AVANCÉES:")
+        print("\n📦 STATISTIQUES CACHE AVANCÉES:")
         print(f"   🎯 Hit rate cache: {cache_stats['hit_rate']:.1f}%")
         print(f"   📊 Taille cache: {cache_stats['cache_size']}")
         print(f"   💾 Mémoire cache: {cache_stats['memory_usage_mb']:.1f}MB")
@@ -3123,14 +3337,14 @@ class OptimizedQuantitativeFeaturesEnricher:
 
         # Recommandations d'optimisation
         if cache_stats["hit_rate"] < 50:
-            print(f"   💡 Recommandation: Augmenter la taille du cache")
+            print("   💡 Recommandation: Augmenter la taille du cache")
         if stats["fallback_calls"] > stats["numba_calls"]:
-            print(f"   💡 Recommandation: Vérifier l'installation Numba")
+            print("   💡 Recommandation: Vérifier l'installation Numba")
         if stats["memory_optimizations"] > 5:
-            print(f"   💡 Recommandation: Réduire la taille des chunks")
+            print("   💡 Recommandation: Réduire la taille des chunks")
 
     def _display_final_stats(self):
-        """Affiche les statistiques d'optimisation ultra-avancées"""
+        """Affiche les statistiques d'optimisation ultra-avancées."""
         stats = self.performance_stats
         cache_stats = self.cache.get_stats()
 
@@ -3139,7 +3353,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             (stats["cache_hits"] / total_calls * 100) if total_calls > 0 else 0
         )
 
-        print(f"\n📊 STATISTIQUES D'OPTIMISATION QUANTITATIVE ULTRA-AVANCÉES:")
+        print("\n📊 STATISTIQUES D'OPTIMISATION QUANTITATIVE ULTRA-AVANCÉES:")
         print(
             f"   💾 Cache hit rate: {cache_hit_rate:.1f}% ({stats['cache_hits']}/{total_calls})"
         )
@@ -3161,14 +3375,14 @@ class OptimizedQuantitativeFeaturesEnricher:
             print(f"   🔄 Méthode grouping: {stats['grouping_method']}")
 
         # Statistiques des optimisations avancées
-        print(f"\n🚀 STATISTIQUES OPTIMISATIONS AVANCÉES:")
+        print("\n🚀 STATISTIQUES OPTIMISATIONS AVANCÉES:")
         print(f"   🌊 Opérations Dask: {stats['dask_operations']}")
         print(f"   🧠 Opérations Shared Memory: {stats['shared_memory_operations']}")
         print(f"   🗺️ Opérations Memory Mapping: {stats['memory_mapping_operations']}")
         print(f"   🔄 Optimisations adaptatives: {stats['adaptive_optimizations']}")
 
         # Statistiques du cache avancées
-        print(f"\n📦 STATISTIQUES CACHE INTELLIGENTES:")
+        print("\n📦 STATISTIQUES CACHE INTELLIGENTES:")
         print(f"   🎯 Hit rate cache: {cache_stats['hit_rate']:.1f}%")
         print(f"   📊 Taille cache: {cache_stats['cache_size']}")
         print(f"   💾 Mémoire cache: {cache_stats['memory_usage_mb']:.1f}MB")
@@ -3177,7 +3391,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         # Analyse de performance
         if stats["total_time"] > 0:
             features_per_second = stats["features_computed"] / stats["total_time"]
-            print(f"\n⚡ ANALYSE DE PERFORMANCE:")
+            print("\n⚡ ANALYSE DE PERFORMANCE:")
             print(f"   📈 Features/seconde: {features_per_second:.1f}")
 
             if stats["chunks_processed"] > 0:
@@ -3185,7 +3399,7 @@ class OptimizedQuantitativeFeaturesEnricher:
                 print(f"   🧩 Chunks/seconde: {chunks_per_second:.1f}")
 
         # Recommandations d'optimisation intelligentes
-        print(f"\n💡 RECOMMANDATIONS D'OPTIMISATION:")
+        print("\n💡 RECOMMANDATIONS D'OPTIMISATION:")
 
         if cache_stats["hit_rate"] < 50:
             print(
@@ -3210,27 +3424,27 @@ class OptimizedQuantitativeFeaturesEnricher:
         # Recommandations de stratégie
         if stats["optimization_strategy"] == "standard" and stats["total_time"] > 60:
             print(
-                f"   🌊 Considérer l'utilisation de Dask pour de meilleures performances"
+                "   🌊 Considérer l'utilisation de Dask pour de meilleures performances"
             )
 
         if stats["dask_operations"] > 0 and not DASK_AVAILABLE:
-            print(f"   📦 Installer Dask pour de meilleures performances distribuées")
+            print("   📦 Installer Dask pour de meilleures performances distribuées")
 
         # Score de performance global
         performance_score = self._calculate_performance_score()
         print(f"\n🏆 SCORE DE PERFORMANCE GLOBAL: {performance_score:.1f}/100")
 
         if performance_score >= 90:
-            print(f"   🥇 Excellent! Optimisations parfaites")
+            print("   🥇 Excellent! Optimisations parfaites")
         elif performance_score >= 75:
-            print(f"   🥈 Très bien! Quelques optimisations possibles")
+            print("   🥈 Très bien! Quelques optimisations possibles")
         elif performance_score >= 60:
-            print(f"   🥉 Correct, mais des améliorations sont recommandées")
+            print("   🥉 Correct, mais des améliorations sont recommandées")
         else:
-            print(f"   ⚠️ Performance faible, optimisations critiques nécessaires")
+            print("   ⚠️ Performance faible, optimisations critiques nécessaires")
 
     def _calculate_performance_score(self) -> float:
-        """Calcule un score de performance global"""
+        """Calcule un score de performance global."""
         stats = self.performance_stats
         cache_stats = self.cache.get_stats()
 
@@ -3282,7 +3496,7 @@ class OptimizedQuantitativeFeaturesEnricher:
 
 
 def process_quantitative_chunk_worker_optimized(args):
-    """Worker function pour multiprocessing quantitatif optimisé - doit être au niveau module"""
+    """Worker function pour multiprocessing quantitatif optimisé - doit être au niveau module."""
     asset_data, config = args
 
     try:
@@ -3310,7 +3524,7 @@ def process_quantitative_chunk_worker_optimized(args):
 
 
 def enrich_all_datasets_quantitative_ultra_optimized():
-    """Enrichir tous les datasets avec les 24 features quantitatives ULTRA-optimisées"""
+    """Enrichir tous les datasets avec les 24 features quantitatives ULTRA-optimisées."""
     print("🚀 DÉMARRAGE ENRICHISSEMENT QUANTITATIF ULTRA-OPTIMISÉ")
     print("=" * 80)
 
@@ -3332,7 +3546,7 @@ def enrich_all_datasets_quantitative_ultra_optimized():
         max_memory_gb = 2.0
         n_jobs = min(cpu_count(), 8)
 
-    print(f"🔧 Configuration adaptative:")
+    print("🔧 Configuration adaptative:")
     print(f"   💾 Mémoire disponible: {available_gb:.1f}GB")
     print(f"   🧩 Chunk size: {chunk_size:,}")
     print(f"   👥 Workers: {n_jobs}")
@@ -3391,7 +3605,8 @@ def enrich_all_datasets_quantitative_ultra_optimized():
                 continue
 
             # Sauvegarder avec nom optimisé
-            output_path = f"technical_agent_dataset_brut/enriched/{dataset_name.replace('.csv', '_quantitative_ultra_optimized.csv')}"
+            _out_name = dataset_name.replace(".csv", "_quantitative_ultra_optimized.csv")
+            output_path = f"technical_agent_dataset_brut/enriched/{_out_name}"
 
             # Créer le dossier si nécessaire
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -3437,16 +3652,16 @@ def enrich_all_datasets_quantitative_ultra_optimized():
     # Statistiques globales
     total_time = time.time() - total_start_time
     print(f"\n{'=' * 80}")
-    print(f"✅ ENRICHISSEMENT QUANTITATIF ULTRA-OPTIMISÉ TERMINÉ")
+    print("✅ ENRICHISSEMENT QUANTITATIF ULTRA-OPTIMISÉ TERMINÉ")
     print(f"⏱️ Temps total: {total_time:.2f}s")
     print(f"📊 Datasets traités: {len(datasets)}")
-    print(f"🎯 24 features quantitatives institutionnelles par dataset")
-    print(f"🚀 Optimisations: Numba + Dask + SharedMem + MMap + Cache + Adaptatif")
+    print("🎯 24 features quantitatives institutionnelles par dataset")
+    print("🚀 Optimisations: Numba + Dask + SharedMem + MMap + Cache + Adaptatif")
     print(f"{'=' * 80}")
 
 
 def enrich_single_dataset_ultra_optimized(dataset_path: str, output_path: str = None):
-    """Enrichir un seul dataset avec toutes les optimisations"""
+    """Enrichir un seul dataset avec toutes les optimisations."""
     print(f"🚀 ENRICHISSEMENT ULTRA-OPTIMISÉ: {dataset_path}")
 
     # Configuration adaptative
@@ -3484,7 +3699,7 @@ def enrich_single_dataset_ultra_optimized(dataset_path: str, output_path: str = 
 
 # Fonction de compatibilité
 def enrich_all_datasets_quantitative_optimized():
-    """Fonction de compatibilité - redirige vers la version ultra-optimisée"""
+    """Fonction de compatibilité - redirige vers la version ultra-optimisée."""
     return enrich_all_datasets_quantitative_ultra_optimized()
 
 

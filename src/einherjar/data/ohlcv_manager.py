@@ -9,9 +9,7 @@ Reference : Section 1.6 du CDC EINHERJAR.
 
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import Any
 
 import polars as pl
@@ -137,4 +135,4 @@ class OHLCVManager:
         last_ts = latest["timestamp"][0]
         if isinstance(last_ts, str):
             last_ts = datetime.fromisoformat(last_ts)
-        return (datetime.now(timezone.utc) - last_ts).total_seconds() < self.freshness_threshold
+        return (datetime.now(UTC) - last_ts).total_seconds() < self.freshness_threshold

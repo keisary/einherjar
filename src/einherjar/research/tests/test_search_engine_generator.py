@@ -105,7 +105,7 @@ class TestGeneticOperators:
             c = crossover(a, b, rng, cfg, pool)
             assert depth(c) <= cfg.max_depth
             assert size(c) <= cfg.max_size
-            assert isinstance(c, (Cmp, BoolOp))
+            assert isinstance(c, Cmp | BoolOp)
 
     def test_mutation_keeps_bounds(self, cfg: SpaceConfig, pool: ThresholdPool) -> None:
         rng = np.random.default_rng(13)
@@ -115,7 +115,7 @@ class TestGeneticOperators:
             b = mutate(a, rng, cfg, pool)
             assert depth(b) <= cfg.max_depth
             assert size(b) <= cfg.max_size
-            assert isinstance(b, (Cmp, BoolOp))
+            assert isinstance(b, Cmp | BoolOp)
 
     def test_mutation_changes_sometimes(self, cfg: SpaceConfig, pool: ThresholdPool) -> None:
         rng = np.random.default_rng(17)

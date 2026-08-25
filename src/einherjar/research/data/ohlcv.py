@@ -24,7 +24,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import polars as pl
 
 logger = logging.getLogger(__name__)
@@ -75,6 +74,14 @@ class OhlcvFrame:
         df: pl.DataFrame,
         data_version: str,
     ) -> None:
+        """__init__.
+
+        Args:
+            asset: TODO document.
+            timeframe: TODO document.
+            df: TODO document.
+            data_version: TODO document.
+        """
         self.asset = asset
         self.timeframe = timeframe
         self.df = df
@@ -157,6 +164,11 @@ class _CsvRawBackend(_OhlcvBackend):
     def __init__(self, raw_root: str | Path | None = None) -> None:
         # NOTE: chemin réel des données téléchargées (scripts downloaders
         # de midasV3). Ajustable via make_default_provider(raw_root=...).
+        """__init__.
+
+        Args:
+            raw_root: TODO document.
+        """
         self.raw_root = Path(raw_root) if raw_root else Path(
             r"D:/midas_v2/technical_agent_dataset_brut"
         )
@@ -173,6 +185,16 @@ class _CsvRawBackend(_OhlcvBackend):
         # 'stocks_value' partagent un SEUL dossier CSV brut 'stocks' (les
         # downloaders MIDAS V3 n'ont pas séparé les actions par style). Sans
         # ce mapping, la recherche sur les actions US échoue (OhlcvEmptyError).
+        """Fetch.
+
+        Args:
+                asset_class: TODO: documenter.
+
+        Args:
+            asset: TODO document.
+            timeframe: TODO document.
+            data_version: TODO document.
+        """
         _RAW_CLASS_MAP = {
             "stocks_tech": "stocks",
             "stocks_growth": "stocks",
@@ -230,9 +252,21 @@ class _InMemoryBackend(_OhlcvBackend):
     """Backend de test : dictionnaire {(asset, tf): DataFrame}."""
 
     def __init__(self, frames: dict[tuple[str, str], pl.DataFrame] | None = None) -> None:
+        """__init__.
+
+        Args:
+            frames: TODO document.
+        """
         self._frames: dict[tuple[str, str], pl.DataFrame] = dict(frames or {})
 
     def register(self, asset: str, timeframe: str, df: pl.DataFrame) -> None:
+        """Register.
+
+        Args:
+            asset: TODO document.
+            timeframe: TODO document.
+            df: TODO document.
+        """
         self._frames[(asset, timeframe)] = df
 
     def fetch(
@@ -243,6 +277,16 @@ class _InMemoryBackend(_OhlcvBackend):
         *,
         asset_class: str = "indices",
     ) -> pl.DataFrame:
+        """Fetch.
+
+        Args:
+                asset_class: TODO: documenter.
+
+        Args:
+            asset: TODO document.
+            timeframe: TODO document.
+            data_version: TODO document.
+        """
         key = (asset, timeframe)
         if key not in self._frames:
             raise OhlcvEmptyError(f"Aucune bougie en mémoire pour ({asset}, {timeframe})")
@@ -262,6 +306,11 @@ class OhlcvProvider:
     """
 
     def __init__(self, backend: _OhlcvBackend | None = None) -> None:
+        """__init__.
+
+        Args:
+            backend: TODO document.
+        """
         self._backend: _OhlcvBackend = backend or _CsvRawBackend()
         self._cache: dict[tuple[str, str, str], OhlcvFrame] = {}
         logger.info("OhlcvProvider instancié (backend=%s)", type(self._backend).__name__)

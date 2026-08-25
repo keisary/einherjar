@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from einherjar.research.search_engine.expression import BoolOp, Cmp, collect_features, Feature
+from einherjar.research.search_engine.expression import collect_features
 
 VOL_REGIME_THRESHOLD = 0.40  # volatilité annualisée (decimal)
 

@@ -4,15 +4,15 @@ P0 : no_lookahead, deterministic, known_signal.
 P1 : tp_sl_priority, costs_applied, empty_universe.
 """
 import unittest
+
 import numpy as np
 import polars as pl
 
 from einherjar.research.xgb_einhers.backtester import (
-    BacktestResult,
+    backtest_einher,
     compute_atr,
     compute_metrics,
     simulate_trade,
-    backtest_einher,
 )
 from einherjar.research.xgb_einhers.types import (
     Condition,
@@ -20,7 +20,6 @@ from einherjar.research.xgb_einhers.types import (
     EinherMetrics,
     TradeResult,
 )
-
 
 # --------------------------------------------------------------------------- #
 # Helpers
@@ -233,8 +232,10 @@ class TestComputeMetrics(unittest.TestCase):
 
 
 class TestBacktestKnownSignal(unittest.TestCase):
-    """P0 : sur un dataset synthétique avec un signal connu, le backtester
-    doit retourner un win_rate > 0.7 et un sharpe > 1.0."""
+    """P0 : sur un dataset synthétique avec un signal connu, le backtester.
+
+    doit retourner un win_rate > 0.7 et un sharpe > 1.0.
+    """
 
     def test_known_pattern_predicts_up_move(self):
         ohlcv = make_synthetic_ohlcv_with_pattern(

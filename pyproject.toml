@@ -33,12 +33,34 @@ dev = [
 where = ["src"]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "D", "UP"]
 ignore = ["D100", "D104"]
+
+# Convention numpy/scipy dans les modules xgb_einhers :
+# X, Y, X_train, Y_dir, etc. sont intentionnellement majuscules.
+# On ignore N803/N806 pour ne pas casser cette convention.
+[tool.ruff.lint.per-file-ignores]
+# Tests : noms de classes avec ids de fix (TestP0_5_...) et conventions numpy
+"src/einherjar/research/tests/**" = ["N801", "N802", "N803", "N806", "D101", "D102", "D103", "D107"]
+# Convention numpy/scipy xgb_einhers (X, Y_dir...) - intentionnel partout
+"src/einherjar/research/xgb_einhers/**" = ["N803", "N806", "N815"]
+"src/einherjar/research/baselines/**" = ["N803", "N806"]
+"src/einherjar/research/search_engine/**" = ["N803", "N806", "N815"]
+"src/einherjar/research/data/**" = ["N806"]
+# numba_pattern_detectors : API matricielle (X, High, Low...) + noms domaines
+"src/einherjar/signals/numba_pattern_detectors.py" = ["N803", "N806", "N815", "E501"]
+"src/einherjar/signals/quantitative_features.py" = ["N803", "N806"]
+"src/einherjar/signals/midas_bridge.py" = ["E501"]
+"src/einherjar/signals/technical_indicators.py" = ["E501"]
+
+"src/einherjar/research/xgb_einhers/model.py" = ["N803", "N806"]
+"src/einherjar/research/xgb_einhers/runner.py" = ["N803", "N806"]
+"src/einherjar/research/xgb_einhers/data_loader.py" = ["N803", "N806"]
+"src/einherjar/research/xgb_einhers/feature_dedup.py" = ["N803", "N806"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

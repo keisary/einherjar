@@ -1,6 +1,6 @@
-"""
-Module d'indicateurs techniques optimisés avec Numba pour MIDAS V3
-Contient toutes les fonctions de calcul d'indicateurs techniques avec JIT compilation
+"""Module d'indicateurs techniques optimisés avec Numba pour MIDAS V3.
+
+Contient toutes les fonctions de calcul d'indicateurs techniques avec JIT compilation.
 """
 
 import numpy as np
@@ -15,7 +15,13 @@ except ImportError:
     NUMBA_AVAILABLE = False
 
     def jit(*args, **kwargs):
+        """Jit."""
         def decorator(func):
+            """Decorator.
+
+            Args:
+            func: TODO document.
+            """
             return func
 
         return decorator if args and callable(args[0]) else decorator
@@ -23,11 +29,10 @@ except ImportError:
     njit = jit
     prange = range
 
+import gc
 import hashlib
 import os
-import gc
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
+
 try:
     import psutil
     PSUTIL_AVAILABLE = True
@@ -35,14 +40,14 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     psutil = None
 import time
-from multiprocessing import cpu_count
 from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import cpu_count
 
 # Imports Dask (optionnels)
 try:
     import dask
     import dask.dataframe as dd
-    from dask.distributed import LocalCluster, Client
+    from dask.distributed import Client, LocalCluster
 
     DASK_AVAILABLE = True
 except ImportError:
@@ -78,7 +83,7 @@ MIN_CHUNK_SIZE = 100_000  # 100K lignes minimum
 
 @jit(nopython=True, cache=True, parallel=True)
 def _numba_ema_vectorized(prices, periods_array):
-    """Calcul vectorisé multi-périodes de l'EMA ultra-rapide"""
+    """Calcul vectorisé multi-périodes de l'EMA ultra-rapide."""
     n = len(prices)
     num_periods = len(periods_array)
     results = np.full((num_periods, n), np.nan, dtype=OPTIMAL_FLOAT)
@@ -108,7 +113,7 @@ def _numba_ema_vectorized(prices, periods_array):
 
 @jit(nopython=True, cache=True, parallel=True)
 def _numba_sma_vectorized(prices, periods_array):
-    """Calcul vectorisé multi-périodes du SMA ultra-rapide"""
+    """Calcul vectorisé multi-périodes du SMA ultra-rapide."""
     n = len(prices)
     num_periods = len(periods_array)
     results = np.full((num_periods, n), np.nan, dtype=OPTIMAL_FLOAT)
@@ -132,7 +137,7 @@ def _numba_sma_vectorized(prices, periods_array):
 
 @jit(nopython=True, cache=True, parallel=True)
 def _numba_rsi_vectorized(prices, periods_array):
-    """Calcul vectorisé multi-périodes du RSI ultra-rapide"""
+    """Calcul vectorisé multi-périodes du RSI ultra-rapide."""
     n = len(prices)
     num_periods = len(periods_array)
     results = np.full((num_periods, n), np.nan, dtype=OPTIMAL_FLOAT)
@@ -178,7 +183,7 @@ def _numba_rsi_vectorized(prices, periods_array):
 
 @jit(nopython=True, cache=True)
 def _numba_macd_complete(prices, fast=12, slow=26, signal=9):
-    """MACD complet ultra-rapide avec ligne de signal et histogramme"""
+    """MACD complet ultra-rapide avec ligne de signal et histogramme."""
     n = len(prices)
 
     # EMA rapide et lente
@@ -229,7 +234,7 @@ def _numba_macd_complete(prices, fast=12, slow=26, signal=9):
 
 @jit(nopython=True, cache=True)
 def _numba_bollinger_bands(prices, period=20, std_dev=2.0):
-    """Bollinger Bands ultra-rapides"""
+    """Bollinger Bands ultra-rapides."""
     n = len(prices)
     middle = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
     upper = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
@@ -249,7 +254,7 @@ def _numba_bollinger_bands(prices, period=20, std_dev=2.0):
 
 @jit(nopython=True, cache=True)
 def _numba_atr(high, low, close, period=14):
-    """Average True Range ultra-rapide"""
+    """Average True Range ultra-rapide."""
     n = len(high)
     tr = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
     atr = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
@@ -274,7 +279,7 @@ def _numba_atr(high, low, close, period=14):
 
 @jit(nopython=True, cache=True)
 def _numba_stochastic(high, low, close, k_period=14, d_period=3):
-    """Stochastic Oscillator ultra-rapide"""
+    """Stochastic Oscillator ultra-rapide."""
     n = len(high)
     k_percent = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
     d_percent = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
@@ -298,7 +303,7 @@ def _numba_stochastic(high, low, close, k_period=14, d_period=3):
 
 @jit(nopython=True, cache=True)
 def _numba_williams_r(high, low, close, period=14):
-    """Williams %R ultra-rapide"""
+    """Williams %R ultra-rapide."""
     n = len(high)
     result = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
 
@@ -316,7 +321,7 @@ def _numba_williams_r(high, low, close, period=14):
 
 @jit(nopython=True, cache=True)
 def _numba_cci(high, low, close, period=20):
-    """Commodity Channel Index ultra-rapide"""
+    """Commodity Channel Index ultra-rapide."""
     n = len(high)
     result = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
 
@@ -338,7 +343,7 @@ def _numba_cci(high, low, close, period=20):
 
 @jit(nopython=True, cache=True)
 def _numba_momentum(prices, period=10):
-    """Momentum ultra-rapide"""
+    """Momentum ultra-rapide."""
     n = len(prices)
     result = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
 
@@ -350,7 +355,7 @@ def _numba_momentum(prices, period=10):
 
 @jit(nopython=True, cache=True)
 def _numba_roc(prices, period=12):
-    """Rate of Change ultra-rapide"""
+    """Rate of Change ultra-rapide."""
     n = len(prices)
     result = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
 
@@ -365,7 +370,7 @@ def _numba_roc(prices, period=12):
 
 @jit(nopython=True, cache=True)
 def _numba_vwap(prices, volumes):
-    """VWAP ultra-rapide"""
+    """VWAP ultra-rapide."""
     n = len(prices)
     result = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
 
@@ -385,7 +390,7 @@ def _numba_vwap(prices, volumes):
 
 @jit(nopython=True, cache=True)
 def _numba_twap(prices, period=20):
-    """TWAP ultra-rapide"""
+    """TWAP ultra-rapide."""
     n = len(prices)
     result = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
 
@@ -397,7 +402,7 @@ def _numba_twap(prices, period=20):
 
 @jit(nopython=True, cache=True)
 def _numba_ichimoku_complete(high, low, close, tenkan=9, kijun=26, senkou_b=52, displacement=26):
-    """Ichimoku complet ultra-rapide"""
+    """Ichimoku complet ultra-rapide."""
     n = len(high)
 
     tenkan_sen = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
@@ -440,7 +445,7 @@ def _numba_ichimoku_complete(high, low, close, tenkan=9, kijun=26, senkou_b=52, 
 
 @jit(nopython=True, cache=True)
 def _numba_keltner_channels(high, low, close, period=20, multiplier=2.0):
-    """Keltner Channels ultra-rapides"""
+    """Keltner Channels ultra-rapides."""
     n = len(high)
 
     # EMA du prix typique
@@ -469,7 +474,7 @@ def _numba_keltner_channels(high, low, close, period=20, multiplier=2.0):
 
 @jit(nopython=True, cache=True)
 def _numba_donchian_channels(high, low, period=20):
-    """Donchian Channels ultra-rapides"""
+    """Donchian Channels ultra-rapides."""
     n = len(high)
     upper = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
     lower = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
@@ -485,7 +490,7 @@ def _numba_donchian_channels(high, low, period=20):
 
 @jit(nopython=True, cache=True)
 def _numba_parabolic_sar(high, low, af_start=0.02, af_increment=0.02, af_max=0.2):
-    """Parabolic SAR ultra-rapide"""
+    """Parabolic SAR ultra-rapide."""
     n = len(high)
     sar = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
 
@@ -544,7 +549,7 @@ def _numba_parabolic_sar(high, low, af_start=0.02, af_increment=0.02, af_max=0.2
 
 @jit(nopython=True, cache=True)
 def _numba_cmo(prices, period=14):
-    """Chande Momentum Oscillator ultra-rapide"""
+    """Chande Momentum Oscillator ultra-rapide."""
     n = len(prices)
     result = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
 
@@ -569,7 +574,7 @@ def _numba_cmo(prices, period=14):
 
 @jit(nopython=True, cache=True, parallel=True)
 def _numba_volume_indicators(volumes, periods_array):
-    """Indicateurs de volume vectorisés"""
+    """Indicateurs de volume vectorisés."""
     n = len(volumes)
     num_periods = len(periods_array)
     results = np.full((num_periods, n), np.nan, dtype=OPTIMAL_FLOAT)
@@ -584,7 +589,7 @@ def _numba_volume_indicators(volumes, periods_array):
 
 @jit(nopython=True, cache=True)
 def _numba_adx_complete(high, low, close, period=14):
-    """ADX complet avec DI+ et DI- ultra-rapide"""
+    """ADX complet avec DI+ et DI- ultra-rapide."""
     n = len(high)
 
     # Initialiser les arrays
@@ -677,7 +682,7 @@ def _numba_adx_complete(high, low, close, period=14):
 
 @jit(nopython=True, cache=True)
 def _numba_obv(prices, volumes):
-    """On Balance Volume ultra-rapide"""
+    """On Balance Volume ultra-rapide."""
     n = len(prices)
     obv = np.full(n, 0.0, dtype=OPTIMAL_FLOAT)
 
@@ -848,7 +853,7 @@ def _numba_aroon(high, low, period=14):
 
 @jit(nopython=True, cache=True)
 def _numba_supertrend(high, low, close, period=10, multiplier=3.0):
-    """Calcule le SuperTrend ultra-rapide avec Numba"""
+    """Calcule le SuperTrend ultra-rapide avec Numba."""
     n = len(high)
     supertrend = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
     trend = np.full(n, 1, dtype=np.int8)  # 1 means Up, -1 means Down
@@ -927,7 +932,7 @@ def _numba_supertrend(high, low, close, period=10, multiplier=3.0):
 
 @jit(nopython=True, cache=True)
 def _numba_choppiness_index(high, low, close, period=14):
-    """Calcule le Choppiness Index ultra-rapide avec Numba"""
+    """Calcule le Choppiness Index ultra-rapide avec Numba."""
     n = len(high)
     chop = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)
 
@@ -957,7 +962,7 @@ def _numba_choppiness_index(high, low, close, period=14):
 
 @jit(nopython=True, cache=True)
 def _numba_vortex(high, low, close, period=14):
-    """Calcule le Vortex Indicator (VI+ et VI-) ultra-rapide avec Numba"""
+    """Calcule le Vortex Indicator (VI+ et VI-) ultra-rapide avec Numba."""
     n = len(high)
     vip = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)  # VI+
     vim = np.full(n, np.nan, dtype=OPTIMAL_FLOAT)  # VI-
@@ -997,15 +1002,20 @@ def _numba_vortex(high, low, close, period=14):
 
 
 class IntelligentCache:
-    """Cache intelligent basé sur hash des données"""
+    """Cache intelligent basé sur hash des données."""
 
     def __init__(self, max_size=1000):
+        """__init__.
+
+        Args:
+            max_size: TODO document.
+        """
         self.cache = {}
         self.max_size = max_size
         self.access_count = {}
 
     def _get_key(self, data, indicator_name, **params):
-        """Génère une clé unique pour le cache"""
+        """Génère une clé unique pour le cache."""
         if hasattr(data, "tobytes"):
             data_hash = hashlib.md5(data.tobytes()).hexdigest()[:16]
         else:
@@ -1014,7 +1024,7 @@ class IntelligentCache:
         return f"{indicator_name}_{data_hash}_{params_str}"
 
     def get(self, data, indicator_name, **params):
-        """Récupère du cache ou None si absent"""
+        """Récupère du cache ou None si absent."""
         key = self._get_key(data, indicator_name, **params)
         if key in self.cache:
             self.access_count[key] = self.access_count.get(key, 0) + 1
@@ -1022,7 +1032,7 @@ class IntelligentCache:
         return None
 
     def set(self, data, indicator_name, result, **params):
-        """Stocke dans le cache avec gestion de la taille"""
+        """Stocke dans le cache avec gestion de la taille."""
         if len(self.cache) >= self.max_size:
             # Supprimer l'élément le moins utilisé
             least_used = min(self.access_count.items(), key=lambda x: x[1])[0]
@@ -1148,8 +1158,7 @@ INDICATOR_MODES = {
 
 
 class TechnicalIndicatorsEnricher:
-    """
-    Enrichisseur d'indicateurs techniques optimisé
+    """Enrichisseur d'indicateurs techniques optimisé.
 
     FONCTIONNALITÉS:
     - 3 modes: fast(10), balanced(24), full(47)
@@ -1168,8 +1177,7 @@ class TechnicalIndicatorsEnricher:
         use_dask=True,
         _is_worker: bool = False,  # <-- MODIFICATION: Ajout du paramètre
     ):
-        """
-        Initialisation de l'enrichisseur optimisé
+        """Initialisation de l'enrichisseur optimisé.
 
         Args:
             mode: 'fast'(10), 'balanced'(24), 'full'(47)
@@ -1179,7 +1187,6 @@ class TechnicalIndicatorsEnricher:
             use_dask: Utiliser Dask si disponible
             _is_worker: (Interne) Active le mode d'initialisation léger et silencieux pour les workers Dask.
         """
-
         # Logique de base requise par toutes les instances (principale et workers)
         if mode not in INDICATOR_MODES:
             raise ValueError(
@@ -1231,14 +1238,14 @@ class TechnicalIndicatorsEnricher:
             "use_dask": self.use_dask,
         }
 
-        print(f"🚀 TechnicalIndicatorsEnricher initialisé")
+        print("🚀 TechnicalIndicatorsEnricher initialisé")
         print(f"   Mode: {mode} ({len(self.indicators_to_compute)} indicateurs)")
         print(
             f"   Workers: {self.n_jobs} | Chunk: {self.chunk_size:,} | Dask: {'✅' if self.use_dask else '❌'}"
         )
 
     def _calculate_optimal_chunk_size(self):
-        """Calcule la taille optimale des chunks basée sur la mémoire disponible"""
+        """Calcule la taille optimale des chunks basée sur la mémoire disponible."""
         if PSUTIL_AVAILABLE and psutil is not None:
             available_memory_gb = psutil.virtual_memory().available / (1024**3)
         else:
@@ -1257,7 +1264,7 @@ class TechnicalIndicatorsEnricher:
         return max(10_000, min(optimal_chunk, 200_000))
 
     def _setup_dask_config(self):
-        """Configure Dask selon le nombre de workers demandés"""
+        """Configure Dask selon le nombre de workers demandés."""
         self.dask_config = {
             "n_workers": self.n_jobs,
             "threads_per_worker": 1,
@@ -1268,9 +1275,8 @@ class TechnicalIndicatorsEnricher:
             f"🌊 Configuration Dask: {self.n_jobs} workers, {self.dask_config['memory_limit']} par worker"
         )
 
-    def _create_asset_chunks(self, df: pd.DataFrame) -> List[pd.DataFrame]:
-        """
-        Crée des chunks intelligents par asset avec division automatique
+    def _create_asset_chunks(self, df: pd.DataFrame) -> list[pd.DataFrame]:
+        """Crée des chunks intelligents par asset avec division automatique.
 
         LOGIQUE:
         1. Grouper par asset
@@ -1315,9 +1321,7 @@ class TechnicalIndicatorsEnricher:
         return chunks
 
     def _compute_indicators_for_chunk(self, chunk_df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Calcule les indicateurs pour un chunk selon le mode sélectionné
-        """
+        """Calcule les indicateurs pour un chunk selon le mode sélectionné."""
         if chunk_df.empty:
             return chunk_df
 
@@ -1373,9 +1377,7 @@ class TechnicalIndicatorsEnricher:
                 return chunk_df
 
     def _compute_selected_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Calcule seulement les indicateurs sélectionnés selon le mode
-        """
+        """Calcule seulement les indicateurs sélectionnés selon le mode."""
         # Vérifications de sécurité
         if df.empty:
             return df
@@ -1397,7 +1399,7 @@ class TechnicalIndicatorsEnricher:
 
         # Vérifier le cache
         try:
-            cache_key = f"{self.mode}_{len(df)}"
+            f"{self.mode}_{len(df)}"
             # CORRECTION: On vérifie que le cache existe avant de l'utiliser
             if self.cache is not None:
                 cached_result = self.cache.get(df["close"].values, "indicators", mode=self.mode)
@@ -1539,7 +1541,7 @@ class TechnicalIndicatorsEnricher:
     # ========================================================================
 
     def _calculate_rsi(self, prices, period):
-        """Calcule RSI en utilisant Numba"""
+        """Calcule RSI en utilisant Numba."""
         try:
             if len(prices) < period:
                 return pd.Series([np.nan] * len(prices), index=prices.index)
@@ -1557,7 +1559,7 @@ class TechnicalIndicatorsEnricher:
             return pd.Series([np.nan] * len(prices), index=prices.index)
 
     def _calculate_macd(self, prices):
-        """Calcule MACD complet en utilisant Numba"""
+        """Calcule MACD complet en utilisant Numba."""
         prices_array = prices.values.astype(OPTIMAL_FLOAT)
         macd_line, signal_line, histogram = _numba_macd_complete(prices_array)
         return {
@@ -1567,7 +1569,7 @@ class TechnicalIndicatorsEnricher:
         }
 
     def _calculate_ema(self, prices, period):
-        """Calcule EMA en utilisant Numba"""
+        """Calcule EMA en utilisant Numba."""
         try:
             if len(prices) < period:
                 return pd.Series([np.nan] * len(prices), index=prices.index)
@@ -1585,7 +1587,7 @@ class TechnicalIndicatorsEnricher:
             return pd.Series([np.nan] * len(prices), index=prices.index)
 
     def _calculate_sma(self, prices, period):
-        """Calcule SMA en utilisant Numba"""
+        """Calcule SMA en utilisant Numba."""
         try:
             if len(prices) < period:
                 return pd.Series([np.nan] * len(prices), index=prices.index)
@@ -1603,7 +1605,7 @@ class TechnicalIndicatorsEnricher:
             return pd.Series([np.nan] * len(prices), index=prices.index)
 
     def _calculate_bollinger_bands(self, prices, period=20, std_dev=2.0):
-        """Calcule Bollinger Bands en utilisant Numba"""
+        """Calcule Bollinger Bands en utilisant Numba."""
         prices_array = prices.values.astype(OPTIMAL_FLOAT)
         upper, middle, lower = _numba_bollinger_bands(prices_array, period, std_dev)
 
@@ -1620,7 +1622,7 @@ class TechnicalIndicatorsEnricher:
         }
 
     def _calculate_atr(self, df, period=14):
-        """Calcule ATR en utilisant Numba"""
+        """Calcule ATR en utilisant Numba."""
         high_array = df["high"].values.astype(OPTIMAL_FLOAT)
         low_array = df["low"].values.astype(OPTIMAL_FLOAT)
         close_array = df["close"].values.astype(OPTIMAL_FLOAT)
@@ -1628,7 +1630,7 @@ class TechnicalIndicatorsEnricher:
         return pd.Series(atr_values, index=df.index)
 
     def _calculate_stochastic(self, df, k_period=14, d_period=3):
-        """Calcule Stochastic en utilisant Numba"""
+        """Calcule Stochastic en utilisant Numba."""
         high_array = df["high"].values.astype(OPTIMAL_FLOAT)
         low_array = df["low"].values.astype(OPTIMAL_FLOAT)
         close_array = df["close"].values.astype(OPTIMAL_FLOAT)
@@ -1641,7 +1643,7 @@ class TechnicalIndicatorsEnricher:
         }
 
     def _calculate_williams_r(self, df, period=14):
-        """Calcule Williams %R en utilisant Numba"""
+        """Calcule Williams %R en utilisant Numba."""
         high_array = df["high"].values.astype(OPTIMAL_FLOAT)
         low_array = df["low"].values.astype(OPTIMAL_FLOAT)
         close_array = df["close"].values.astype(OPTIMAL_FLOAT)
@@ -1649,7 +1651,7 @@ class TechnicalIndicatorsEnricher:
         return pd.Series(williams_values, index=df.index)
 
     def _calculate_cci(self, df, period=20):
-        """Calcule CCI en utilisant Numba"""
+        """Calcule CCI en utilisant Numba."""
         high_array = df["high"].values.astype(OPTIMAL_FLOAT)
         low_array = df["low"].values.astype(OPTIMAL_FLOAT)
         close_array = df["close"].values.astype(OPTIMAL_FLOAT)
@@ -1657,26 +1659,26 @@ class TechnicalIndicatorsEnricher:
         return pd.Series(cci_values, index=df.index)
 
     def _calculate_momentum(self, prices, period=10):
-        """Calcule Momentum en utilisant Numba"""
+        """Calcule Momentum en utilisant Numba."""
         prices_array = prices.values.astype(OPTIMAL_FLOAT)
         momentum_values = _numba_momentum(prices_array, period)
         return pd.Series(momentum_values, index=prices.index)
 
     def _calculate_roc(self, prices, period=12):
-        """Calcule ROC en utilisant Numba"""
+        """Calcule ROC en utilisant Numba."""
         prices_array = prices.values.astype(OPTIMAL_FLOAT)
         roc_values = _numba_roc(prices_array, period)
         return pd.Series(roc_values, index=prices.index)
 
     def _calculate_vwap(self, prices, volumes):
-        """Calcule VWAP en utilisant Numba"""
+        """Calcule VWAP en utilisant Numba."""
         prices_array = prices.values.astype(OPTIMAL_FLOAT)
         volumes_array = volumes.values.astype(OPTIMAL_FLOAT)
         vwap_values = _numba_vwap(prices_array, volumes_array)
         return pd.Series(vwap_values, index=prices.index)
 
     def _calculate_adx_complete(self, df, period=14):
-        """Calcule ADX complet en utilisant Numba"""
+        """Calcule ADX complet en utilisant Numba."""
         high_array = df["high"].values.astype(OPTIMAL_FLOAT)
         low_array = df["low"].values.astype(OPTIMAL_FLOAT)
         close_array = df["close"].values.astype(OPTIMAL_FLOAT)
@@ -1690,7 +1692,7 @@ class TechnicalIndicatorsEnricher:
         }
 
     def _calculate_obv(self, prices, volumes):
-        """Calcule OBV en utilisant Numba"""
+        """Calcule OBV en utilisant Numba."""
         prices_array = prices.values.astype(OPTIMAL_FLOAT)
         volumes_array = volumes.values.astype(OPTIMAL_FLOAT)
         obv_values = _numba_obv(prices_array, volumes_array)
@@ -1750,7 +1752,7 @@ class TechnicalIndicatorsEnricher:
     # ========================================================================
 
     def _calculate_supertrend(self, df, period=10, multiplier=3.0):
-        """Calcule le SuperTrend"""
+        """Calcule le SuperTrend."""
         high_array = df["high"].values.astype(OPTIMAL_FLOAT)
         low_array = df["low"].values.astype(OPTIMAL_FLOAT)
         close_array = df["close"].values.astype(OPTIMAL_FLOAT)
@@ -1763,7 +1765,7 @@ class TechnicalIndicatorsEnricher:
         }
 
     def _calculate_choppiness_index(self, df, period=14):
-        """Calcule le Choppiness Index"""
+        """Calcule le Choppiness Index."""
         high_array = df["high"].values.astype(OPTIMAL_FLOAT)
         low_array = df["low"].values.astype(OPTIMAL_FLOAT)
         close_array = df["close"].values.astype(OPTIMAL_FLOAT)
@@ -1772,7 +1774,7 @@ class TechnicalIndicatorsEnricher:
         return pd.Series(chop_val, index=df.index)
 
     def _calculate_vortex_indicator(self, df, period=14):
-        """Calcule le Vortex Indicator"""
+        """Calcule le Vortex Indicator."""
         high_array = df["high"].values.astype(OPTIMAL_FLOAT)
         low_array = df["low"].values.astype(OPTIMAL_FLOAT)
         close_array = df["close"].values.astype(OPTIMAL_FLOAT)
@@ -1785,8 +1787,7 @@ class TechnicalIndicatorsEnricher:
     # ========================================================================
 
     def enrich_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Enrichit un DataFrame avec les indicateurs techniques
+        """Enrichit un DataFrame avec les indicateurs techniques.
 
         PROCESSUS:
         1. Créer des chunks intelligents par asset
@@ -1850,8 +1851,7 @@ class TechnicalIndicatorsEnricher:
         return result_df
 
     def enrich_dataset(self, input_path: str, output_path: str) -> bool:
-        """
-        Enrichit un dataset depuis un fichier CSV
+        """Enrichit un dataset depuis un fichier CSV.
 
         PROCESSUS:
         1. Charger le dataset par chunks si nécessaire
@@ -1882,8 +1882,8 @@ class TechnicalIndicatorsEnricher:
     # Dans technical_indicators.py
 
     def _enrich_large_dataset_with_dask(self, input_path: str, output_path: str) -> bool:
-        """
-        VERSION CORRIGÉE - Orchestre Dask manuellement pour un contrôle total
+        """VERSION CORRIGÉE - Orchestre Dask manuellement pour un contrôle total.
+
         sur le chunking, le logging et surtout une fermeture propre du cluster.
         """
         if not self.use_dask:
@@ -1927,7 +1927,6 @@ class TechnicalIndicatorsEnricher:
             )
 
             # --- ÉTAPE 3: Suivre la progression et récupérer les résultats (logique identique) ---
-            processed_chunks = []
             from dask.distributed import as_completed
 
             future_map = {future: i for i, future in enumerate(futures)}
@@ -1986,9 +1985,7 @@ class TechnicalIndicatorsEnricher:
             print("✅ Cluster Dask arrêté proprement.")
 
     def _enrich_large_dataset_chunked(self, input_path: str, output_path: str) -> bool:
-        """
-        Enrichit un gros dataset par chunks manuels
-        """
+        """Enrichit un gros dataset par chunks manuels."""
         try:
             print("📦 Enrichissement par chunks manuels")
 
@@ -2026,9 +2023,7 @@ class TechnicalIndicatorsEnricher:
             return False
 
     def _create_dask_meta(self) -> pd.DataFrame:
-        """
-        Crée les métadonnées pour Dask avec les colonnes du mode sélectionné
-        """
+        """Crée les métadonnées pour Dask avec les colonnes du mode sélectionné."""
         meta_dict = {}
 
         # Colonnes de base
@@ -2050,8 +2045,8 @@ class TechnicalIndicatorsEnricher:
         print(f"📊 Métadonnées Dask: {len(meta_df.columns)} colonnes (mode {self.mode})")
         return meta_df
 
-    def get_stats(self) -> Dict:
-        """Retourne les statistiques de l'enrichisseur"""
+    def get_stats(self) -> dict:
+        """Retourne les statistiques de l'enrichisseur."""
         # Garde pour workers (self.cache = None)
         cache_size = len(self.cache.cache) if self.cache is not None else 0
         return {
@@ -2061,7 +2056,7 @@ class TechnicalIndicatorsEnricher:
         }
 
     def clear_cache(self):
-        """Vide le cache"""
+        """Vide le cache."""
         self.cache.cache.clear()
         self.cache.access_count.clear()
         print("🧹 Cache vidé")
@@ -2075,9 +2070,7 @@ class TechnicalIndicatorsEnricher:
 def _compute_indicators_for_partition_optimized(
     partition_df: pd.DataFrame, mode="full"
 ) -> pd.DataFrame:
-    """
-    Fonction statique optimisée pour les partitions Dask
-    """
+    """Fonction statique optimisée pour les partitions Dask."""
     if partition_df.empty:
         return partition_df
 
@@ -2104,8 +2097,8 @@ def _compute_indicators_for_partition_optimized(
 
 
 def _compute_indicators_for_dask_worker(chunk_df: pd.DataFrame, mode: str) -> pd.DataFrame:
-    """
-    Fonction worker SILENCIEUSE et autonome pour Dask.
+    """Fonction worker SILENCIEUSE et autonome pour Dask.
+
     Reçoit un chunk de données (déjà groupé par asset) et le traite.
     """
     if chunk_df.empty:
@@ -2142,9 +2135,9 @@ def _compute_indicators_for_dask_worker(chunk_df: pd.DataFrame, mode: str) -> pd
 
 
 def write_csv_polars_optimized(df: pd.DataFrame, file_path: str) -> bool:
-    """
-    Écriture optimisée avec Polars puis conversion depuis Pandas
-    3-5x plus rapide que df.to_csv() direct
+    """Écriture optimisée avec Polars puis conversion depuis Pandas.
+
+    3-5x plus rapide que df.to_csv() direct.
     """
     try:
         # Créer le dossier de destination si nécessaire

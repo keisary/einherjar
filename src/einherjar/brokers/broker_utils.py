@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 import polars as pl
 
@@ -80,7 +81,7 @@ MIDAS_TO_CTRADER_PEPPERSTONE: dict[str, str] = {
 # ---------------------------------------------------------------------------
 # Asset class mapping (centralise ici pour eviter la duplication)
 # ---------------------------------------------------------------------------
-from einherjar.core.enums import AssetClass
+from einherjar.core.enums import AssetClass  # noqa: E402  (apres le header docstring/bloc)
 
 ASSET_CLASS_MAP: dict[str, AssetClass] = {
     "BTCUSD": AssetClass.CRYPTO,
@@ -281,7 +282,7 @@ async def retry_with_backoff(
             if asyncio.iscoroutinefunction(func):
                 return await func()
             return func()
-        except exceptions as exc:
+        except exceptions:
             if attempt == max_retries - 1:
                 raise
             delay = min(base_delay * (2 ** attempt), max_delay)
@@ -291,4 +292,4 @@ async def retry_with_backoff(
 
 def now_utc_ms() -> int:
     """Retourne le timestamp UTC actuel en millisecondes."""
-    return int(datetime.now(timezone.utc).timestamp() * 1000)
+    return int(datetime.now(UTC).timestamp() * 1000)

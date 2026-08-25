@@ -34,7 +34,9 @@ def cheap_fitness(
     data_version: str = "",
 ) -> tuple[float, object]:
     """Backtest sur un bloc contigu aléatoire; retourne (sharpe_net, einher, sub).
-    sub = le sous-échantillon évalué (pour les descripteurs)."""
+
+    sub = le sous-échantillon évalué (pour les descripteurs).
+    """
     einher = build_einher(
         expr, direction, amplitude_bars, universe,
         costs_pct=costs_pct, data_version=data_version,

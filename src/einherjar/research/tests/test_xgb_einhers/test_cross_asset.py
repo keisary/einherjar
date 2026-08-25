@@ -17,19 +17,15 @@ import json
 import unittest
 from pathlib import Path
 
-import numpy as np
+import pytest
 
+from einherjar.research.xgb_einhers.backtester import backtest_einher
 from einherjar.research.xgb_einhers.data_loader import (
     align_xy_with_ohlcv,
     load_ohlcv,
     load_xy,
 )
 from einherjar.research.xgb_einhers.einher_io import iter_einhers
-from einherjar.research.xgb_einhers.backtester import backtest_einher
-
-
-import pytest
-
 
 BTC_EINHERS_JSONL = Path("D:/midas_v2/Einherjar/outputs/einhers_btcusd_2d_sprint_2_5.jsonl")
 
@@ -188,7 +184,7 @@ class TestCrossAssetGeneralization(unittest.TestCase):
         lines = [
             "# Cross-Asset Validation Report",
             "",
-            f"**Date**: 2026-08-17",
+            "**Date**: 2026-08-17",
             f"**Einhers BTC testes**: {report['btc_einhers']}",
             f"**Actifs cibles**: {', '.join(report['assets_tested'])}",
             "",

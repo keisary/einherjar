@@ -1,9 +1,9 @@
 import inspect
+import logging
+from typing import Any
+
 import numpy as np
 import polars as pl
-from typing import Dict, List, Optional, Any, Tuple
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +19,34 @@ except ImportError:
 
     # Fallback decorators
     def njit(*args, **kwargs):
+        """Njit."""
         def decorator(func):
+            """Decorator.
+
+            Args:
+            func: TODO document.
+            """
             return func
 
         return decorator
 
     def prange(x):
+        """Prange.
+
+        Args:
+            x: TODO document.
+        """
         return range(x)
 
     # CORRECTION P1: safe_divide doit exister en mode fallback (sinón NameError)
     def safe_divide(numerator, denominator, default=0.0):
+        """safe_divide.
+
+        Args:
+            numerator: TODO document.
+            denominator: TODO document.
+            default: TODO document.
+        """
         if denominator == 0.0 or abs(denominator) < 1e-15:
             return default
         try:
@@ -1255,7 +1273,7 @@ PATTERN_THRESHOLDS = {
 # Basés sur la volatilité empirique observée : un ATR D1 ≈ 12× un ATR M5.
 # Ces facteurs s'appliquent aux seuils absolus pour les rendre comparables
 # entre timeframes (ex: min_slope trivial sur D1 si non scalé).
-TF_MINUTES: Dict[str, float] = {
+TF_MINUTES: dict[str, float] = {
     "5m": 5.0,   "M5": 5.0,
     "15m": 15.0, "M15": 15.0,
     "1h": 60.0,  "H1": 60.0,  "1H": 60.0,
@@ -1263,7 +1281,7 @@ TF_MINUTES: Dict[str, float] = {
     "1d": 1440.0, "D1": 1440.0, "1D": 1440.0,
 }
 
-TF_SCALE_FACTORS: Dict[str, float] = {
+TF_SCALE_FACTORS: dict[str, float] = {
     "5m": 1.0,  "M5": 1.0,
     "15m": 1.5, "M15": 1.5,
     "1h": 3.0,  "H1": 3.0,  "1H": 3.0,
@@ -1288,8 +1306,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def calculate_body_ratio(open_val, high_val, low_val, close_val):
-        """
-        Calcule le ratio du corps par rapport au range total.
+        """Calcule le ratio du corps par rapport au range total.
 
         Args:
             open_val: Prix d'ouverture
@@ -1308,8 +1325,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def calculate_upper_shadow_ratio(open_val, high_val, low_val, close_val):
-        """
-        Calcule le ratio de l'ombre haute par rapport au range total.
+        """Calcule le ratio de l'ombre haute par rapport au range total.
 
         Args:
             open_val: Prix d'ouverture
@@ -1328,8 +1344,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def calculate_lower_shadow_ratio(open_val, high_val, low_val, close_val):
-        """
-        Calcule le ratio de l'ombre basse par rapport au range total.
+        """Calcule le ratio de l'ombre basse par rapport au range total.
 
         Args:
             open_val: Prix d'ouverture
@@ -1348,8 +1363,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def is_bullish_candle(open_val, close_val):
-        """
-        Vérifie si la bougie est haussière (close > open).
+        """Vérifie si la bougie est haussière (close > open).
 
         Args:
             open_val: Prix d'ouverture
@@ -1362,8 +1376,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def is_bearish_candle(open_val, close_val):
-        """
-        Vérifie si la bougie est baissière (close < open).
+        """Vérifie si la bougie est baissière (close < open).
 
         Args:
             open_val: Prix d'ouverture
@@ -1376,8 +1389,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def calculate_range_ratio(high_val, low_val, reference_price):
-        """
-        Calcule le ratio du range par rapport à un prix de référence.
+        """Calcule le ratio du range par rapport à un prix de référence.
 
         Args:
             high_val: Prix haut
@@ -1393,8 +1405,8 @@ if NUMBA_AVAILABLE:
 
     @njit
     def safe_divide(numerator, denominator, default=0.0):
-        """
-        Division sécurisée compatible Numba nopython.
+        """Division sécurisée compatible Numba nopython.
+
         Définie en premier pour être disponible pour toutes les fonctions utilitaires.
         """
         if denominator == 0.0 or abs(denominator) < 1e-15:
@@ -1417,8 +1429,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def calculate_weighted_score(components, weights):
-        """
-        Calcule un score pondéré à partir des composants et de leurs poids.
+        """Calcule un score pondéré à partir des composants et de leurs poids.
 
         Args:
             components: Array des scores des composants
@@ -1444,8 +1455,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def safe_mean(arr):
-        """
-        Calcul sécurisé de la moyenne compatible avec Numba.
+        """Calcul sécurisé de la moyenne compatible avec Numba.
 
         Args:
             arr: Array numpy ou liste
@@ -1471,8 +1481,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def calculate_std(arr):
-        """
-        Calcul sécurisé de l'écart-type compatible avec Numba.
+        """Calcul sécurisé de l'écart-type compatible avec Numba.
 
         Args:
             arr: Array numpy ou liste
@@ -1502,8 +1511,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def validate_price_data(open_val, high_val, low_val, close_val):
-        """
-        Valide la cohérence des données OHLC.
+        """Valide la cohérence des données OHLC.
 
         Args:
             open_val: Prix d'ouverture
@@ -1552,9 +1560,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def calculate_ema_numba(prices: np.ndarray, period: int) -> np.ndarray:
-        """
-        Calcule la Moyenne Mobile Exponentielle (EMA) de manière optimisée.
-        """
+        """Calcule la Moyenne Mobile Exponentielle (EMA) de manière optimisée."""
         ema_values = np.full(len(prices), np.nan, dtype=np.float64)
         if len(prices) < period:
             return ema_values
@@ -1576,9 +1582,8 @@ if NUMBA_AVAILABLE:
         prices: np.ndarray,
         deviation_threshold: float = 0.05,
         min_pivot_distance: int = 5,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Version corrigée compatible Numba - Détection robuste de pivots
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Version corrigée compatible Numba - Détection robuste de pivots.
 
         CORRECTIONS APPORTÉES:
         - Retourne des arrays NumPy typés au lieu de listes Python
@@ -1683,9 +1688,8 @@ if NUMBA_AVAILABLE:
         pivot_prices: np.ndarray,
         pivot_types: np.ndarray,
         lookback: int = 10,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Retourne les N derniers pivots pour analyse de patterns
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Retourne les N derniers pivots pour analyse de patterns.
 
         Args:
             pivot_indices: Indices des pivots
@@ -1716,8 +1720,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def validate_pivot_alternation(pivot_types: np.ndarray) -> bool:
-        """
-        Vérifie que les pivots alternent correctement (high-low-high-low...)
+        """Vérifie que les pivots alternent correctement (high-low-high-low...).
 
         Args:
             pivot_types: Array des types de pivots
@@ -1745,9 +1748,9 @@ if NUMBA_AVAILABLE:
         curr_low,
         curr_close,
     ):
-        """
-        Vérifie l'englobement du corps pour un pattern haussier:
-        - Le corps du chandelier actuel (haussier) doit englober complètement le corps du précédent (baissier)
+        """Vérifie l'englobement du corps pour un pattern haussier:.
+
+        - Le corps du chandelier actuel (haussier) doit englober complètement le corps du précédent (baissier).
         """
         # Un englobement haussier parfait sur le CORPS, mais on ignore l'ombre
         curr_body_top = curr_close
@@ -1772,9 +1775,9 @@ if NUMBA_AVAILABLE:
         curr_low,
         curr_close,
     ):
-        """
-        Vérifie l'englobement du corps pour un pattern baissier:
-        - Le corps du chandelier actuel (baissier) doit englober complètement le corps du précédent (haussier)
+        """Vérifie l'englobement du corps pour un pattern baissier:.
+
+        - Le corps du chandelier actuel (baissier) doit englober complètement le corps du précédent (haussier).
         """
         # Un englobement baissier parfait sur le CORPS, on ignore l'ombre
         curr_body_top = curr_open
@@ -1793,8 +1796,10 @@ if NUMBA_AVAILABLE:
     @njit
     def _find_two_highest(pk_idx: np.ndarray, pk_price: np.ndarray, n: int):
         """Retourne (idx1, p1, idx2, p2) des 2 pics les plus hauts en O(n).
+
         idx1/p1 = plus haut, idx2/p2 = deuxième plus haut.
-        Compatible Numba nopython — remplace sorted(key=lambda x: x[1], reverse=True)."""
+        Compatible Numba nopython — remplace sorted(key=lambda x: x[1], reverse=True).
+        """
         best1_i, best2_i = np.int64(-1), np.int64(-1)
         best1_p, best2_p = -1e18, -1e18
         for k in range(n):
@@ -1812,8 +1817,10 @@ if NUMBA_AVAILABLE:
     @njit
     def _find_two_lowest(pk_idx: np.ndarray, pk_price: np.ndarray, n: int):
         """Retourne (idx1, p1, idx2, p2) des 2 creux les plus bas en O(n).
+
         idx1/p1 = plus bas, idx2/p2 = deuxième plus bas.
-        Compatible Numba nopython — remplace sorted(key=lambda x: x[1])."""
+        Compatible Numba nopython — remplace sorted(key=lambda x: x[1]).
+        """
         best1_i, best2_i = np.int64(-1), np.int64(-1)
         best1_p, best2_p = 1e18, 1e18
         for k in range(n):
@@ -1831,7 +1838,9 @@ if NUMBA_AVAILABLE:
     @njit
     def _find_first_last_by_time(pk_idx: np.ndarray, pk_price: np.ndarray, n: int):
         """Retourne (first_i, first_p, last_i, last_p) triés par index temporel.
-        Compatible Numba nopython — remplace list.sort(key=lambda x: x[0])."""
+
+        Compatible Numba nopython — remplace list.sort(key=lambda x: x[0]).
+        """
         first_i, last_i = np.int64(999999), np.int64(-1)
         first_p, last_p = 0.0, 0.0
         for k in range(n):
@@ -1848,8 +1857,10 @@ if NUMBA_AVAILABLE:
         prices: np.ndarray, is_high: bool, window: int, n_total: int
     ):
         """Collecte les pivots hauts (is_high=True) ou bas (is_high=False) dans prices[].
+
         Retourne (pk_idx, pk_price, n_found) sur des arrays pré-alloués.
-        Compatible Numba nopython — remplace peaks.append() + sorted()."""
+        Compatible Numba nopython — remplace peaks.append() + sorted().
+        """
         max_pts = window + 4
         pk_idx = np.empty(max_pts, dtype=np.int64)
         pk_price = np.empty(max_pts, dtype=np.float64)
@@ -1873,9 +1884,9 @@ if NUMBA_AVAILABLE:
     def find_pivots_simple(
         prices: np.ndarray, deviation_threshold: float, min_pivot_distance: int
     ):
-        """
-        Détection simplifiée de pivots pour les patterns chartistes
-        Retourne les indices, prix et types des pivots (1=high, -1=low)
+        """Détection simplifiée de pivots pour les patterns chartistes.
+
+        Retourne les indices, prix et types des pivots (1=high, -1=low).
         """
         n = len(prices)
         if n < min_pivot_distance * 2:
@@ -1954,9 +1965,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def calculate_linear_regression_slope(x_values: np.ndarray, y_values: np.ndarray):
-        """
-        Calcule la pente d'une régression linéaire de manière sécurisée
-        """
+        """Calcule la pente d'une régression linéaire de manière sécurisée."""
         n = len(x_values)
         if n < 2 or len(y_values) != n:
             return 0.0
@@ -1985,9 +1994,7 @@ if NUMBA_AVAILABLE:
     def calculate_fibonacci_ratio(
         price_a: float, price_b: float, price_c: float, price_d: float = 0.0
     ):
-        """
-        Calcule le ratio de Fibonacci entre des prix (sécurisé)
-        """
+        """Calcule le ratio de Fibonacci entre des prix (sécurisé)."""
         if price_d == 0.0:  # Ratio AB/XA ou BC/AB
             if abs(price_a - price_c) < 1e-10:
                 return 0.0
@@ -1999,9 +2006,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def calculate_trend_strength(prices: np.ndarray, start_idx: int, end_idx: int):
-        """
-        Calcule la force d'une tendance de manière sécurisée
-        """
+        """Calcule la force d'une tendance de manière sécurisée."""
         if end_idx <= start_idx or start_idx < 0 or end_idx >= len(prices):
             return 0.0
 
@@ -2025,9 +2030,9 @@ if NUMBA_AVAILABLE:
     def calculate_trend_consistency(
         prices: np.ndarray, start_idx: int, end_idx: int, expected_direction: int
     ):
-        """
-        Calcule la consistance d'une tendance (% de mouvements dans la bonne direction)
-        expected_direction: 1 pour haussier, -1 pour baissier, 0 pour sideways
+        """Calcule la consistance d'une tendance (% de mouvements dans la bonne direction).
+
+        expected_direction: 1 pour haussier, -1 pour baissier, 0 pour sideways.
         """
         if end_idx <= start_idx or start_idx < 0 or end_idx >= len(prices):
             return 0.0
@@ -2056,9 +2061,7 @@ if NUMBA_AVAILABLE:
 
     @njit
     def calculate_fibonacci_levels(start_price: float, end_price: float):
-        """
-        Calcule les niveaux de retracement et extension de Fibonacci de manière sécurisée
-        """
+        """Calcule les niveaux de retracement et extension de Fibonacci de manière sécurisée."""
         if start_price <= 0 or end_price <= 0:
             return np.zeros(8, dtype=np.float64)
 
@@ -2075,9 +2078,9 @@ if NUMBA_AVAILABLE:
 
     @njit
     def calculate_slope_safe(x_values: np.ndarray, y_values: np.ndarray) -> float:
-        """
-        Calcule la pente d'une régression linéaire de manière sécurisée
-        Utilise la méthode des moindres carrés
+        """Calcule la pente d'une régression linéaire de manière sécurisée.
+
+        Utilise la méthode des moindres carrés.
 
         Args:
             x_values: Valeurs X (indices temporels)
@@ -2139,8 +2142,8 @@ if NUMBA_AVAILABLE:
 
     @njit
     def fit_parabola(x, y):
-        """
-        Calcule le coefficient de courbure 'a' d'une parabole (y = ax^2 + bx + c).
+        """Calcule le coefficient de courbure 'a' d'une parabole (y = ax^2 + bx + c).
+
         CORRECTION P2: l'ancienne formule était mathématiquement incorrecte (système 2x2
         pour 3 inconnues). Cette version calcule 'a' via la méthode des moindres carrés
         complète 3x3 (Vandermonde) en utilisant seulement les moments nécessaires.
@@ -2208,8 +2211,8 @@ if NUMBA_AVAILABLE:
         min_range_ratio: float,
         min_trend_lookback: int,
     ) -> np.ndarray:
-        """
-        Détection du pattern "hammer" en parallèle.
+        """Détection du pattern "hammer" en parallèle.
+
         Vérification robuste d'une tendance baissière préalable (majorité de jours baissiers).
         """
         n = len(open_prices)
@@ -2308,8 +2311,8 @@ if NUMBA_AVAILABLE:
         min_range_ratio: float,
         min_trend_lookback: int,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Inverted Hammer en parallèle.
+        """Détecte le pattern Inverted Hammer en parallèle.
+
         Vérification robuste d'une tendance baissière préalable (majorité de jours baissiers).
         """
         n = len(open_prices)
@@ -2423,8 +2426,8 @@ if NUMBA_AVAILABLE:
         upper_weight: float,
         proximity_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Dragonfly Doji.
+        """Détecte le pattern Dragonfly Doji.
+
         Doji avec longue ombre basse et corps minimal.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -2506,8 +2509,8 @@ if NUMBA_AVAILABLE:
         position_weight: float,
         context_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Pin Bar haussier.
+        """Détecte le pattern Pin Bar haussier.
+
         Petit corps avec longue ombre basse, corps dans la partie haute du range.
 
         CORRECTION S4 :
@@ -2622,8 +2625,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Marubozu haussier.
+        """Détecte le pattern Marubozu haussier.
+
         Corps plein sans ombres, close > open.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -2691,8 +2694,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Belt Hold haussier.
+        """Détecte le pattern Belt Hold haussier.
+
         Ouverture au plus bas, corps long haussier, ombre basse minimale.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -2764,11 +2767,11 @@ if NUMBA_AVAILABLE:
         body_weight_3: float,
         gap_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Morning Star (3 bougies).
+        """Détecte le pattern Morning Star (3 bougies).
+
         Bougie 1: baissière avec gros corps
         Bougie 2: petit corps (star) avec gap down
-        Bougie 3: haussière avec gros corps, gap up
+        Bougie 3: haussière avec gros corps, gap up.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
@@ -2864,10 +2867,10 @@ if NUMBA_AVAILABLE:
         body_weight_2: float,
         penetration_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Piercing Line (2 bougies).
+        """Détecte le pattern Piercing Line (2 bougies).
+
         Bougie 1: baissière avec gros corps
-        Bougie 2: haussière qui pénètre dans le corps de la bougie 1
+        Bougie 2: haussière qui pénètre dans le corps de la bougie 1.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
@@ -2947,10 +2950,10 @@ if NUMBA_AVAILABLE:
         body_weight_2: float,
         containment_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Bullish Harami (2 bougies).
+        """Détecte le pattern Bullish Harami (2 bougies).
+
         Bougie 1: baissière avec gros corps
-        Bougie 2: petit corps contenu dans le corps de la bougie 1
+        Bougie 2: petit corps contenu dans le corps de la bougie 1.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
@@ -3037,8 +3040,8 @@ if NUMBA_AVAILABLE:
         body_weight_3: float,
         gap_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Abandoned Baby Bull (3 bougies).
+        """Détecte le pattern Abandoned Baby Bull (3 bougies).
+
         Bougie 1 : baissière avec gros corps.
         Bougie 2 : doji/star isolée par deux gaps stricts (sans chevauchement).
         Bougie 3 : haussière avec gros corps.
@@ -3168,8 +3171,8 @@ if NUMBA_AVAILABLE:
         body_weight_2: float,
         body_weight_3: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Three Inside Up (3 bougies).
+        """Détecte le pattern Three Inside Up (3 bougies).
+
         Harami haussier suivi d'une confirmation haussière.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -3264,8 +3267,8 @@ if NUMBA_AVAILABLE:
         body_weight_2: float,
         body_weight_3: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Three Outside Up (3 bougies).
+        """Détecte le pattern Three Outside Up (3 bougies).
+
         Engulfing haussier suivi d'une confirmation haussière.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -3360,8 +3363,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Concealing Baby Swallow (4 bougies).
+        """Détecte le pattern Concealing Baby Swallow (4 bougies).
+
         Pattern rare de retournement haussier.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -3475,8 +3478,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         pattern_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Unique Three River Bottom (3 bougies).
+        """Détecte le pattern Unique Three River Bottom (3 bougies).
+
         Pattern rare de retournement haussier.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -3572,8 +3575,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         matching_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Matching Low (2 bougies).
+        """Détecte le pattern Matching Low (2 bougies).
+
         Deux bougies baissières avec clôtures similaires.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -3659,8 +3662,8 @@ if NUMBA_AVAILABLE:
         pattern_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Ladder Bottom (5 bougies).
+        """Détecte le pattern Ladder Bottom (5 bougies).
+
         Séquence de 5 bougies formant un escalier descendant puis retournement.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -3770,7 +3773,7 @@ if NUMBA_AVAILABLE:
         continuation_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """VERSION SANS LOOKAHEAD"""
+        """VERSION SANS LOOKAHEAD."""
         signals = np.zeros(len(open_prices), dtype=np.float64)
         for i in range(15, len(open_prices)):
             gap_up = open_prices[i] > high_prices[i - 1]
@@ -3830,8 +3833,8 @@ if NUMBA_AVAILABLE:
         upper_weight: float,
         context_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Hanging Man.
+        """Détecte le pattern Hanging Man.
+
         Pattern baissier avec petit corps et longue ombre basse, apparaît en contexte haussier.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -3916,8 +3919,8 @@ if NUMBA_AVAILABLE:
         upper_weight: float,
         lower_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Shooting Star.
+        """Détecte le pattern Shooting Star.
+
         Pattern baissier avec petit corps et longue ombre haute.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -4003,8 +4006,8 @@ if NUMBA_AVAILABLE:
         lower_weight: float,
         proximity_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Gravestone Doji.
+        """Détecte le pattern Gravestone Doji.
+
         Doji avec longue ombre haute et corps minimal.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -4085,8 +4088,8 @@ if NUMBA_AVAILABLE:
         lower_weight: float,
         position_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Pin Bar baissier.
+        """Détecte le pattern Pin Bar baissier.
+
         Petit corps avec longue ombre haute, corps dans la partie basse.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -4186,8 +4189,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Marubozu baissier.
+        """Détecte le pattern Marubozu baissier.
+
         Corps plein sans ombres, close < open.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -4255,8 +4258,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Belt Hold baissier.
+        """Détecte le pattern Belt Hold baissier.
+
         Ouverture au plus haut, corps long baissier, ombre haute minimale.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -4327,11 +4330,11 @@ if NUMBA_AVAILABLE:
         body_weight_3: float,
         gap_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Evening Star (3 bougies).
+        """Détecte le pattern Evening Star (3 bougies).
+
         Bougie 1: haussière avec gros corps
         Bougie 2: petit corps (star) avec gap up
-        Bougie 3: baissière avec gros corps, gap down
+        Bougie 3: baissière avec gros corps, gap down.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
@@ -4427,10 +4430,10 @@ if NUMBA_AVAILABLE:
         body_weight_2: float,
         penetration_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Dark Cloud Cover (2 bougies).
+        """Détecte le pattern Dark Cloud Cover (2 bougies).
+
         Bougie 1: haussière avec gros corps
-        Bougie 2: baissière qui pénètre dans le corps de la bougie 1
+        Bougie 2: baissière qui pénètre dans le corps de la bougie 1.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
@@ -4510,10 +4513,10 @@ if NUMBA_AVAILABLE:
         body_weight_2: float,
         containment_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Harami baissier (2 bougies).
+        """Détecte le pattern Harami baissier (2 bougies).
+
         Bougie 1: haussière avec gros corps
-        Bougie 2: baissière avec petit corps contenu dans la bougie 1
+        Bougie 2: baissière avec petit corps contenu dans la bougie 1.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
@@ -4604,8 +4607,8 @@ if NUMBA_AVAILABLE:
         body_weight_3: float,
         gap_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Abandoned Baby Bear (3 bougies).
+        """Détecte le pattern Abandoned Baby Bear (3 bougies).
+
         Similaire au Evening Star mais avec des gaps plus stricts.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -4704,11 +4707,11 @@ if NUMBA_AVAILABLE:
         body_weight_2: float,
         body_weight_3: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Three Inside Down (3 bougies).
+        """Détecte le pattern Three Inside Down (3 bougies).
+
         Bougie 1: haussière avec gros corps
         Bougie 2: baissière avec petit corps contenu dans la bougie 1 (harami)
-        Bougie 3: baissière qui confirme le retournement
+        Bougie 3: baissière qui confirme le retournement.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
@@ -4801,11 +4804,11 @@ if NUMBA_AVAILABLE:
         body_weight_2: float,
         body_weight_3: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Three Outside Down (3 bougies).
+        """Détecte le pattern Three Outside Down (3 bougies).
+
         Bougie 1: haussière
         Bougie 2: baissière qui englobe la bougie 1 (engulfing)
-        Bougie 3: baissière qui confirme le retournement
+        Bougie 3: baissière qui confirme le retournement.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
@@ -4896,8 +4899,8 @@ if NUMBA_AVAILABLE:
         shadow_weight: float,
         weakening_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Advance Block (3 bougies).
+        """Détecte le pattern Advance Block (3 bougies).
+
         Trois bougies haussières consécutives avec un affaiblissement progressif.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -5017,8 +5020,8 @@ if NUMBA_AVAILABLE:
         weakening_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Deliberation (3 bougies).
+        """Détecte le pattern Deliberation (3 bougies).
+
         Deux bougies haussières suivies d'une petite bougie d'hésitation.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -5117,8 +5120,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         matching_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Matching High (2 bougies).
+        """Détecte le pattern Matching High (2 bougies).
+
         Deux bougies baissières avec des clôtures similaires (résistance).
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -5206,8 +5209,8 @@ if NUMBA_AVAILABLE:
         pattern_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Ladder Top (5 bougies).
+        """Détecte le pattern Ladder Top (5 bougies).
+
         Formation de sommet en escalier avec affaiblissement progressif.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -5336,8 +5339,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Doji.
+        """Détecte le pattern Doji.
+
         Corps minimal avec ombres équilibrées, indique l'indécision du marché.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -5395,8 +5398,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Long Legged Doji.
+        """Détecte le pattern Long Legged Doji.
+
         Doji avec de très longues ombres, indique une forte indécision.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -5467,8 +5470,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Spinning Top.
+        """Détecte le pattern Spinning Top.
+
         Petit corps avec ombres moyennes, indique l'indécision mais moins extrême qu'un doji.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -5538,8 +5541,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Rickshaw Man.
+        """Détecte le pattern Rickshaw Man.
+
         Corps très petit avec de très longues ombres, similaire au Long Legged Doji mais avec un corps légèrement plus grand.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -5618,8 +5621,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         shadow_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern High Wave Candle.
+        """Détecte le pattern High Wave Candle.
+
         Bougie avec corps moyen et longues ombres, indique une haute volatilité et indécision.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -5686,8 +5689,8 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         gap_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Tri Star.
+        """Détecte le pattern Tri Star.
+
         Trois dojis consécutifs avec gaps, pattern très rare d'indécision extrême.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -5790,8 +5793,8 @@ if NUMBA_AVAILABLE:
         valley_weight: float,
         distance_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Double Top.
+        """Détecte le pattern Double Top.
+
         Recherche de 2 pics similaires séparés par une vallée significative.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -5880,8 +5883,8 @@ if NUMBA_AVAILABLE:
         peak_weight: float,
         distance_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Double Bottom.
+        """Détecte le pattern Double Bottom.
+
         Recherche de 2 creux similaires séparés par un pic significatif.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -5977,8 +5980,8 @@ if NUMBA_AVAILABLE:
         valley_weight: float,
         distance_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Triple Top.
+        """Détecte le pattern Triple Top.
+
         Recherche de 3 pics similaires séparés par 2 vallées significatives.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -6124,8 +6127,8 @@ if NUMBA_AVAILABLE:
         peak_weight: float,
         distance_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Triple Bottom.
+        """Détecte le pattern Triple Bottom.
+
         Recherche de 3 creux similaires séparés par 2 pics significatifs.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -6275,8 +6278,8 @@ if NUMBA_AVAILABLE:
         duration_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        Détection du pattern V Top.
+        """Détection du pattern V Top.
+
         Retournement rapide et brutal vers le bas après un pic.
 
         Problème de la version précédente :
@@ -6423,8 +6426,8 @@ if NUMBA_AVAILABLE:
         duration_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        Détection du pattern V Bottom.
+        """Détection du pattern V Bottom.
+
         Retournement rapide et brutal vers le haut après un creux.
         Même logique ATR que detect_v_top_numba (symétrique).
         """
@@ -6547,9 +6550,7 @@ if NUMBA_AVAILABLE:
         volume_weight: float,
         smoothness_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE 2.0 - Détection de Rounding Top avec Contexte et Structure
-        """
+        """VERSION CORRIGÉE 2.0 - Détection de Rounding Top avec Contexte et Structure."""
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
         # On a besoin de données avant le pattern pour vérifier le contexte
@@ -6630,9 +6631,7 @@ if NUMBA_AVAILABLE:
         volume_weight: float,
         smoothness_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE 2.0 - Détection de Rounding Bottom avec Contexte et Structure
-        """
+        """VERSION CORRIGÉE 2.0 - Détection de Rounding Bottom avec Contexte et Structure."""
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
         # NOUVEAU: On a besoin de données avant le pattern pour vérifier le contexte
@@ -6711,8 +6710,8 @@ if NUMBA_AVAILABLE:
         contraction_weight: float,
         symmetry_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Diamond Top.
+        """Détecte le pattern Diamond Top.
+
         Expansion de volatilité suivie d'une contraction formant un diamant.
         FIX: suppression diamond_high/diamond_low (dead variables — seuls les
         indices _idx sont utilisés pour le score de symétrie).
@@ -6819,8 +6818,8 @@ if NUMBA_AVAILABLE:
         contraction_weight: float,
         symmetry_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Diamond Bottom.
+        """Détecte le pattern Diamond Bottom.
+
         FIX: suppression diamond_high/diamond_low (dead variables).
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -6924,8 +6923,7 @@ if NUMBA_AVAILABLE:
         isolation_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        Détection du pattern Island Top.
+        """Détection du pattern Island Top.
 
         Définition : une zone de prix isolée par un gap haussier à l'entrée
         et un gap baissier à la sortie, dont le bas de l'île reste AU-DESSUS
@@ -6958,6 +6956,10 @@ if NUMBA_AVAILABLE:
             gap_weight              : poids du score gap dans le score final
             isolation_weight        : poids du score isolation
             volume_weight           : poids du score volume
+            close_prices: TODO: documenter.
+            high_prices: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
 
         Returns:
             np.ndarray float64 : scores entre 0.0 et 1.0
@@ -7132,8 +7134,8 @@ if NUMBA_AVAILABLE:
         support_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Ascending Triangle.
+        """Détecte le pattern Ascending Triangle.
+
         Résistance horizontale avec support montant qui converge.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -7259,8 +7261,8 @@ if NUMBA_AVAILABLE:
         resistance_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Descending Triangle.
+        """Détecte le pattern Descending Triangle.
+
         Support horizontal avec résistance descendante qui converge.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -7397,8 +7399,8 @@ if NUMBA_AVAILABLE:
         resistance_weight: float,
         duration_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Rectangle.
+        """Détecte le pattern Rectangle.
+
         Niveaux de support et résistance horizontaux avec plusieurs touches.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -7552,8 +7554,7 @@ if NUMBA_AVAILABLE:
         flag_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        Détection Bear Flag — mât baissier + consolidation plate/légèrement haussière.
+        """Détection Bear Flag — mât baissier + consolidation plate/légèrement haussière.
 
         CORRECTIONS v3 (symétrique du bull_flag) :
         C1 — min_flag_length : drapeau minimum 5 barres (était 3, hardcodé).
@@ -7750,8 +7751,8 @@ if NUMBA_AVAILABLE:
         pennant_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Bull Pennant.
+        """Détecte le pattern Bull Pennant.
+
         Mât haussier suivi d'une consolidation triangulaire (fanion).
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -7921,8 +7922,8 @@ if NUMBA_AVAILABLE:
         pennant_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Bear Pennant.
+        """Détecte le pattern Bear Pennant.
+
         Mât baissier suivi d'une consolidation triangulaire (fanion).
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -8094,8 +8095,8 @@ if NUMBA_AVAILABLE:
         volume_weight: float,
         convergence_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Rising Wedge
+        """VERSION CORRIGÉE - Détection du pattern Rising Wedge.
+
         Modifié pour utiliser la détection robuste de pivots adaptative comme Falling Wedge.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -8201,8 +8202,8 @@ if NUMBA_AVAILABLE:
         touch_weight: float,
         symmetry_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Broadening Wedge.
+        """Détecte le pattern Broadening Wedge.
+
         Lignes de support et résistance qui s'écartent (expansion de volatilité).
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -8299,8 +8300,8 @@ if NUMBA_AVAILABLE:
         handle_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Cup and Handle.
+        """Détecte le pattern Cup and Handle.
+
         Formation en forme de coupe suivie d'une petite consolidation (anse).
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -8465,8 +8466,8 @@ if NUMBA_AVAILABLE:
         correction_weight: float,
         target_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Measured Move.
+        """Détecte le pattern Measured Move.
+
         Mouvement initial, correction, puis continuation avec objectif mesuré.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -8664,8 +8665,8 @@ if NUMBA_AVAILABLE:
         volume_weight: float,
         follow_through_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte les gaps haussiers.
+        """Détecte les gaps haussiers.
+
         Un gap up se produit quand le prix d'ouverture est significativement au-dessus de la clôture précédente.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -8722,8 +8723,8 @@ if NUMBA_AVAILABLE:
         volume_weight: float,
         follow_through_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte les gaps baissiers.
+        """Détecte les gaps baissiers.
+
         Un gap down se produit quand le prix d'ouverture est significativement en dessous de la clôture précédente.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -8872,8 +8873,8 @@ if NUMBA_AVAILABLE:
         volume_weight: float,
         trend_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte les gaps de continuation (runaway gaps).
+        """Détecte les gaps de continuation (runaway gaps).
+
         Ces gaps se produisent au milieu d'une tendance forte existante.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -8952,8 +8953,7 @@ if NUMBA_AVAILABLE:
         isolation_weight: float,
         reversal_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte les island reversals : deux gaps opposés isolant une zone de prix.
+        """Détecte les island reversals : deux gaps opposés isolant une zone de prix.
 
         PROBLÈMES DE L'ANCIENNE VERSION :
 
@@ -9096,8 +9096,8 @@ if NUMBA_AVAILABLE:
         volume_weight: float,
         continuation_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte les patterns gap and go.
+        """Détecte les patterns gap and go.
+
         Un gap suivi d'une continuation forte dans la même direction.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -9189,8 +9189,8 @@ if NUMBA_AVAILABLE:
         slope_weight: float,
         strength_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte un niveau de support en analysant une fenêtre de données.
+        """Détecte un niveau de support en analysant une fenêtre de données.
+
         Attribue un score à la fin de la fenêtre si un support valide est trouvé.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -9289,8 +9289,8 @@ if NUMBA_AVAILABLE:
         slope_weight: float,
         strength_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte un niveau de résistance en analysant une fenêtre de données.
+        """Détecte un niveau de résistance en analysant une fenêtre de données.
+
         Attribue un score à la fin de la fenêtre si une résistance valide est trouvée.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -9395,8 +9395,8 @@ if NUMBA_AVAILABLE:
         symmetry_weight: float,
         projection_weight: float,
     ) -> np.ndarray:
-        """
-        Détecte le pattern Wolfe Wave.
+        """Détecte le pattern Wolfe Wave.
+
         Version simplifiée pour compatibilité Numba.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -9531,8 +9531,7 @@ if NUMBA_AVAILABLE:
         body_weight: float = 0.6,
         range_weight: float = 0.4,
     ) -> np.ndarray:
-        """
-        Version corrigée de four_price_doji avec seuils réalistes
+        """Version corrigée de four_price_doji avec seuils réalistes.
 
         CORRECTIONS:
         - Ratio relatif au lieu de valeur absolue
@@ -9600,12 +9599,12 @@ if NUMBA_AVAILABLE:
         min_pattern_size: float = 0.008,
         pattern_weight: float = 1.0,
     ) -> np.ndarray:
-        """
-        Shark Bull — Ratios Scott Carney (Harmonic Trading Vol.1)
+        """Shark Bull — Ratios Scott Carney (Harmonic Trading Vol.1).
+
         Points : O, X, A, B, C
         AB/XA : 1.13  1.618
         BC/AB : 1.618  2.24
-        OC/OX : 0.886  1.13  (completion zone)
+        OC/OX : 0.886  1.13  (completion zone).
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
         window = 30  # Fenêtre de recherche max
@@ -9701,8 +9700,7 @@ if NUMBA_AVAILABLE:
         body_weight_2: float,
         engulf_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Engulfing Bull
+        """VERSION CORRIGÉE - Détection du pattern Engulfing Bull.
 
         CORRECTIONS APPORTÉES:
         1. Validation complète des données OHLC avec validate_price_data()
@@ -9724,6 +9722,13 @@ if NUMBA_AVAILABLE:
             min_body_ratio: Ratio minimum du corps par rapport au range (0.40 recommandé)
             min_engulf_ratio: Ratio minimum d'englobement (1.1 recommandé)
             body_weight_1, body_weight_2, engulf_weight: Poids pour le scoring pondéré
+            body_weight_1: TODO: documenter.
+            body_weight_2: TODO: documenter.
+            close_prices: TODO: documenter.
+            engulf_weight: TODO: documenter.
+            high_prices: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
 
         Returns:
             Array des scores de détection (0.0 à 1.0)
@@ -9839,8 +9844,7 @@ if NUMBA_AVAILABLE:
         body_weight_2: float,
         engulf_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Engulfing Bear
+        """VERSION CORRIGÉE - Détection du pattern Engulfing Bear.
 
         CORRECTIONS APPORTÉES:
         1. Validation complète des données OHLC avec validate_price_data()
@@ -9862,6 +9866,13 @@ if NUMBA_AVAILABLE:
             min_body_ratio: Ratio minimum du corps par rapport au range (0.40 recommandé)
             min_engulf_ratio: Ratio minimum d'englobement (1.1 recommandé)
             body_weight_1, body_weight_2, engulf_weight: Poids pour le scoring pondéré
+            body_weight_1: TODO: documenter.
+            body_weight_2: TODO: documenter.
+            close_prices: TODO: documenter.
+            engulf_weight: TODO: documenter.
+            high_prices: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
 
         Returns:
             Array des scores de détection (0.0 à 1.0)
@@ -9978,8 +9989,7 @@ if NUMBA_AVAILABLE:
         shoulder_weight: float,
         neckline_weight: float,
     ) -> np.ndarray:
-        """
-        Détection Head and Shoulders — 3 pics (épaule G, tête, épaule D).
+        """Détection Head and Shoulders — 3 pics (épaule G, tête, épaule D).
 
         FIX 1 — seuil pivot ATR adaptatif [0.008, 0.025] (remplace 0.003 hardcodé).
         FIX 2 — min_head_height_ratio abaissé à 0.01 dans PATTERN_THRESHOLDS.
@@ -10112,8 +10122,7 @@ if NUMBA_AVAILABLE:
         shoulder_weight: float,
         neckline_weight: float,
     ) -> np.ndarray:
-        """
-        Détection Inverse Head and Shoulders — 3 creux (épaule G, tête, épaule D).
+        """Détection Inverse Head and Shoulders — 3 creux (épaule G, tête, épaule D).
 
         FIX 1 — seuil pivot ATR adaptatif [0.008, 0.025] (remplace 0.003 hardcodé).
         FIX 2 — min_head_depth_ratio abaissé à 0.01 dans PATTERN_THRESHOLDS.
@@ -10248,8 +10257,7 @@ if NUMBA_AVAILABLE:
         flag_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        Détection Bull Flag — mât haussier + consolidation plate/légèrement baissière.
+        """Détection Bull Flag — mât haussier + consolidation plate/légèrement baissière.
 
         CORRECTIONS v3 :
         C1 — min_flag_length : drapeau minimum 5 barres (était 2, non structuré).
@@ -10456,8 +10464,7 @@ if NUMBA_AVAILABLE:
         parallel_weight: float,
         duration_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Channel Up
+        """VERSION CORRIGÉE - Détection du pattern Channel Up.
 
         CORRECTIONS APPORTÉES:
         1. Seuils de pente plus réalistes (0.005 au lieu de 0.02)
@@ -10478,6 +10485,14 @@ if NUMBA_AVAILABLE:
             min_slope: Pente minimum (0.005 recommandé)
             max_width_variation: Variation maximum de largeur (0.50 recommandé)
             Poids pour le scoring pondéré
+            close_prices: TODO: documenter.
+            duration_weight: TODO: documenter.
+            high_prices: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
+            parallel_weight: TODO: documenter.
+            slope_weight: TODO: documenter.
+            volume: TODO: documenter.
 
         Returns:
             Array des scores de détection (0.0 à 1.0)
@@ -10615,8 +10630,7 @@ if NUMBA_AVAILABLE:
         parallel_weight: float,
         duration_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Channel Down
+        """VERSION CORRIGÉE - Détection du pattern Channel Down.
 
         CORRECTIONS APPORTÉES:
         1. Seuils de pente plus réalistes (-0.005 au lieu de -0.02)
@@ -10637,6 +10651,14 @@ if NUMBA_AVAILABLE:
             min_slope: Pente minimum négative (-0.005 recommandé)
             max_width_variation: Variation maximum de largeur (0.50 recommandé)
             Poids pour le scoring pondéré
+            close_prices: TODO: documenter.
+            duration_weight: TODO: documenter.
+            high_prices: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
+            parallel_weight: TODO: documenter.
+            slope_weight: TODO: documenter.
+            volume: TODO: documenter.
 
         Returns:
             Array des scores de détection (0.0 à 1.0)
@@ -10779,8 +10801,8 @@ if NUMBA_AVAILABLE:
         bc_weight: float,
         cd_weight: float,
     ) -> np.ndarray:
-        """
-        Détection du pattern Gartley Bull.
+        """Détection du pattern Gartley Bull.
+
         FIX: cd_xa_ratio désormais utilisé dans xa_score (cible 0.786 selon Carney).
         Le score xa_score n'est plus binaire (1.0 si xa>0) mais mesure la proximité
         du ratio CD/XA avec 0.786, qui est la contrainte distinctive du Gartley.
@@ -10907,8 +10929,8 @@ if NUMBA_AVAILABLE:
         bc_weight: float,
         cd_weight: float,
     ) -> np.ndarray:
-        """
-        Détection du pattern Gartley Bear.
+        """Détection du pattern Gartley Bear.
+
         FIX: cd_xa_ratio utilisé dans xa_score (cible 0.786).
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -11031,8 +11053,8 @@ if NUMBA_AVAILABLE:
         bc_weight: float,
         cd_weight: float,
     ) -> np.ndarray:
-        """
-        Détection du pattern Butterfly Bull.
+        """Détection du pattern Butterfly Bull.
+
         FIX: cd_xa_ratio utilisé dans xa_score.
         Butterfly: D s'étend AU-DELÀ de X → cd_xa_ratio cible = 1.272 (Carney).
         C'est ce qui distingue le Butterfly du Gartley.
@@ -11160,8 +11182,8 @@ if NUMBA_AVAILABLE:
         bc_weight: float,
         cd_weight: float,
     ) -> np.ndarray:
-        """
-        Détection du pattern Butterfly Bear.
+        """Détection du pattern Butterfly Bear.
+
         FIX: cd_xa_ratio utilisé dans xa_score (cible 1.272).
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -11286,8 +11308,7 @@ if NUMBA_AVAILABLE:
         bc_weight: float,
         cd_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Bat Bull
+        """VERSION CORRIGÉE - Détection du pattern Bat Bull.
 
         CORRECTIONS APPORTÉES:
         1. Gestion des erreurs silencieuses avec validation stricte
@@ -11310,6 +11331,19 @@ if NUMBA_AVAILABLE:
             xa_ratio, ab_ratio, bc_ratio, cd_ratio: Ratios de Fibonacci cibles
             tolerance: Tolérance pour les ratios (0.15 recommandé)
             Poids pour le scoring pondéré
+            ab_ratio: TODO: documenter.
+            ab_weight: TODO: documenter.
+            bc_ratio: TODO: documenter.
+            bc_weight: TODO: documenter.
+            cd_ratio: TODO: documenter.
+            cd_weight: TODO: documenter.
+            close_prices: TODO: documenter.
+            high_prices: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
+            volume: TODO: documenter.
+            xa_ratio: TODO: documenter.
+            xa_weight: TODO: documenter.
 
         Returns:
             Array des scores de détection (0.0 à 1.0)
@@ -11460,8 +11494,7 @@ if NUMBA_AVAILABLE:
         bc_weight: float,
         cd_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Bat Bear
+        """VERSION CORRIGÉE - Détection du pattern Bat Bear.
 
         CORRECTIONS APPORTÉES:
         1. Conditions réduites - scoring pondéré au lieu de conditions binaires strictes
@@ -11484,6 +11517,19 @@ if NUMBA_AVAILABLE:
             xa_ratio, ab_ratio, bc_ratio, cd_ratio: Ratios de Fibonacci cibles
             tolerance: Tolérance pour les ratios (0.15 recommandé)
             Poids pour le scoring pondéré
+            ab_ratio: TODO: documenter.
+            ab_weight: TODO: documenter.
+            bc_ratio: TODO: documenter.
+            bc_weight: TODO: documenter.
+            cd_ratio: TODO: documenter.
+            cd_weight: TODO: documenter.
+            close_prices: TODO: documenter.
+            high_prices: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
+            volume: TODO: documenter.
+            xa_ratio: TODO: documenter.
+            xa_weight: TODO: documenter.
 
         Returns:
             Array des scores de détection (0.0 à 1.0)
@@ -11632,8 +11678,7 @@ if NUMBA_AVAILABLE:
         bc_weight: float,
         cd_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Crab Bull
+        """VERSION CORRIGÉE - Détection du pattern Crab Bull.
 
         CORRECTIONS APPORTÉES:
         1. Conditions réduites - scoring pondéré au lieu de conditions binaires strictes
@@ -11655,6 +11700,19 @@ if NUMBA_AVAILABLE:
             xa_ratio, ab_ratio, bc_ratio, cd_ratio: Ratios de Fibonacci cibles
             tolerance: Tolérance pour les ratios (0.15 recommandé)
             Poids pour le scoring pondéré
+            ab_ratio: TODO: documenter.
+            ab_weight: TODO: documenter.
+            bc_ratio: TODO: documenter.
+            bc_weight: TODO: documenter.
+            cd_ratio: TODO: documenter.
+            cd_weight: TODO: documenter.
+            close_prices: TODO: documenter.
+            high_prices: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
+            volume: TODO: documenter.
+            xa_ratio: TODO: documenter.
+            xa_weight: TODO: documenter.
 
         Returns:
             Array des scores de détection (0.0 à 1.0)
@@ -11805,8 +11863,7 @@ if NUMBA_AVAILABLE:
         bc_weight: float,
         cd_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Crab Bear
+        """VERSION CORRIGÉE - Détection du pattern Crab Bear.
 
         CORRECTIONS APPORTÉES:
         1. Conditions réduites - scoring pondéré au lieu de conditions binaires strictes
@@ -11828,6 +11885,19 @@ if NUMBA_AVAILABLE:
             xa_ratio, ab_ratio, bc_ratio, cd_ratio: Ratios de Fibonacci cibles
             tolerance: Tolérance pour les ratios (0.15 recommandé)
             Poids pour le scoring pondéré
+            ab_ratio: TODO: documenter.
+            ab_weight: TODO: documenter.
+            bc_ratio: TODO: documenter.
+            bc_weight: TODO: documenter.
+            cd_ratio: TODO: documenter.
+            cd_weight: TODO: documenter.
+            close_prices: TODO: documenter.
+            high_prices: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
+            volume: TODO: documenter.
+            xa_ratio: TODO: documenter.
+            xa_weight: TODO: documenter.
 
         Returns:
             Array des scores de détection (0.0 à 1.0)
@@ -11971,8 +12041,8 @@ if NUMBA_AVAILABLE:
         min_pattern_size: float = 0.008,
         pattern_weight: float = 1.0,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Shark Bear fortement contraint
+        """VERSION CORRIGÉE - Shark Bear fortement contraint.
+
         Évite les >80% de faux positifs en exigeant un vrai ^-shape profond.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -12046,7 +12116,7 @@ if NUMBA_AVAILABLE:
         consistency_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """VERSION CORRIGÉE - Détection de Tendance Haussière avec Régression Linéaire"""
+        """VERSION CORRIGÉE - Détection de Tendance Haussière avec Régression Linéaire."""
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
         for i in range(min_length, len(open_prices)):
@@ -12117,7 +12187,7 @@ if NUMBA_AVAILABLE:
         consistency_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """VERSION CORRIGÉE - Détection de Tendance Baissière avec Régression Linéaire"""
+        """VERSION CORRIGÉE - Détection de Tendance Baissière avec Régression Linéaire."""
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
         for i in range(min_length, len(open_prices)):
@@ -12189,8 +12259,8 @@ if NUMBA_AVAILABLE:
         containment_weight: float,
         duration_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE 2.0 - Détection du DÉBUT d'un Sideways Trend (Détection d'Événement)
+        """VERSION CORRIGÉE 2.0 - Détection du DÉBUT d'un Sideways Trend (Détection d'Événement).
+
         Utilise une variable d'état pour marquer uniquement la transition vers un état de range.
         """
         signals = np.zeros(len(open_prices), dtype=np.float64)
@@ -12281,7 +12351,7 @@ if NUMBA_AVAILABLE:
         reversal_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """VERSION SANS LOOKAHEAD"""
+        """VERSION SANS LOOKAHEAD."""
         signals = np.zeros(len(open_prices), dtype=np.float64)
         for i in range(15, len(open_prices)):
             gap_up = open_prices[i] > high_prices[i - 1]
@@ -12361,8 +12431,8 @@ if NUMBA_AVAILABLE:
         retracement_weight: float,
         extension_weight: float,
     ) -> np.ndarray:
-        """
-        Détection du pattern Three Drives.
+        """Détection du pattern Three Drives.
+
         FIX: direction utilisée pour valider que chaque drive successif
         progresse bien dans la bonne direction (pivots ascendants pour bull,
         descendants pour bear). Sans ce check, une alternance correcte
@@ -12570,8 +12640,7 @@ if NUMBA_AVAILABLE:
         ratio_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        Détection Elliott Wave 1 — premier mouvement impulsif d'un cycle.
+        """Détection Elliott Wave 1 — premier mouvement impulsif d'un cycle.
 
         Définition (Prechter & Frost) :
         - Wave 1 = premier mouvement impulsif après une correction (Wave 0)
@@ -12772,8 +12841,7 @@ if NUMBA_AVAILABLE:
         volume_weight: float,
         momentum_weight: float,
     ) -> np.ndarray:
-        """
-        Détection Elliott Wave 3 — vague impulsive la plus forte du cycle.
+        """Détection Elliott Wave 3 — vague impulsive la plus forte du cycle.
 
         Caractéristiques (Prechter & Frost) :
         - Wave 3 = la plus longue et la plus rapide des vagues impulsives
@@ -12985,8 +13053,7 @@ if NUMBA_AVAILABLE:
         extension_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        Détection Elliott Wave 5 — dernière vague impulsive du cycle.
+        """Détection Elliott Wave 5 — dernière vague impulsive du cycle.
 
         Caractéristiques (Prechter & Frost) :
         - Wave 5 = vague finale plus courte/lente que Wave 3 (divergence)
@@ -13199,8 +13266,8 @@ if NUMBA_AVAILABLE:
         retracement_weight: float,
         bounce_weight: float,
     ) -> np.ndarray:
-        """
-        Détection Fibonacci Retracement.
+        """Détection Fibonacci Retracement.
+
         Recherche d'un swing AB + retracement BC proche d'un niveau Fibonacci
         + rebond CD confirmant le niveau.
 
@@ -13349,8 +13416,8 @@ if NUMBA_AVAILABLE:
         extension_weight: float,
         confirmation_weight: float,
     ) -> np.ndarray:
-        """
-        Détection Fibonacci Extension.
+        """Détection Fibonacci Extension.
+
         Structure AB (swing) + BC (retracement Fibonacci) + CD (extension Fibonacci).
 
         CORRECTIONS :
@@ -13473,9 +13540,7 @@ if NUMBA_AVAILABLE:
         lower_weight: float,
         convergence_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE 2.0 - Détection de Symmetrical Triangle avec Régression Linéaire
-        """
+        """VERSION CORRIGÉE 2.0 - Détection de Symmetrical Triangle avec Régression Linéaire."""
         signals = np.zeros(len(open_prices), dtype=np.float64)
 
         for i in range(min_pattern_length, len(open_prices)):
@@ -13570,8 +13635,7 @@ if NUMBA_AVAILABLE:
         isolation_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Island Bottom
+        """VERSION CORRIGÉE - Détection du pattern Island Bottom.
 
         CORRECTIONS APPORTÉES:
         1. Gestion des erreurs silencieuses avec validation stricte
@@ -13592,6 +13656,14 @@ if NUMBA_AVAILABLE:
             max_island_length: Longueur maximum de l'île (5 recommandé)
             min_volume_surge: Surge de volume minimum (2.0 recommandé)
             Poids pour le scoring pondéré
+            close_prices: TODO: documenter.
+            gap_weight: TODO: documenter.
+            high_prices: TODO: documenter.
+            isolation_weight: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
+            volume: TODO: documenter.
+            volume_weight: TODO: documenter.
 
         Returns:
             Array des scores de détection (0.0 à 1.0)
@@ -13750,8 +13822,8 @@ if NUMBA_AVAILABLE:
         shadow_weight: float,
         decline_weight: float,
     ) -> np.ndarray:
-        """
-        Détection Three Black Crows.
+        """Détection Three Black Crows.
+
         FIX: prev_body_mid utilisé comme borne basse de curr_open_in_body.
         Nison définit que chaque ouverture doit se situer DANS le corps
         de la bougie précédente. L'ancienne borne `close * 0.95` permettait
@@ -13900,7 +13972,7 @@ if NUMBA_AVAILABLE:
         volume_weight: float,
         convergence_weight: float,
     ) -> np.ndarray:
-        """VERSION CORRIGÉE - Détection du pattern Falling Wedge"""
+        """VERSION CORRIGÉE - Détection du pattern Falling Wedge."""
         signals = np.zeros(len(open_prices), dtype=np.float64)
         for i in range(min_pattern_length, len(open_prices)):
             start_idx = i - min_pattern_length
@@ -14004,8 +14076,7 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Kicking Bear
+        """VERSION CORRIGÉE - Détection du pattern Kicking Bear.
 
         CORRECTIONS APPORTÉES:
         1. Conditions quasi-parfaites remplacées par tolérances réalistes
@@ -14025,6 +14096,14 @@ if NUMBA_AVAILABLE:
             min_body_ratio: Ratio minimum du corps (0.8 recommandé)
             min_volume_surge: Surge de volume minimum (1.5 recommandé)
             Poids pour le scoring pondéré
+            body_weight: TODO: documenter.
+            close_prices: TODO: documenter.
+            gap_weight: TODO: documenter.
+            high_prices: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
+            volume: TODO: documenter.
+            volume_weight: TODO: documenter.
 
         Returns:
             Array des scores de détection (0.0 à 1.0)
@@ -14165,8 +14244,7 @@ if NUMBA_AVAILABLE:
         body_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Kicking Bull
+        """VERSION CORRIGÉE - Détection du pattern Kicking Bull.
 
         CORRECTIONS APPORTÉES:
         1. Conditions quasi-parfaites remplacées par tolérances réalistes
@@ -14186,6 +14264,14 @@ if NUMBA_AVAILABLE:
             min_body_ratio: Ratio minimum du corps (0.8 recommandé)
             min_volume_surge: Surge de volume minimum (1.5 recommandé)
             Poids pour le scoring pondéré
+            body_weight: TODO: documenter.
+            close_prices: TODO: documenter.
+            gap_weight: TODO: documenter.
+            high_prices: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
+            volume: TODO: documenter.
+            volume_weight: TODO: documenter.
 
         Returns:
             Array des scores de détection (0.0 à 1.0)
@@ -14330,7 +14416,7 @@ if NUMBA_AVAILABLE:
         volume_weight: float,
         consolidation_weight: float,
     ) -> np.ndarray:
-        """VERSION SANS LOOKAHEAD"""
+        """VERSION SANS LOOKAHEAD."""
         signals = np.zeros(len(open_prices), dtype=np.float64)
         for i in range(min_consolidation + 2, len(open_prices)):
             gap_up = open_prices[i] > high_prices[i - 1]
@@ -14417,7 +14503,7 @@ if NUMBA_AVAILABLE:
         continuation_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """VERSION SANS LOOKAHEAD"""
+        """VERSION SANS LOOKAHEAD."""
         signals = np.zeros(len(open_prices), dtype=np.float64)
         for i in range(15, len(open_prices)):
             gap_down = open_prices[i] < low_prices[i - 1]
@@ -14475,8 +14561,7 @@ if NUMBA_AVAILABLE:
         shadow_weight: float,
         advance_weight: float,
     ) -> np.ndarray:
-        """
-        VERSION CORRIGÉE - Détection du pattern Three White Soldiers
+        """VERSION CORRIGÉE - Détection du pattern Three White Soldiers.
 
         CORRECTIONS APPORTÉES:
         1. Conditions quasi-parfaites remplacées par tolérances réalistes
@@ -14497,6 +14582,14 @@ if NUMBA_AVAILABLE:
             max_shadow_ratio: Ratio maximum des ombres (0.3 recommandé)
             min_consecutive_advance: Avancée minimum consécutive (0.02 recommandé)
             Poids pour le scoring pondéré
+            advance_weight: TODO: documenter.
+            body_weight: TODO: documenter.
+            close_prices: TODO: documenter.
+            high_prices: TODO: documenter.
+            low_prices: TODO: documenter.
+            open_prices: TODO: documenter.
+            shadow_weight: TODO: documenter.
+            volume: TODO: documenter.
 
         Returns:
             Array des scores de détection (0.0 à 1.0)
@@ -14708,7 +14801,7 @@ if NUMBA_AVAILABLE:
         retracement_weight: float,
         volume_weight: float,
     ) -> np.ndarray:
-        """VERSION CORRIGÉE - Détection du pattern Spike Reversal"""
+        """VERSION CORRIGÉE - Détection du pattern Spike Reversal."""
         signals = np.zeros(len(open_prices), dtype=np.float64)
         min_reversal_ratio = 1.0 - max_retracement
 
@@ -14799,11 +14892,14 @@ if NUMBA_AVAILABLE:
 
 
 class PatternMetadataManager:
-    """
-    Gère l'accès aux métadonnées des patterns (catégorie, type, fenêtre, etc.).
-    """
+    """Gère l'accès aux métadonnées des patterns (catégorie, type, fenêtre, etc.)."""
 
-    def __init__(self, thresholds: Dict[str, Dict[str, Any]]):
+    def __init__(self, thresholds: dict[str, dict[str, Any]]):
+        """__init__.
+
+        Args:
+            thresholds: TODO document.
+        """
         self._metadata = {}
         for name, params in thresholds.items():
             self._metadata[name] = {
@@ -14813,15 +14909,15 @@ class PatternMetadataManager:
                 "window": params.get("fenêtre", 1),
             }
 
-    def get_pattern_metadata(self, pattern_name: str) -> Optional[Dict[str, Any]]:
+    def get_pattern_metadata(self, pattern_name: str) -> dict[str, Any] | None:
         """Récupère les métadonnées pour un pattern spécifique."""
         return self._metadata.get(pattern_name)
 
-    def get_all_patterns(self) -> List[str]:
+    def get_all_patterns(self) -> list[str]:
         """Retourne la liste de tous les patterns disponibles."""
         return list(self._metadata.keys())
 
-    def get_max_window(self, patterns: List[str]) -> int:
+    def get_max_window(self, patterns: list[str]) -> int:
         """Calcule la fenêtre d'analyse maximale requise pour une liste de patterns."""
         max_window = 0
         for name in patterns:
@@ -14950,12 +15046,17 @@ NUMBA_FUNCTIONS = {
 
 
 class NumbaPatternDetectors:
-    """
-    Orchestrateur de détection de patterns qui génère dynamiquement
+    """Orchestrateur de détection de patterns qui génère dynamiquement.
+
     les fonctions de détection pour une extensibilité maximale.
     """
 
     def __init__(self, metadata_manager: PatternMetadataManager):
+        """__init__.
+
+        Args:
+            metadata_manager: TODO document.
+        """
         self.metadata_manager = metadata_manager
         self._detection_functions = {}
         self._register_detectors()
@@ -14967,8 +15068,8 @@ class NumbaPatternDetectors:
     def _create_detector_for_pattern(
     self, pattern_name: str, numba_func: callable
     ) -> callable:
-        """
-        Factory qui crée un wrapper de détection pour un pattern donné.
+        """Factory qui crée un wrapper de détection pour un pattern donné.
+
         Le wrapper accepte désormais un tf_scale optionnel pour adapter
         les seuils sensibles à la timeframe courante.
         """
@@ -14985,11 +15086,11 @@ class NumbaPatternDetectors:
         }
 
         def detector_wrapper(
-            data: Dict[str, np.ndarray],
+            data: dict[str, np.ndarray],
             tf_scale: float = 1.0,
         ) -> np.ndarray:
-            """
-            Closure de détection. tf_scale est injecté par detect() selon
+            """Closure de détection. tf_scale est injecté par detect() selon.
+
             la timeframe des données. Les paramètres listés dans
             TF_SENSITIVE_PARAMS sont multipliés par tf_scale avant injection.
             """
@@ -15027,8 +15128,8 @@ class NumbaPatternDetectors:
         return detector_wrapper
 
     def _register_detectors(self):
-        """
-        Parcourt PATTERN_THRESHOLDS, trouve la fonction Numba correspondante
+        """Parcourt PATTERN_THRESHOLDS, trouve la fonction Numba correspondante.
+
         et génère dynamiquement une fonction de détection pour chaque pattern.
         """
         logger.info("🛠️ Génération dynamique des fonctions de détection...")
@@ -15053,11 +15154,9 @@ class NumbaPatternDetectors:
                 )
 
     def detect(
-    self, data: pl.DataFrame, patterns_to_detect: List[str]
-    ) -> Dict[str, np.ndarray]:
-        """
-        Méthode unifiée de détection avec scaling dynamique par timeframe.
-        """
+    self, data: pl.DataFrame, patterns_to_detect: list[str]
+    ) -> dict[str, np.ndarray]:
+        """Méthode unifiée de détection avec scaling dynamique par timeframe."""
         print(f"🚀 Lancement de la détection pour {len(patterns_to_detect)} patterns.")
 
         valid_patterns = [

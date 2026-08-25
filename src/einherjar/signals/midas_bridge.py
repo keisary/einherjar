@@ -10,7 +10,6 @@ Reference : Phase 2 du CDC EINHERJAR.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 import polars as pl
@@ -20,7 +19,15 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # Indicateurs techniques (fonctions numba pures)
 # ============================================================================
-from einherjar.signals.technical_indicators import (
+# ============================================================================
+# Patterns (classe detectrice)
+# ============================================================================
+from einherjar.signals.numba_pattern_detectors import (  # noqa: E402
+    PATTERN_THRESHOLDS,
+    NumbaPatternDetectors,
+    PatternMetadataManager,
+)
+from einherjar.signals.technical_indicators import (  # noqa: E402
     _numba_adx_complete,
     _numba_aroon,
     _numba_atr,
@@ -49,15 +56,6 @@ from einherjar.signals.technical_indicators import (
     _numba_vortex,
     _numba_vwap,
     _numba_williams_r,
-)
-
-# ============================================================================
-# Patterns (classe detectrice)
-# ============================================================================
-from einherjar.signals.numba_pattern_detectors import (
-    PATTERN_THRESHOLDS,
-    NumbaPatternDetectors,
-    PatternMetadataManager,
 )
 
 # ============================================================================

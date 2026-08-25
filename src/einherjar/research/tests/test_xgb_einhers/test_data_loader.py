@@ -9,16 +9,16 @@ Vérifie que :
 - Le split temporel respecte les ratios et l'embargo
 """
 import unittest
+
 import numpy as np
 
 from einherjar.research.xgb_einhers.data_loader import (
-    load_xy,
-    get_target_for_horizon,
-    temporal_split,
     OHLCV_COLUMNS,
+    get_target_for_horizon,
     load_usable_feature_names,
+    load_xy,
+    temporal_split,
 )
-from einherjar.research.xgb_einhers.types import LoadedData
 
 
 class TestLoadXY(unittest.TestCase):
@@ -163,9 +163,11 @@ class TestLoadUsableFeatureNames(unittest.TestCase):
         self.assertEqual(len(usable), 218)
 
     def test_ohlcv_not_usable(self):
-        """Les 5 OHLCV sont dans features_taxonomy mais doivent être filtered
-        car on les exclut explicitement (réponse Q6)."""
-        usable = load_usable_feature_names()
+        """Les 5 OHLCV sont dans features_taxonomy mais doivent être filtered.
+
+        car on les exclut explicitement (réponse Q6).
+        """
+        load_usable_feature_names()
         # open/high/low/close/volume sont atomic et marked usable dans la taxonomie
         # MAIS on les exclut via data_loader.py
         # Ici on vérifie juste que la taxonomie les contient (c'est le data_loader qui les exclut)

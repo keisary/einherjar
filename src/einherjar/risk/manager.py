@@ -15,15 +15,13 @@ Reference : Section 3 du CDC EINHERJAR.
 
 from __future__ import annotations
 
-import json
 import logging
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import Any
 
 from einherjar.brokers.broker_utils import ASSET_CLASS_MAP
-from einherjar.core.config import RiskLimits, SystemConfig
-from einherjar.core.enums import AssetClass, Direction, OrderType, RejectionReason
+from einherjar.core.config import SystemConfig
+from einherjar.core.enums import AssetClass, OrderType, RejectionReason
 from einherjar.core.models import AccountState, Order, Position, Rejection, Signal
 
 logger = logging.getLogger(__name__)
@@ -105,8 +103,8 @@ class RiskManager:
         self.daily_pnl: float = 0.0
         self.weekly_pnl: float = 0.0
         self.peak_equity: float = 0.0
-        self._last_daily_reset: datetime = datetime.now(timezone.utc)
-        self._last_weekly_reset: datetime = datetime.now(timezone.utc)
+        self._last_daily_reset: datetime = datetime.now(UTC)
+        self._last_weekly_reset: datetime = datetime.now(UTC)
         self._rejection_history: list[Rejection] = []
 
     def _reset_periodic_tracking(self, now: datetime) -> None:
@@ -239,7 +237,7 @@ class RiskManager:
         Returns:
             Order si accepte, Rejection sinon.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self._reset_periodic_tracking(now)
 
         equity = account.equity
@@ -332,7 +330,7 @@ class RiskManager:
 
     def get_status(self) -> dict[str, Any]:
         """Retourne l'etat courant du Risk Manager."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self._reset_periodic_tracking(now)
         return {
             "daily_pnl": self.daily_pnl,

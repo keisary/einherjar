@@ -15,9 +15,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
 
 import polars as pl
 
@@ -59,6 +60,11 @@ class CircuitBreaker:
     """
 
     def __init__(self, config: CircuitBreakerConfig | None = None) -> None:
+        """__init__.
+
+        Args:
+            config: TODO document.
+        """
         self.config = config or CircuitBreakerConfig()
         self.state = "CLOSED"
         self.failures = 0
@@ -80,7 +86,7 @@ class CircuitBreaker:
     def record_failure(self) -> None:
         """Enregistre une erreur."""
         self.failures += 1
-        self.last_failure_time = datetime.now(timezone.utc)
+        self.last_failure_time = datetime.now(UTC)
 
         if self.state == "HALF_OPEN":
             self.state = "OPEN"
@@ -107,7 +113,7 @@ class CircuitBreaker:
         if self.state == "HALF_OPEN" and self.half_open_calls < self.config.half_open_max_calls:
             return True
         if self.state == "OPEN" and self.last_failure_time is not None:
-            elapsed = (datetime.now(timezone.utc) - self.last_failure_time).total_seconds()
+            elapsed = (datetime.now(UTC) - self.last_failure_time).total_seconds()
             if elapsed >= self.config.recovery_timeout:
                 self.state = "HALF_OPEN"
                 self.half_open_calls = 0
@@ -120,13 +126,18 @@ class RateLimiter:
     """Rate limiter simple base sur des fenetres glissantes."""
 
     def __init__(self, config: RateLimitConfig | None = None) -> None:
+        """__init__.
+
+        Args:
+            config: TODO document.
+        """
         self.config = config or RateLimitConfig()
         self.second_calls: list[datetime] = []
         self.minute_calls: list[datetime] = []
 
     async def acquire(self) -> None:
         """Attend si necessaire pour respecter les limites."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Nettoyer les appels anciens
         self.second_calls = [t for t in self.second_calls if (now - t).total_seconds() < 1.0]
@@ -135,12 +146,12 @@ class RateLimiter:
         # Attendre si limite atteinte
         while len(self.second_calls) >= self.config.max_calls_per_second:
             await asyncio.sleep(0.1)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             self.second_calls = [t for t in self.second_calls if (now - t).total_seconds() < 1.0]
 
         while len(self.minute_calls) >= self.config.max_calls_per_minute:
             await asyncio.sleep(1.0)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             self.minute_calls = [t for t in self.minute_calls if (now - t).total_seconds() < 60.0]
 
         self.second_calls.append(now)
@@ -165,6 +176,13 @@ class ResilientBroker:
         circuit_config: CircuitBreakerConfig | None = None,
         rate_config: RateLimitConfig | None = None,
     ) -> None:
+        """__init__.
+
+        Args:
+            adapter: TODO document.
+            circuit_config: TODO document.
+            rate_config: TODO document.
+        """
         self.adapter = adapter
         self.name = getattr(adapter, "name", "unknown")
         self.circuit = CircuitBreaker(circuit_config)
@@ -172,6 +190,10 @@ class ResilientBroker:
 
     async def _call(self, method_name: str, *args: Any, **kwargs: Any) -> Any:
         """Execute un appel avec protection.
+
+        Args:
+                **kwargs: TODO: documenter.
+                *args: TODO: documenter.
 
         Args:
             method_name: Nom de la methode a appeler.
@@ -209,7 +231,7 @@ class ResilientBroker:
                 "event": "broker_call_success",
                 "broker": self.name,
                 "method": method,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             })
         )
 
@@ -222,7 +244,7 @@ class ResilientBroker:
                 "method": method,
                 "error": str(exc),
                 "error_type": type(exc).__name__,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             })
         )
 

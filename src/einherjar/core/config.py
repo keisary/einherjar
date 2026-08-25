@@ -7,11 +7,9 @@ Expose ValidationConfig (seuils d'admission Einher) et RiskLimits (limites RM).
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[3] / "config" / "settings.json"
 
@@ -119,5 +117,9 @@ def load_settings(path: str | Path | None = None) -> SystemConfig:
     return SystemConfig(
         risk_limits=risk_limits,
         validation_config=validation_config,
-        **{k: v for k, v in raw.items() if k not in ("risk_limits", "validation_config", "_comment") and k in SystemConfig.__dataclass_fields__},
+        **{
+        k: v
+        for k, v in raw.items()
+        if k not in ("risk_limits", "validation_config", "_comment") and k in SystemConfig.__dataclass_fields__
+    },
     )

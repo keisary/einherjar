@@ -17,6 +17,11 @@ class ConfluenceEngine:
     """Transforme des signaux bruts en intentions par actif et direction."""
 
     def __init__(self, minimum_confidence: float = 0.0) -> None:
+        """__init__.
+
+        Args:
+            minimum_confidence: TODO document.
+        """
         self.minimum_confidence = minimum_confidence
 
     def aggregate(self, signals: list[Signal]) -> list[ConfluenceCluster]:
@@ -36,7 +41,13 @@ class ConfluenceEngine:
         for (asset, direction), members in grouped.items():
             weights = [max(signal.confidence, 0.01) for signal in members]
             weight_sum = sum(weights)
-            weighted = lambda values: sum(value * weight for value, weight in zip(values, weights)) / weight_sum
+            def weighted(values):
+                """Weighted.
+
+                Args:
+                values: TODO document.
+                """
+                return sum(value * weight for value, weight in zip(values, weights)) / weight_sum
             domains = {self._domain(signal) for signal in members}
             raw_score = weighted([signal.confidence for signal in members])
             diversity = min(len(domains) / 3.0, 1.0)

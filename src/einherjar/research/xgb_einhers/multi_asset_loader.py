@@ -17,7 +17,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -96,9 +95,15 @@ def list_available_assets(
     timeframe: str = "1h",
     compiled_dir: Path = COMPILED_DIR,
     require_ohlcv: bool = False,
-    ohlcv_dir: Optional[Path] = None,
+    ohlcv_dir: Path | None = None,
 ) -> list[str]:
     """Liste les actifs disponibles pour un (asset_class, timeframe).
+
+    Args:
+            asset_class: TODO: documenter.
+            compiled_dir: TODO: documenter.
+            ohlcv_dir: TODO: documenter.
+            timeframe: TODO: documenter.
 
     Args:
         require_ohlcv : si True, ne retourne que les actifs qui ont

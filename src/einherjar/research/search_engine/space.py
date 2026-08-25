@@ -8,7 +8,7 @@ artefact de config à part entière (data_version pour reproductibilité, ligne
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -42,6 +42,7 @@ class SpaceConfig:
     max_size: int = 40
 
     def to_dict(self) -> dict[str, object]:
+        """to_dict."""
         return {
             "data_version": self.data_version,
             "n_features": len(self.feature_names),

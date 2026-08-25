@@ -119,14 +119,14 @@ def _collect_paths(expr: object, kind: str, path: tuple[str, ...] = ()):
     (Const, Feature, BinNum) — y compris ceux sous les Cmp.
     """
     if kind == "bool":
-        if isinstance(expr, (Cmp, BoolOp)):
+        if isinstance(expr, Cmp | BoolOp):
             yield path, expr
         if isinstance(expr, BoolOp):
             yield from _collect_paths(expr.left, kind, path + ("left",))
             if expr.right is not None:
                 yield from _collect_paths(expr.right, kind, path + ("right",))
     else:
-        if isinstance(expr, (Const, Feature, BinNum)):
+        if isinstance(expr, Const | Feature | BinNum):
             yield path, expr
         if isinstance(expr, BinNum):
             yield from _collect_paths(expr.left, kind, path + ("left",))

@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
-from .types import LoadedData
 from .paths import FEES_CONFIG_PATH
+from .types import LoadedData
 
 logger = logging.getLogger(__name__)
 

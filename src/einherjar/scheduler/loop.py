@@ -22,15 +22,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from einherjar.brokers.adapter import BrokerAdapter
 from einherjar.brokers.broker_utils import ASSET_CLASS_MAP
 from einherjar.core.config import SystemConfig
 from einherjar.core.confluence import ConfluenceEngine
-from einherjar.core.enums import AssetClass, Direction, TimeFrame
-from einherjar.core.models import AccountState, Order, Signal
+from einherjar.core.enums import AssetClass
+from einherjar.core.models import Order
 from einherjar.data.live_store import LiveDataStore
 from einherjar.data.store import DataStore
 from einherjar.signals.einher_engine import EinherEngine
@@ -53,7 +53,8 @@ class MarketCalendar:
     """Calendrier simplifie de marche pour l'ordonnanceur."""
 
     def __init__(self) -> None:
-        self.tz = timezone.utc
+        """__init__."""
+        self.tz = UTC
 
     def is_open(self, asset: str, dt: datetime) -> bool:
         """Verifie si le marche est ouvert pour un actif a un instant donne."""
@@ -90,7 +91,7 @@ def next_close_timestamp(now: datetime, timeframe: str) -> datetime:
 
     if minutes >= 1440:
         tomorrow = now.date() + timedelta(days=1)
-        return datetime(tomorrow.year, tomorrow.month, tomorrow.day, tzinfo=timezone.utc)
+        return datetime(tomorrow.year, tomorrow.month, tomorrow.day, tzinfo=UTC)
 
     total_min = now.hour * 60 + now.minute
     next_min = ((total_min // minutes) + 1) * minutes
@@ -121,6 +122,9 @@ class InferenceLoop:
         confluence_engine: ConfluenceEngine | None = None,
     ) -> None:
         """Initialise la boucle.
+
+        Args:
+                confluence_engine: TODO: documenter.
 
         Args:
             broker: Adapter cTrader unique.
@@ -189,7 +193,7 @@ class InferenceLoop:
                 return result
 
             df_history = self.live_store.get_window(asset, timeframe, n=self.feature_engine.max_lookback)
-            df_updated = self.live_store.append(asset, timeframe, candle)
+            self.live_store.append(asset, timeframe, candle)
 
             df_enriched = self.feature_engine.compute_incremental(df_history, candle)
             if "feature_placeholder" not in df_enriched.columns or len(df_enriched.columns) > 6:
@@ -257,7 +261,9 @@ class InferenceLoop:
                         fill = await self.broker.place_order(order_or_rejection)
                         self.data_store.append_fill(fill)
                         total_orders += 1
-                        logger.info("EXEC %s %s contributors=%d", fill.asset, fill.order_id, len(cluster.contributing_einhers))
+                        logger.info(
+        "EXEC %s %s contributors=%d", fill.asset, fill.order_id, len(cluster.contributing_einhers)
+    )
                     except Exception as exc:
                         logger.error("Execution ordre echoue %s: %s", order_or_rejection.order_id, exc)
                 else:
@@ -275,7 +281,7 @@ class InferenceLoop:
 
     async def _sleep_until_next_close(self) -> datetime:
         """Calcule et attend la prochaine cloture la plus proche."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         next_closes: list[datetime] = []
 
         for asset, tf in self.assets_timeframes:

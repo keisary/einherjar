@@ -11,15 +11,10 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any
-
-import numpy as np
 
 from .condition_tree import path_to_ast
 from .path_extractor import XGBPath
 from .types import (
-    Condition,
-    ConditionNode,
     Einher,
     EinherMetrics,
 )

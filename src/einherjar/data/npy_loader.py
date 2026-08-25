@@ -12,9 +12,7 @@ Ce module charge les donnees OHLCV depuis les .npy pour initialiser le store liv
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import polars as pl
@@ -54,7 +52,7 @@ def load_ohlcv_from_npy(
 
     try:
         ts = np.load(ts_path)
-        X = np.load(x_path)
+        np.load(x_path)
 
         # Les timestamps .npy sont en ms Unix. On les GARDE en int64
         # pour compatibilite avec ohlcv._sanitize qui attend des entiers.

@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 import polars as pl
@@ -28,8 +27,6 @@ from .condition_tree import (
     evaluate_ast_on_array,
 )
 from .types import (
-    Condition,
-    ConditionNode,
     Einher,
     EinherMetrics,
     TradeResult,
@@ -46,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BacktestResult:
+    """BacktestResult."""
     trades: list[TradeResult]
     metrics: EinherMetrics
     equity_curve: np.ndarray          # (n_trades + 1,) cumsum des net_returns, commence à 0
@@ -116,6 +114,11 @@ def simulate_trade(
     (conservateur).
 
     Args:
+            highs: TODO: documenter.
+            lows: TODO: documenter.
+            opens: TODO: documenter.
+
+    Args:
         entry_idx : index d'entrée (= t+1 où t est le signal)
         amplitude : nb de bougies max
         direction : 'BUY' | 'SELL'
@@ -139,12 +142,12 @@ def simulate_trade(
     for offset in range(amplitude):
         idx = entry_idx + offset
         h = highs[idx]
-        l = lows[idx]
+        low_ = lows[idx]
         if direction == "BUY":
             tp_hit = h >= tp_price
-            sl_hit = l <= sl_price
+            sl_hit = low_ <= sl_price
         else:
-            tp_hit = l <= tp_price
+            tp_hit = low_ <= tp_price
             sl_hit = h >= sl_price
         # Si les deux touchés, convention SL-first
         if sl_hit and tp_hit:
@@ -288,7 +291,8 @@ def backtest_einher_multi(
     holdout_embargo: int = 50,
     phase: str = "val",
 ) -> BacktestResult:
-    """Backtest multi-actif : evalue l'Einher sur CHACUN des actifs du scope
+    """Backtest multi-actif : evalue l'Einher sur CHACUN des actifs du scope.
+
     (per_asset = liste de (ohlcv_df, X) alignes), puis AGREGGE les trades.
 
     FIX BUG-1 (2026-08-21) : avant, en scope=market/general, le modele etait
@@ -304,9 +308,14 @@ def backtest_einher_multi(
     all_trades: list[TradeResult] = []
     primary_result = None
     n_aligned_list = [len(o) for o, _ in per_asset]
-    n_total = sum(n_aligned_list)
+    sum(n_aligned_list)
     # Bornes temporelles communes (proportionnelles a chaque serie)
     def _phase_slice(n):
+        """_phase_slice.
+
+        Args:
+            n: TODO document.
+        """
         te = int(n * val_frac)
         ve_1 = min(n, te + int(n * 0.2))
         hs = ve_1 + max(holdout_embargo, einher.amplitude_bars)
@@ -331,7 +340,12 @@ def backtest_einher_multi(
     if not all_trades:
         # pas de trades : on retourne des metriques vides (val)
         return primary_result if primary_result else BacktestResult(
-            trades=[], metrics=backtest_einher(einher, per_asset[0][0][:0], per_asset[0][1][:0], feature_names, costs_pct).metrics if per_asset else None,
+            trades=[],
+            metrics=(
+                backtest_einher(einher, per_asset[0][0][:0], per_asset[0][1][:0], feature_names, costs_pct).metrics
+                if per_asset
+                else None
+            ),
             equity_curve=np.array([0.0]))
     # Recalculer les metriques sur l'union (agreg)
     # Recalculer les metriques sur l'union (agreg)

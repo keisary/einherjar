@@ -16,8 +16,7 @@ sur des centaines de milliers de lignes × milliers de candidats.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -33,6 +32,7 @@ class Const:
     value: float
 
     def to_dict(self) -> dict[str, float]:
+        """to_dict."""
         return {"kind": "const", "value": self.value}
 
 
@@ -43,6 +43,7 @@ class Feature:
     feature_ref: str
 
     def to_dict(self) -> dict[str, str]:
+        """to_dict."""
         return {"kind": "feature", "feature_ref": self.feature_ref}
 
 
@@ -55,6 +56,7 @@ class BinNum:
     right: object  # NumExpr
 
     def to_dict(self) -> dict[str, object]:
+        """to_dict."""
         return {"kind": "binnum", "op": self.op, "left": self.left.to_dict(), "right": self.right.to_dict()}
 
 
@@ -72,6 +74,7 @@ class Cmp:
     value: float
 
     def to_dict(self) -> dict[str, object]:
+        """to_dict."""
         return {"kind": "cmp", "expr": self.expr.to_dict(), "operator": self.operator, "value": self.value}
 
 
@@ -81,9 +84,10 @@ class BoolOp:
 
     op: str
     left: object  # BoolExpr
-    right: Optional[object] = None  # None pour NOT
+    right: object | None = None  # None pour NOT
 
     def to_dict(self) -> dict[str, object]:
+        """to_dict."""
         d: dict[str, object] = {"kind": "boolop", "op": self.op, "left": self.left.to_dict()}
         if self.right is not None:
             d["right"] = self.right.to_dict()
@@ -166,7 +170,7 @@ def eval_bool(
 
 def depth(expr: object) -> int:
     """Profondeur max de l'arbre (feuille = 0)."""
-    if isinstance(expr, (Const, Feature)):
+    if isinstance(expr, Const | Feature):
         return 0
     if isinstance(expr, Cmp):
         return 1 + depth(expr.expr)
@@ -181,7 +185,7 @@ def depth(expr: object) -> int:
 
 def size(expr: object) -> int:
     """Nombre de nœuds de l'arbre (anti-bloat)."""
-    if isinstance(expr, (Const, Feature)):
+    if isinstance(expr, Const | Feature):
         return 1
     if isinstance(expr, Cmp):
         return 1 + size(expr.expr)
@@ -200,7 +204,7 @@ def collect_features(expr: object, acc: list[str] | None = None) -> list[str]:
         acc = []
     if isinstance(expr, Feature):
         acc.append(expr.feature_ref)
-    elif isinstance(expr, (BinNum, Cmp)):
+    elif isinstance(expr, BinNum | Cmp):
         collect_features(expr.left if hasattr(expr, "left") else expr.expr, acc)
         if isinstance(expr, BinNum):
             collect_features(expr.right, acc)

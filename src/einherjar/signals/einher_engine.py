@@ -31,6 +31,11 @@ class EinherEngine:
     """
 
     def __init__(self, einhers: list[Einher] | None = None) -> None:
+        """__init__.
+
+        Args:
+            einhers: TODO document.
+        """
         self.einhers = einhers or []
         self._feature_map: dict[str, str] = {}
 
@@ -202,7 +207,7 @@ class EinherEngine:
                 if hasattr(val, "item"):
                     local[col] = val.item()
                 else:
-                    local[col] = float(val) if isinstance(val, (int, float, complex)) else 0.0
+                    local[col] = float(val) if isinstance(val, int | float | complex) else 0.0
             except Exception:
                 local[col] = 0.0
 

@@ -23,7 +23,6 @@ from einherjar.research.xgb_einhers.model import (
     train_gbdt,
 )
 
-
 HORIZON_IDX = 3  # 2d
 N_TOP_FEATURES = 3
 MAX_R2_DROP = 0.30  # 30% de chute max

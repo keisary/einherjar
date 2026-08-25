@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from .types import Einher
 
@@ -42,7 +42,7 @@ def load_einhers(path: Path) -> list[Einher]:
     if not path.exists():
         return []
     einhers = []
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -56,7 +56,7 @@ def iter_einhers(path: Path) -> Iterator[Einher]:
     """Itère sur les Einhers d'un fichier JSONL."""
     if not path.exists():
         return
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -94,8 +94,6 @@ def _metrics_from_dict(m: dict):
 
 def _dict_to_einher(d: dict) -> Einher:
     """Reconstruit un Einher depuis son dict JSON."""
-    from .types import ConditionNode
-
     ct = d["condition_tree"]
     condition_tree = _dict_to_ast(ct)
 

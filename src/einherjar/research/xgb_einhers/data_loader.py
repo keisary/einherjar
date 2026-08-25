@@ -23,8 +23,8 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from .types import LoadedData, TrainValHoldoutSplit
 from .paths import COMPILED_DIR, OHLCV_DIR, TAXONOMY_PATH
+from .types import LoadedData, TrainValHoldoutSplit
 
 logger = logging.getLogger(__name__)
 
