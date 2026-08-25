@@ -168,7 +168,7 @@ class Condition:
         """to_dict."""
         d = {k: v for k, v in asdict(self).items() if v is not None}
         if self.expr is not None and hasattr(self.expr, "to_dict"):
-            d["expr"] = self.expr.to_dict()
+            d["expr"] = self.expr.to_dict()  # pyright: ignore[reportAttributeAccessIssue]
         return d
 
 
@@ -188,8 +188,8 @@ class ConditionNode:
 
 
 # Alias pour faciliter les annotations circulaires
-Condition.__class_getitem__ = lambda cls, x: cls
-ConditionNode.__class_getitem__ = lambda cls, x: cls
+Condition.__class_getitem__ = lambda cls, x: cls  # pyright: ignore[reportAttributeAccessIssue]
+ConditionNode.__class_getitem__ = lambda cls, x: cls  # pyright: ignore[reportAttributeAccessIssue]
 
 
 @dataclass(frozen=True)

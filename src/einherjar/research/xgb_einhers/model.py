@@ -255,7 +255,7 @@ def _train_xgb(
     # lorsque le modele stagnait.
     if config.early_stopping_rounds and config.early_stopping_rounds > 0:
         params["early_stopping_rounds"] = config.early_stopping_rounds
-    model = _xgb.XGBRegressor(**params)
+    model = _xgb.XGBRegressor(**params)  # pyright: ignore[reportOptionalMemberAccess]
     model.fit(
         X_train, y_train,
         eval_set=[(X_val, y_val)],

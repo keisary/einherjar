@@ -13,6 +13,7 @@ import time
 import warnings
 from functools import lru_cache
 from multiprocessing import Pool, cpu_count, shared_memory
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -26,8 +27,8 @@ logger = logging.getLogger(__name__)
 try:
     import dask  # noqa: F401
     import dask.dataframe as dd
-    from dask import delayed  # noqa: F401
-    from dask.diagnostics import ProgressBar
+    from dask.delayed import delayed  # type: ignore[import-untyped] # noqa: F401
+    from dask.diagnostics import ProgressBar  # type: ignore[import-untyped]
     from dask.distributed import Client, LocalCluster, as_completed  # noqa: F401
 
     DASK_AVAILABLE = True
@@ -1223,7 +1224,7 @@ if NUMBA_AVAILABLE:
         return result
 
     @jit(nopython=True, cache=True)
-    def calculate_rolling_std_numba(data, window):
+    def calculate_rolling_std_numba(data, window):  # pyright: ignore[reportRedeclaration]
         """Écart-type mobile ultra-rapide avec Numba."""
         n = len(data)
         if n < window:
@@ -1601,7 +1602,7 @@ else:
         return np.full(len(returns), 1.0, dtype=OPTIMAL_FLOAT)
 
     # Fallback functions pour les nouvelles fonctions Numba
-    def calculate_returns_numba(prices):
+    def calculate_returns_numba_v2(prices):
         """calculate_returns_numba.
 
         Args:
@@ -1609,14 +1610,14 @@ else:
         """
         return np.diff(prices) / prices[:-1] if len(prices) > 1 else np.array([0.0])
 
-    def calculate_rolling_mean_numba(data, window):
+    def calculate_rolling_mean_numba_v2(data, window):
         """calculate_rolling_mean_numba.
 
         Args:
             data: TODO document.
             window: TODO document.
         """
-        return pd.Series(data).rolling(window).mean().fillna(method="bfill").values
+        return pd.Series(data).rolling(window).mean().bfill().values  # pyright: ignore[reportAttributeAccessIssue]
 
     def calculate_rolling_std_numba(data, window):
         """calculate_rolling_std_numba.
@@ -1836,7 +1837,7 @@ class QuantitativeCache:
             self.access_order.clear()
             self.current_memory_mb = 0.0
 
-    def get_stats(self) -> dict[str, any]:
+    def get_stats(self) -> dict[str, Any]:
         """Statistiques du cache."""
         total_requests = self.hit_count + self.miss_count
         hit_rate = (self.hit_count / total_requests * 100) if total_requests > 0 else 0
@@ -1885,7 +1886,7 @@ class DaskOptimizer:
                 n_workers=self.n_workers,
                 threads_per_worker=self.threads_per_worker,
                 memory_limit=self.memory_limit,
-                dashboard_address=None,  # Désactiver dashboard pour performance
+                dashboard_address=None,  # Désactiver dashboard pour performance  # pyright: ignore[reportArgumentType]
                 silence_logs=logging.ERROR,
             )
 
@@ -2004,7 +2005,7 @@ class SharedMemoryOptimizer:
         self.shared_blocks = {}
         self.lock = threading.Lock()
 
-    def setup_shared_memory(self, df: pd.DataFrame) -> dict[str, any]:
+    def setup_shared_memory(self, df: pd.DataFrame) -> dict[str, Any]:
         """Configuration de la mémoire partagée."""
         if not SHARED_MEMORY_AVAILABLE:
             logger.warning("Shared memory non disponible")
@@ -2116,7 +2117,7 @@ def process_asset_group_worker(asset_data):
             n_jobs=1,  # Force single-thread dans worker
             auto_optimize=False,  # Désactiver auto-optimize dans worker
         )
-        enricher_instance._is_worker_instance = True  # Marquer comme instance worker
+        enricher_instance._is_worker_instance = True  # pyright: ignore[reportAttributeAccessIssue]  # Marquer comme instance worker
 
         # Traiter le chunk directement
         enriched_data = enricher_instance._process_single_chunk(asset_data)
@@ -2232,7 +2233,7 @@ class OptimizationStrategy:
                 )
             elif strategy == "memory_mapping":
                 return self.memory_mapping_optimizer.process_file_with_mmap(
-                    df, enricher_instance
+                    df, enricher_instance  # pyright: ignore[reportArgumentType]
                 )
             elif strategy == "multiprocessing":
                 return enricher_instance._process_with_multiprocessing_by_asset(df)
@@ -2273,7 +2274,7 @@ class OptimizedQuantitativeFeaturesEnricher:
         self,
         chunk_size: int = 50000,
         max_memory_gb: float = 4.0,
-        n_jobs: int = None,
+        n_jobs: int | None = None,
         auto_optimize: bool = True,
     ):
         # CONFIGURATION OPTIMISÉE - 24 FEATURES INSTITUTIONNELLES
@@ -2402,7 +2403,7 @@ class OptimizedQuantitativeFeaturesEnricher:
     def _add_all_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Ajouter toutes les 24 features optimisées."""
         prices = df["close"].astype(OPTIMAL_FLOAT).values
-        returns = np.diff(prices) / prices[:-1]
+        returns = np.diff(prices) / prices[:-1]  # pyright: ignore[reportArgumentType]
         returns = np.concatenate([[0], returns]).astype(OPTIMAL_FLOAT)
 
         # VOLATILITÉ (5 features)
@@ -2894,7 +2895,7 @@ class OptimizedQuantitativeFeaturesEnricher:
 
         return enriched_df
 
-    def _check_memory_usage(self, df: pd.DataFrame = None) -> dict[str, float]:
+    def _check_memory_usage(self, df: pd.DataFrame | None = None) -> dict[str, float]:
         """Vérifier l'usage mémoire."""
         memory_info = psutil.virtual_memory()
         memory_used_gb = (memory_info.total - memory_info.available) / (1024**3)
@@ -3209,7 +3210,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             # Appliquer l'enrichissement avec timeout
             enriched_ddf = ddf.map_partitions(
                 self._compute_indicators_for_partition_safe,
-                meta=self._get_enriched_meta(df),
+                meta=self._get_enriched_meta(df),  # pyright: ignore[reportAttributeAccessIssue]
             )
 
             # Calculer avec barre de progression
@@ -3240,7 +3241,7 @@ class OptimizedQuantitativeFeaturesEnricher:
             df, self
         )
 
-    def _setup_shared_memory(self, df: pd.DataFrame) -> dict[str, any]:
+    def _setup_shared_memory(self, df: pd.DataFrame) -> dict[str, Any]:
         """Configuration de la mémoire partagée pour les données."""
         return self.optimization_strategy.shared_memory_optimizer.setup_shared_memory(
             df
@@ -3660,7 +3661,9 @@ def enrich_all_datasets_quantitative_ultra_optimized():
     print(f"{'=' * 80}")
 
 
-def enrich_single_dataset_ultra_optimized(dataset_path: str, output_path: str = None):
+def enrich_single_dataset_ultra_optimized(
+    dataset_path: str, output_path: str | None = None
+):
     """Enrichir un seul dataset avec toutes les optimisations."""
     print(f"🚀 ENRICHISSEMENT ULTRA-OPTIMISÉ: {dataset_path}")
 

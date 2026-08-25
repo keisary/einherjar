@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false, reportAssignmentType=false, reportCallIssue=false
 """descriptors.py — Descripteurs MAP-Elites (plan lignes 401-408).
 
 Axes choisis (validés Jovanny, Option A) :

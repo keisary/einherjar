@@ -341,7 +341,7 @@ def backtest_einher_multi(
         # pas de trades : on retourne des metriques vides (val)
         return primary_result if primary_result else BacktestResult(
             trades=[],
-            metrics=(
+            metrics=(  # pyright: ignore[reportArgumentType]
                 backtest_einher(einher, per_asset[0][0][:0], per_asset[0][1][:0], feature_names, costs_pct).metrics
                 if per_asset
                 else None

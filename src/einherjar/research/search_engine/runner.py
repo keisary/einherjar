@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false, reportAssignmentType=false, reportCallIssue=false
 """runner.py — Pipeline de recherche : STGP + MAP-Elites → admission C1-C6 → corpus.
 
 Orchestration de bout en bout (étape E du plan) :

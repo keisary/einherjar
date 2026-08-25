@@ -42,7 +42,7 @@ def condition_from_dict(d: dict[str, Any]) -> Any:
     if left is not None or right is not None:
         return ConditionNode(
             op=d["op"],
-            left=condition_from_dict(left) if left is not None else None,
+            left=condition_from_dict(left) if left is not None else None,  # pyright: ignore[reportArgumentType]
             right=condition_from_dict(right) if right is not None else None,
         )
     return Condition(

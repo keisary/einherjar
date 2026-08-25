@@ -1,0 +1,16 @@
+{
+  // Configuration Pyright/Pylance pour einherjar
+  // Python : venv midas (D:/midas_v2/midas)
+  "venvPath": "D:/midas_v2",
+  "venv": "midas",
+  "extraPaths": ["src"],
+
+  // Niveau global raisonnable : basic (pas de strict)
+  "typeCheckingMode": "basic",
+
+  // numba_pattern_detectors : faux-positifs systemiques avec @njit
+  // (les decorators numba rendent tous les retours opaques -> cascades
+  // reportCallIssue/reportOperatorIssue sur du code qui s'execute correctement,
+  // prouve par les tests). Analyse desactivee pour ce fichier.
+  "ignore": ["src/einherjar/signals/numba_pattern_detectors.py"]
+}

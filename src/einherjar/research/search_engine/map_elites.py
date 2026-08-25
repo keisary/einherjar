@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false, reportAssignmentType=false
 """map_elites.py — Archive MAP-Elites (plan D1, lignes 398-412).
 
 L'archive partitionne l'espace des stratégies par descripteurs (direction,

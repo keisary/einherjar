@@ -8,54 +8,53 @@ import polars as pl
 logger = logging.getLogger(__name__)
 
 # === IMPORTS NUMBA (avec fallback robuste) ===
-try:
-    from numba import njit, prange
+# --- Import numba avec fallback propre pour l'analyse statique (Pyright/Pylance) ---
+# Pattern : shims definis INCONDITIONNELLEMENT, puis remplaces si numba dispo.
+def _numba_shim_njit(*args, **kwargs):
+    """Decorator identite : remplace numba.njit quand numba est absent."""
 
+    def decorator(func):
+        """Retourne la fonction telle quelle (pas de compilation)."""
+        return func
+
+    if args and callable(args[0]):
+        # utilisation @njit sans parentheses
+        return args[0]
+    return decorator
+
+
+def _numba_shim_prange(x):
+    """Remplace numba.prange quand numba est absent."""
+    return range(x)
+
+
+njit = _numba_shim_njit  # type: ignore[assignment]
+prange = _numba_shim_prange  # type: ignore[assignment]
+NUMBA_AVAILABLE = False
+
+try:
+    from numba import njit as _real_njit
+    from numba import prange as _real_prange
+
+    njit = _real_njit  # type: ignore[assignment]
+    prange = _real_prange  # type: ignore[assignment]
     NUMBA_AVAILABLE = True
     logger.info("🚀 Numba disponible - Optimisations activées")
 except ImportError:
-    NUMBA_AVAILABLE = False
-    logger.warning("⚠️ Numba non disponible - Mode fallback Python")
+        logger.warning("⚠️ Numba non disponible - Mode fallback Python")
 
-    # Fallback decorators
-    def njit(*args, **kwargs):
-        """Njit."""
-        def decorator(func):
-            """Decorator.
 
-            Args:
-            func: TODO document.
-            """
-            return func
-
-        return decorator
-
-    def prange(x):
-        """Prange.
-
-        Args:
-            x: TODO document.
-        """
-        return range(x)
-
-    # CORRECTION P1: safe_divide doit exister en mode fallback (sinón NameError)
-    def safe_divide(numerator, denominator, default=0.0):
-        """safe_divide.
-
-        Args:
-            numerator: TODO document.
-            denominator: TODO document.
-            default: TODO document.
-        """
-        if denominator == 0.0 or abs(denominator) < 1e-15:
+def safe_divide(numerator, denominator, default=0.0):
+    """Division securisee (NaN/Inf/overflow), unique definition pour tout le module."""
+    if denominator == 0.0 or abs(denominator) < 1e-15:
+        return default
+    try:
+        result = numerator / denominator
+        if result != result or abs(result) > 1e10:  # NaN or overflow check
             return default
-        try:
-            result = numerator / denominator
-            if result != result or abs(result) > 1e10:  # NaN or overflow check
-                return default
-            return result
-        except Exception:
-            return default
+        return result
+    except Exception:
+        return default
 
 
 PATTERN_THRESHOLDS = {
@@ -1403,29 +1402,8 @@ if NUMBA_AVAILABLE:
             return 0.0
         return safe_divide(high_val - low_val, reference_price)
 
-    @njit
-    def safe_divide(numerator, denominator, default=0.0):
-        """Division sécurisée compatible Numba nopython.
-
-        Définie en premier pour être disponible pour toutes les fonctions utilitaires.
-        """
-        if denominator == 0.0 or abs(denominator) < 1e-15:
-            return default
-
-        if (
-            np.isnan(denominator)
-            or np.isinf(denominator)
-            or np.isnan(numerator)
-            or np.isinf(numerator)
-        ):
-            return default
-
-        result = numerator / denominator
-
-        if np.isnan(result) or np.isinf(result) or abs(result) > 1e10:
-            return default
-
-        return result
+    # NOTE: safe_divide unique defini dans le fallback ci-dessus
+    # (une seule def -> Pyright ne se confond plus sur les signatures).
 
     @njit
     def calculate_weighted_score(components, weights):

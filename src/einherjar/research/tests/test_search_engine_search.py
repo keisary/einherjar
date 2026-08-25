@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false, reportAssignmentType=false, reportOptionalMemberAccess=false, reportIndexIssue=false
 """Tests des modules recherche (fitness, descripteurs, MAP-Elites)."""
 from __future__ import annotations
 

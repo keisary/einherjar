@@ -129,7 +129,7 @@ def from_condition_tree(ast: Condition | ConditionNode) -> object:
         return BoolOp(
             op=ast.op,
             left=from_condition_tree(ast.left),
-            right=from_condition_tree(ast.right),
+            right=from_condition_tree(ast.right),  # pyright: ignore[reportArgumentType]
         )
     raise TypeError(f"Condition attendue, reçu : {type(ast).__name__}")
 

@@ -153,7 +153,7 @@ def _mk_strong(sharpe: float, n: int = 120, features=None, mask_slice=None) -> C
         win_rate=0.6, avg_net_return=float(rets.mean()), total_return=float(rets.sum()),
         sharpe_ratio=sharpe, max_drawdown=-0.1, profit_factor=1.5,
         avg_holding_bars=10, buy_hold_return=0.2, alpha=0.1,
-        t_statistic=4.0, p_value=0.0001, trade_returns=list(rets),
+        t_statistic=4.0, p_value=0.0001, trade_returns=list(rets),  # pyright: ignore[reportArgumentType]
     )
     e = build_einher(Cmp(expr=Feature("mom"), operator=">", value=0.0), "BUY", 10,
                      {"asset": "BTCUSD"}, costs_pct=0.0014)

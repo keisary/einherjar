@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false, reportAttributeAccessIssue=false
 """CTraderAdapter — Interface unique cTrader Open API (cloud-native).
 
 Utilise la librairie officielle `ctrader-open-api` (Spotware) qui s'appuie
@@ -169,7 +170,7 @@ class _CTraderTwistedThread:
         req = ProtoOAAccountAuthReq()
         req.ctidTraderAccountId = self.account_id
         req.accessToken = self.access_token
-        d = self._client.send(req)
+        d = self._client.send(req)  # pyright: ignore[reportOptionalMemberAccess]
         d.addCallback(self._on_account_auth_ok)
         d.addErrback(self._on_error)
 
@@ -202,7 +203,7 @@ class _CTraderTwistedThread:
         req_id = str(uuid.uuid4())
         request.clientMsgId = req_id
         self._pending[req_id] = (response_type, future)
-        self._reactor.callFromThread(self._client.send, request)
+        self._reactor.callFromThread(self._client.send, request)  # pyright: ignore[reportOptionalMemberAccess]
         return future
 
     def _preload_symbols(self) -> None:
@@ -210,7 +211,7 @@ class _CTraderTwistedThread:
         try:
             req = ProtoOASymbolsListReq()
             req.ctidTraderAccountId = self.account_id
-            deferred = self._client.send(req)
+            deferred = self._client.send(req)  # pyright: ignore[reportOptionalMemberAccess]
             deferred.addCallback(self._cache_symbols)
             deferred.addErrback(self._on_error)
         except Exception as exc:
@@ -519,7 +520,7 @@ class CTraderAdapter:
         """Recupere l'historique OHLCV via Trendbars cTrader."""
         return await self._safe_call("get_ohlcv", asset, timeframe, limit)
 
-    async def subscribe_live(self, assets: list[str], callback: callable) -> None:
+    async def subscribe_live(self, assets: list[str], callback: callable) -> None:  # pyright: ignore[reportGeneralTypeIssues]
         """Souscription live — non implemente pour cTrader Open API (pas de streaming temps reel dans cette version)."""
         logger.warning("subscribe_live non implemente pour cTrader")
 

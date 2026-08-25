@@ -281,7 +281,7 @@ async def retry_with_backoff(
         try:
             if asyncio.iscoroutinefunction(func):
                 return await func()
-            return func()
+            return func()  # pyright: ignore[reportReturnType]
         except exceptions:
             if attempt == max_retries - 1:
                 raise

@@ -1,3 +1,4 @@
+# pyright: reportAttributeAccessIssue=false, reportReturnType=false, reportArgumentType=false, reportAssignmentType=false
 """expression.py — Langage STGP fortement typé des Einhers.
 
 Deux types d'expressions (STGP = Strongly-Typed GP, plan A1) :

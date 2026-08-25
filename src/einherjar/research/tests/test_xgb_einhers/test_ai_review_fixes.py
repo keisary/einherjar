@@ -1,3 +1,4 @@
+# pyright: reportAttributeAccessIssue=false, reportOptionalMemberAccess=false, reportArgumentType=false
 """test_ai_review_fixes.py - Tests pour les fix de la revue AI 2026-08-20.
 
 Couvre :
@@ -40,7 +41,7 @@ def make_trade(net: float, n: int = 30, noise: float = 0.005) -> list[TradeResul
     ]
 
 
-def make_einher(name: str, val_m: EinherMetrics, holdout_m: EinherMetrics = None) -> Einher:
+def make_einher(name: str, val_m: EinherMetrics, holdout_m: EinherMetrics | None = None) -> Einher:
     cond = Condition(feature_ref="x", operator="<", value=0.0)
     return Einher(
         id=f"einher_{name}",

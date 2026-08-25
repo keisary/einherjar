@@ -259,7 +259,7 @@ def align_xy_with_ohlcv(
         "align_xy_with_ohlcv : %d/%d lignes conservées (%.1f%%)",
         X_aligned.shape[0], n, 100 * X_aligned.shape[0] / n,
     )
-    return X_aligned, ohlcv_aligned, ts_aligned
+    return X_aligned, ohlcv_aligned, ts_aligned  # pyright: ignore[reportReturnType]
 
 
 # --------------------------------------------------------------------------- #

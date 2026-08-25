@@ -54,4 +54,4 @@ def cheap_fitness(
     # fitness flat (convention baselines : taux de déclenchement borné).
     if res.metrics.n_trades < 30:
         sharpe = -10.0
-    return sharpe, einher, sub
+    return sharpe, einher, sub  # pyright: ignore[reportReturnType]

@@ -159,7 +159,9 @@ def _cuda_available() -> bool:
                 use_cuda = bool(bi.get("USE_CUDA"))
             elif callable(bi):
                 try:
-                    use_cuda = bool(bi().get("USE_CUDA"))
+                    info = bi()
+                    if isinstance(info, dict):
+                        use_cuda = bool(info.get("USE_CUDA"))
                 except Exception:
                     use_cuda = False
             # xgboost >= 2.0 : device='cuda' dispo -> le probe fait foi.
@@ -387,8 +389,11 @@ def run_pipeline(
         X_global = np.concatenate(
             [multi_split.train_X, multi_split.val_X, multi_split.holdout_X], axis=0
         )
-        Y_dir_global = None  # non utilise en multi (valid_mask deja applique au split)
-        Y_ret_global = None
+        # Pour _quick_importances (dedup) on garde le target du PRIMARY seul :
+        # suffisant pour classer les features, sans dupliquer tous les arrays.
+        Y_dir_global = primary_loaded.Y_dir
+        Y_ret_global = primary_loaded.Y_ret
+        valid_mask = Y_dir_global[:, horizon_idx] != -100
         valid_mask = np.ones(X_global.shape[0], dtype=bool)
         logger.info(
             "  Multi-actif (FIX BUG-03 + MEM-01): %d actifs, train=%d, val=%d, holdout=%d",
@@ -411,8 +416,8 @@ def run_pipeline(
         X_aligned_full, ohlcv_aligned, ts_aligned = align_xy_with_ohlcv(loaded, ohlcv_df)
         logger.info(
             "  N=%d, F=%d, H=%d, horizons=%s",
-            primary_loaded.n_samples if multi else loaded.n_samples,
-            primary_loaded.n_features if multi else loaded.n_features,
+            loaded.n_samples,
+            loaded.n_features,
             len(horizons),
             horizons,
         )
@@ -420,11 +425,11 @@ def run_pipeline(
     # 2. Pre-compute valid_mask (Sprint 3.6 FIX BUG-08 : dedup en avait besoin)
     logger.info("[2a/10] Pre-compute valid_mask ...")
     if not multi:
-        valid_mask = Y_dir_global[:, horizon_idx] != -100
+        valid_mask = Y_dir_global[:, horizon_idx] != -100 # pyright: ignore[reportOptionalSubscript]
     # (multi : valid_mask deja tout-True, les invalides ont ete filtres par actif)
     logger.info(
         "  valid_mask : %d/%d True (%.1f%%)",
-        valid_mask.sum(),
+        valid_mask.sum(), # type: ignore
         len(valid_mask),
         100 * valid_mask.sum() / max(1, len(valid_mask)),
     )
@@ -533,6 +538,7 @@ def run_pipeline(
             100 * valid_mask.sum() / max(1, len(valid_mask)),
         )
     else:
+        assert Y_ret_global is not None
         target = Y_ret_global[:, horizon_idx].copy()
         logger.info(
             "  %d/%d samples valides (%.1f%%)",
@@ -554,7 +560,7 @@ def run_pipeline(
         logger.info("  Multi-actif : splits deja calcules par load_multi_asset_split")
     else:
         X_valid = X_global[valid_mask]
-        y_valid = target[valid_mask].astype(np.float32)
+        y_valid = target[valid_mask].astype(np.float32)  # pyright: ignore[reportOptionalSubscript]
         logger.info("  X_valid : %d lignes", X_valid.shape[0])
 
         # 6. Split temporel (single uniquement)
@@ -823,7 +829,7 @@ def run_pipeline(
                 actual_scope = runner_scope or scope or ("market" if multi else "asset")
                 archive_store.add(
                     einher,
-                    rejection_reason=reason,
+                    rejection_reason=str(reason or "unspecified"),
                     scope=actual_scope,
                     asset=u.get("asset", ""),
                     asset_class=u.get("asset_class", ""),
@@ -1396,7 +1402,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
                     res = {"status": "error", "error": str(e)}
                 if res["status"] == "ok":
                     n_ok += 1
-                    s = res["summary"]
+                    s: dict = res.get("summary") or {}  # pyright: ignore[reportAssignmentType]
                     n_admitted_total += s.get("n_admitted", 0)
                     n_rejected_total += s.get("n_rejected", 0)
                     logger.info(

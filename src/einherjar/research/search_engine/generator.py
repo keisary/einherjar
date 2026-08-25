@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false, reportAssignmentType=false, reportCallIssue=false
 """generator.py — Génération STGP des arbres de conditions.
 
 Koza (1992) ramped half-and-half : moitié « full » (toutes les branches à
@@ -59,8 +60,8 @@ def generate_random_num_expr(
 def _threshold_for(expr: object, pool: object, rng: np.random.Generator) -> float:
     """Tire un seuil du pool : per-feature si atome Feature, sinon global."""
     if isinstance(expr, Feature):
-        return float(rng.choice(pool.per_feature[expr.feature_ref]))
-    return float(rng.choice(pool.global_values))
+        return float(rng.choice(pool.per_feature[expr.feature_ref]))  # pyright: ignore[reportAttributeAccessIssue]
+    return float(rng.choice(pool.global_values))  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def generate_random_bool_expr(

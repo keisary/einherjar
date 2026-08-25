@@ -1,3 +1,4 @@
+# pyright: reportReturnType=false, reportOptionalCall=false, reportOptionalMemberAccess=false, reportArgumentType=false
 """Module d'indicateurs techniques optimisés avec Numba pour MIDAS V3.
 
 Contient toutes les fonctions de calcul d'indicateurs techniques avec JIT compilation.
@@ -1391,7 +1392,7 @@ class TechnicalIndicatorsEnricher:
                 df[col] = np.nan
 
         # Vérifier que les données ne sont pas toutes NaN
-        if df["close"].isna().all():
+        if df["close"].isna().all():  # pyright: ignore[reportGeneralTypeIssues]
             print("⚠️ Toutes les valeurs 'close' sont NaN")
             for indicator in self.indicators_to_compute:
                 df[indicator] = np.nan

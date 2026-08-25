@@ -207,7 +207,7 @@ class EinherEngine:
                 if hasattr(val, "item"):
                     local[col] = val.item()
                 else:
-                    local[col] = float(val) if isinstance(val, int | float | complex) else 0.0
+                    local[col] = float(val) if isinstance(val, int | float | complex) else 0.0  # pyright: ignore[reportArgumentType]
             except Exception:
                 local[col] = 0.0
 

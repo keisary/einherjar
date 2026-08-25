@@ -7,6 +7,7 @@ Supporte deux formats de sortie :
 
 API unifiée : `extract_paths(model, backend, feature_names, ...)`.
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,6 +30,7 @@ class XGBPath:
     - sub_paths   : pour OR/XOR, liste des sous-chemins combinés (chacun
                     un XGBPath AND). Pour NOT, conditions déjà négativées.
     """
+
     conditions: tuple[tuple[str, str, float], ...]
     score: float
     tree_idx: int
@@ -44,9 +46,7 @@ class XGBPath:
 
 def parse_xgb_dump(dump_str: str) -> list[XGBPath]:
     """Parse le dump texte d'un arbre XGBoost."""
-    node_re = re.compile(
-        r"^(\d+):\[(.+?)\s*([<>=!]+)\s*([\-\d\.eE+]+)\]\s*yes=(\d+),no=(\d+),missing=(\d+)"
-    )
+    node_re = re.compile(r"^(\d+):\[(.+?)\s*([<>=!]+)\s*([\-\d\.eE+]+)\]\s*yes=(\d+),no=(\d+),missing=(\d+)")
     leaf_re = re.compile(r"^(\d+):leaf=([\-\d\.eE+]+)")
     nodes = {}
     for line in dump_str.strip().split("\n"):
@@ -87,12 +87,14 @@ def _walk_xgb(node_id, conditions, nodes, out, tree_idx=0):
     if node is None:
         return
     if node["type"] == "leaf":
-        out.append(XGBPath(
-            conditions=tuple(conditions),
-            score=node["value"],
-            tree_idx=tree_idx,
-            path_idx=len(out),
-        ))
+        out.append(
+            XGBPath(
+                conditions=tuple(conditions),
+                score=node["value"],
+                tree_idx=tree_idx,
+                path_idx=len(out),
+            )
+        )
         return
     feat = node["feature"]
     op = node["op"]
@@ -159,20 +161,30 @@ def parse_sklearn_tree(
 
 
 def _walk_sklearn(
-    node_id, conditions, children_left, children_right,
-    feature, threshold, value, feature_names, out, tree_idx,
+    node_id,
+    conditions,
+    children_left,
+    children_right,
+    feature,
+    threshold,
+    value,
+    feature_names,
+    out,
+    tree_idx,
 ):
     if node_id == -1:
         return
     if children_left[node_id] == -1:  # feuille
         # value[node_id] est shape (1, 1) ou (1, 1, 1) selon version
         v = float(np.asarray(value[node_id]).flatten()[0])
-        out.append(XGBPath(
-            conditions=tuple(conditions),
-            score=v,
-            tree_idx=tree_idx,
-            path_idx=len(out),
-        ))
+        out.append(
+            XGBPath(
+                conditions=tuple(conditions),
+                score=v,
+                tree_idx=tree_idx,
+                path_idx=len(out),
+            )
+        )
         return
     feat_idx = int(feature[node_id])
     if feat_idx < 0 or feat_idx >= len(feature_names):
@@ -183,15 +195,27 @@ def _walk_sklearn(
     _walk_sklearn(
         children_left[node_id],
         conditions + [(feat_name, "<=", thresh)],
-        children_left, children_right, feature, threshold, value,
-        feature_names, out, tree_idx,
+        children_left,
+        children_right,
+        feature,
+        threshold,
+        value,
+        feature_names,
+        out,
+        tree_idx,
     )
     # Branche "right" : feature > threshold
     _walk_sklearn(
         children_right[node_id],
         conditions + [(feat_name, ">", thresh)],
-        children_left, children_right, feature, threshold, value,
-        feature_names, out, tree_idx,
+        children_left,
+        children_right,
+        feature,
+        threshold,
+        value,
+        feature_names,
+        out,
+        tree_idx,
     )
 
 
@@ -256,14 +280,16 @@ def build_logical_variants(
             # P2-1bis : path_idx UNIQUE (l'ancien 10001 fixe entrait en collision
             # entre arbres -> ids d'Einhers instables).
             _or_uid = _next_variant_uid(10000)
-            variants.append(XGBPath(
-                conditions=(),
-                score=max(p1.score, p2.score),
-                tree_idx=p1.tree_idx,
-                path_idx=_or_uid,
-                logical_op="OR",
-                sub_paths=(p1, p2),
-            ))
+            variants.append(
+                XGBPath(
+                    conditions=(),
+                    score=max(p1.score, p2.score),
+                    tree_idx=p1.tree_idx,
+                    path_idx=_or_uid,
+                    logical_op="OR",
+                    sub_paths=(p1, p2),
+                )
+            )
 
     # --- NOT : négation d'une condition atomique d'un chemin ---
     # Le condition d'origine (non niée) est passé tel quel ; c'est
@@ -276,13 +302,15 @@ def build_logical_variants(
         # P2-1bis : uid unique par (tree_idx, path_idx)
         _not_uid = _next_variant_uid(20000)
         # On marque le chemin comme NOT ; path_to_ast fera NOT(c1) AND reste
-        variants.append(XGBPath(
-            conditions=p.conditions,   # pas négativé ici
-            score=p.score,
-            tree_idx=p.tree_idx,
-            path_idx=_not_uid,
-            logical_op="NOT",
-        ))
+        variants.append(
+            XGBPath(
+                conditions=p.conditions,  # pas négativé ici
+                score=p.score,
+                tree_idx=p.tree_idx,
+                path_idx=_not_uid,
+                logical_op="NOT",
+            )
+        )
 
     # --- XOR : 2 conditions complémentaires sur le même feature ---
     for p in paths[:top_n]:
@@ -296,13 +324,15 @@ def build_logical_variants(
             if len(conds) >= 2:
                 c1, c2 = conds[0], conds[1]
                 _xor_uid = _next_variant_uid(30000)
-                variants.append(XGBPath(
-                    conditions=(c1, c2),
-                    score=p.score,
-                    tree_idx=p.tree_idx,
-                    path_idx=_xor_uid,
-                    logical_op="XOR",
-                ))
+                variants.append(
+                    XGBPath(
+                        conditions=(c1, c2),
+                        score=p.score,
+                        tree_idx=p.tree_idx,
+                        path_idx=_xor_uid,
+                        logical_op="XOR",
+                    )
+                )
                 break
     return variants
 
@@ -361,9 +391,9 @@ def extract_paths(
 
     # Filtrer
     filtered = [
-        p for p in all_paths
-        if min_path_length <= len(p.conditions) <= max_path_length
-        and effective_min <= abs(p.score) <= max_score
+        p
+        for p in all_paths
+        if min_path_length <= len(p.conditions) <= max_path_length and effective_min <= abs(p.score) <= max_score
     ]
     filtered.sort(key=lambda p: abs(p.score), reverse=True)
     # FIX DIVERSITE (2026-08-21) : la selection top-max_paths par |score| seul
@@ -393,8 +423,8 @@ def extract_paths(
         backend,
         len(all_paths),
         len(filtered),
-        len(result) - (len(variants) if enable_logical_variants and result else 0),
-        (len(variants) if enable_logical_variants and result else 0),
+        len(result) - (len(variants) if enable_logical_variants and result else 0), # type: ignore
+        (len(variants) if enable_logical_variants and result else 0), # type: ignore
     )
     return result
 
@@ -438,6 +468,7 @@ def _name_features_in_dump(dump_str: str, feature_names: list[str]) -> str:
     avec une fonction de lookup : O(dump) en une passe.
     """
     import re
+
     # Seul le motif "[f<N><op>" (avec un opérateur de comparaison) doit être
     # renommé : on évite de toucher aux feuilles "leaf=".
     name_by_idx = {i: n for i, n in enumerate(feature_names)}

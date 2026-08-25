@@ -138,7 +138,7 @@ async def overview() -> dict[str, Any]:
     change = ((latest / first - 1) * 100) if latest and first else None
     exposure: dict[str, float] = {}
     for position in positions:
-        name = ASSET_CLASS_MAP.get(position.asset, position.asset_class).value.upper()
+        name = ASSET_CLASS_MAP.get(position.asset, position.asset_class).value.upper()  # pyright: ignore[reportOptionalMemberAccess]
         exposure[name] = exposure.get(name, 0.0) + position.quantity * position.avg_entry_price
     return {
         "metrics": [

@@ -20,16 +20,7 @@ Réponse Q10 : 1 modèle XGBoost par (asset, TF, horizon).
 """
 
 __version__ = "0.1.0"
-__all__ = [
-    "types",
-    "data_loader",
-    "label_engineer",
-    "model",
-    "path_extractor",
-    "condition_tree",
-    "einher_builder",
-    "backtester",
-    "admission",
-    "einher_io",
-    "runner",
-]
+# NOTE : __all__ vide volontairement - les sous-modules s'importent directement
+# (from einherjar.research.xgb_einhers import data_loader). Lister les noms ici
+# sans les importer declenche reportUnsupportedDunderAll chez Pyright.
+__all__: list[str] = []

@@ -48,7 +48,7 @@ class BrokerAdapter(Protocol):
     async def subscribe_live(
         self,
         assets: list[str],
-        callback: callable,
+        callback: callable,  # pyright: ignore[reportGeneralTypeIssues]
     ) -> None:
         """Souscrit aux flux de prix temps reel.
 
