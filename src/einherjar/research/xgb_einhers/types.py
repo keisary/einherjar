@@ -113,11 +113,14 @@ class EinherMetrics:
     tp_hit_rate: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
-        # FIX P0-2 : trade_returns serialise aussi (round-trip fidele).
-        # L'ancien dict l'excluait -> impossible de re-analyser un corpus.
-        """to_dict."""
-        d = {k: v for k, v in asdict(self).items()}
-        d["trade_returns"] = list(self.trade_returns)
+        """Serialise les metriques (SANS trade_returns - artefact de prod).
+
+        FIX PROD (2026-08-26) : trade_returns exclu du JSON. Les Einhers sont
+        des artefacts de production : seules les metriques synthetiques comptent.
+        Mesure : trade_returns = 82% du poids des lignes JSONL du corpus, sans
+        valeur d'usage en prod. Disponibles EN MEMOIRE pendant le run.
+        """
+        d = {k: v for k, v in asdict(self).items() if k != "trade_returns"}
         return d
 
     def passes_admission(
@@ -212,8 +215,17 @@ class Einher:
     holdout_metrics: EinherMetrics | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """to_dict."""
-        return {
+        """Serialise l'Einher pour la PRODUCTION (JSONL compact et essentiel).
+
+        FIX PROD (2026-08-26) : nettoyage du format JSONL.
+        - cross_asset_test / data_version : systematiquement vides a ce stade
+          (audit corpus 24/24) -> exclus ; inclus seulement s'ils sont remplis.
+        - holdout_metrics : inclus seulement si present.
+        - source.feature_names : redondant avec condition_tree -> exclu.
+        Les champs utilises par le moteur de prod (condition, direction,
+        amplitude, tp/sl, universe) et les metriques d'admission sont conserves.
+        """
+        out: dict[str, Any] = {
             "id": self.id,
             "condition_tree": self.condition_tree.to_dict(),
             "direction": self.direction,
@@ -223,12 +235,16 @@ class Einher:
             "universe": self.universe,
             "metrics": self.metrics.to_dict(),
             "scope": self.scope,
-            "cross_asset_test": self.cross_asset_test,
-            "source": self.source,
+            "source": {k: v for k, v in self.source.items() if k != "feature_names"},
             "created_at": self.created_at,
-            "data_version": self.data_version,
-            "holdout_metrics": self.holdout_metrics.to_dict() if self.holdout_metrics else None,
         }
+        if self.cross_asset_test:
+            out["cross_asset_test"] = self.cross_asset_test
+        if self.data_version:
+            out["data_version"] = self.data_version
+        if self.holdout_metrics is not None:
+            out["holdout_metrics"] = self.holdout_metrics.to_dict()
+        return out
 
     @classmethod
     def to_jsonl_line(cls, einher: Einher) -> str:
