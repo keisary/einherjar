@@ -312,28 +312,13 @@ def build_logical_variants(
             )
         )
 
-    # --- XOR : 2 conditions complémentaires sur le même feature ---
-    for p in paths[:top_n]:
-        if len(p.conditions) < 2:
-            continue
-        # Cherche 2 conditions sur le même feature
-        by_feat: dict[str, list[tuple]] = {}
-        for c in p.conditions:
-            by_feat.setdefault(c[0], []).append(c)
-        for feat, conds in by_feat.items():
-            if len(conds) >= 2:
-                c1, c2 = conds[0], conds[1]
-                _xor_uid = _next_variant_uid(30000)
-                variants.append(
-                    XGBPath(
-                        conditions=(c1, c2),
-                        score=p.score,
-                        tree_idx=p.tree_idx,
-                        path_idx=_xor_uid,
-                        logical_op="XOR",
-                    )
-                )
-                break
+    # NOTE P3-4 (2026-08-26) : le XOR est SUPPRIME de la generation.
+    # Recherche documentee : aucune litterature de finance quantitative
+    # n'utilise XOR entre conditions techniques. Entre deux conditions du
+    # meme feature c'est une redondance (equivalent a un intervalle), entre
+    # features differents aucune interpretation economique n'existe.
+    # Les disjonctions legitimes sont gerees par logical_refiner.evaluate_or_pairs
+    # (OR-de-regimes, fondes Disjunctive Emerging Patterns).
     return variants
 
 

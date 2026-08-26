@@ -300,6 +300,8 @@ def run_pipeline(
     pattern_min_t_stat: float = 3.0,  # P3-1 : seuil de significativité train
     pattern_min_occurrences: int = 60,  # P3-1 : occurrences minimales train
     pattern_max_candidates: int = 15,  # P3-1 : cap de candidats patterns par triplet
+    enable_or_regimes: bool = True,  # P3-4a : OR-de-régimes post-génération
+    enable_veto: bool = True,  # P3-4b : veto-NOT post-admission
 ) -> dict[str, Any]:
     """Pipeline complet XGBoost -> Einher (single ou multi-actif).
 
@@ -328,6 +330,8 @@ def run_pipeline(
         runner_scope : scope reel pour propagation dans l'archive.
         optimize_params : grid search leger TOUJOURS actif (Sprint 3.7).
         enable_pattern_miner: TODO: documenter.
+        enable_or_regimes: P3-4a - active les paires OR-de-regimes post-generation.
+        enable_veto: P3-4b - active le veto-NOT post-admission (retire <=20% des trades).
         pattern_max_candidates: TODO: documenter.
         pattern_min_occurrences: TODO: documenter.
         pattern_min_t_stat: TODO: documenter.
@@ -696,6 +700,31 @@ def run_pipeline(
     )
     logger.info("  %d chemins retenus", len(paths))
 
+    # ---- P3-4a (2026-08-26) : OR-de-régimes post-génération ----
+    # Paires de chemins même-direction complémentaires (mécanismes distincts,
+    # cf. Disjunctive Emerging Patterns). Désactivable via --no-or-regimes.
+    or_einher_template: Einher | None = None
+    if enable_or_regimes and paths:
+        from .logical_refiner import evaluate_or_pairs
+
+        assert split_train_y is not None
+        or_candidates = evaluate_or_pairs(
+            paths,
+            split_train_X,
+            split_train_y,
+            feature_names,
+            min_branch_t_stat=2.0,
+            max_pairs=3,
+        )
+        if not or_candidates:
+            logger.info("  or_refiner : aucune paire complementaire retenue")
+        else:
+            # template pour univers/direction : construit au premier path ci-dessous
+            logger.info("  or_refiner : %d paires complementaires en attente de template",
+                        len(or_candidates))
+    else:
+        or_candidates = []
+
     # 9. Pour chaque chemin : construire un Einher et le backtest
     logger.info("[9/10] Generation des Einhers et backtest ...")
     # FIX P0-2 (AI Review 2026-08-20) : cost floor crypto-only.
@@ -804,6 +833,31 @@ def run_pipeline(
         einher = set_einher_metrics(einher, result.metrics)
         einher = set_einher_tp_sl(einher, result.effective_tp_pct, result.effective_sl_pct)
         all_einhers.append(einher)
+
+    # ---- P3-4a suite : construire les Einhers OR maintenant qu'on a un template ----
+    if enable_or_regimes and or_candidates:
+        from .logical_refiner import build_or_einher
+
+        if all_einhers:
+            or_einher_template = all_einhers[-1]
+            for cand in or_candidates:
+                oe = build_or_einher(cand, or_einher_template)
+                n_generated += 1
+                n_aligned_o = X_aligned.shape[0]
+                emb_o = max(50, horizon_bars)
+                _te = int(n_aligned_o * 0.6)
+                _vs = _te + emb_o
+                _ve = min(n_aligned_o, _vs + int(n_aligned_o * 0.2))
+                if _vs < _ve:
+                    res_o = backtest_einher(oe, ohlcv_aligned[_vs:_ve], X_aligned[_vs:_ve],
+                                            feature_names, costs_pct=costs)
+                else:
+                    res_o = backtest_einher(oe, ohlcv_aligned[:0], X_aligned[:0],
+                                            feature_names, costs_pct=costs)
+                oe = set_einher_metrics(oe, res_o.metrics)
+                oe = set_einher_tp_sl(oe, res_o.effective_tp_pct, res_o.effective_sl_pct)
+                all_einhers.append(oe)
+            logger.info("  or_refiner : %d Einhers OR ajoutes", len(or_candidates))
 
     # ---- P3-1 (2026-08-25) : générateur event-study pour les binaires ----
     # Les patterns rares conditionnels sont invisibles pour XGBoost MSE
@@ -936,6 +990,52 @@ def run_pipeline(
                     horizon=u.get("horizon", ""),
                 )
 
+    # ---- P3-4b (2026-08-26) : veto-NOT post-admission ----
+    # Sur les Einhers admis, chercher une condition de veto (NOT(c)) qui améliore
+    # le sharpe val en retirant <=20% des trades. La variante retenue REMPLACE
+    # l'original dans la liste des admis ; l'original est archivé avec raison
+    # "superseded by veto". Désactivable via --no-veto.
+    if enable_veto and einhers_admitted and not debug:
+        from .logical_refiner import find_veto_condition
+
+        n_aligned_v = X_aligned.shape[0]
+        _te = int(n_aligned_v * 0.6)
+        _vs = _te + max(50, horizon_bars)
+        _ve = min(n_aligned_v, _vs + int(n_aligned_v * 0.2))
+        if _vs < _ve:
+            replaced: list[Einher] = []
+            for e_adm in einhers_admitted:
+                res_v = find_veto_condition(
+                    e_adm,
+                    ohlcv_aligned[_vs:_ve],
+                    X_aligned[_vs:_ve],
+                    feature_names,
+                    costs_pct=costs,
+                    backtest_fn=backtest_einher,
+                )
+                if res_v is not None:
+                    cand_v, info_v = res_v
+                    if archive_store is not None:
+                        archive_store.add(
+                            e_adm,
+                            rejection_reason=(
+                                f"superseceded by veto variant {cand_v.id} "
+                                f"(sharpe {info_v['sharpe_before']:.2f} -> "
+                                f"{info_v['sharpe_after']:.2f})"
+                            ),
+                            scope=runner_scope or scope or ("market" if multi else "asset"),
+                            asset=e_adm.universe.get("asset", ""),
+                            asset_class=e_adm.universe.get("asset_class", ""),
+                            timeframe=e_adm.universe.get("timeframe", ""),
+                            horizon=e_adm.universe.get("horizon", ""),
+                        )
+                    if corpus_store is not None:
+                        corpus_store.add(cand_v)
+                    replaced.append(cand_v)
+                else:
+                    replaced.append(e_adm)
+            einhers_admitted = replaced
+
     # 10. Resume
     # FIX BUG-10 (Sprint 3.6) : en multi, on utilise les splits du multi_split
     # pas `split` (qui n'existe qu'en single).
@@ -1056,6 +1156,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         pattern_min_t_stat=args.pattern_t_stat,
         pattern_min_occurrences=args.pattern_min_occ,
         pattern_max_candidates=args.pattern_max_candidates,
+        enable_or_regimes=not args.no_or_regimes,
+        enable_veto=not args.no_veto,
     )
     # Resume JSON
     asset_tag = "_".join(assets) if len(assets) <= 3 else f"multi_{len(assets)}"
@@ -1154,6 +1256,8 @@ def _discover_one_triplet(
             pattern_min_t_stat=triplet.get("pattern_t_stat", 3.0),
             pattern_min_occurrences=triplet.get("pattern_min_occ", 60),
             pattern_max_candidates=triplet.get("pattern_max_candidates", 15),
+            enable_or_regimes=triplet.get("enable_or_regimes", True),
+            enable_veto=triplet.get("enable_veto", True),
         )
         # CKPT-01 : checkpoint immediat APRES ecriture corpus/archive du triplet.
         _mark_triplet_done(
@@ -1422,6 +1526,8 @@ def cmd_discover(args: argparse.Namespace) -> int:
         "pattern_t_stat": args.pattern_t_stat,
         "pattern_min_occ": args.pattern_min_occ,
         "pattern_max_candidates": args.pattern_max_candidates,
+        "enable_or_regimes": not args.no_or_regimes,
+        "enable_veto": not args.no_veto,
         "debug": args.debug,
         "n_estimators": args.n_estimators,
         "max_depth": args.max_depth,
@@ -1669,6 +1775,20 @@ def main(argv: list[str] | None = None) -> int:
         default=15,
         help="P3-1 : cap de candidats patterns par triplet (defaut: 15)",
     )
+    parser.add_argument(
+        "--no-or-regimes",
+        dest="no_or_regimes",
+        action="store_true",
+        default=False,
+        help="P3-4a : desactive les paires OR-de-regimes post-generation",
+    )
+    parser.add_argument(
+        "--no-veto",
+        dest="no_veto",
+        action="store_true",
+        default=False,
+        help="P3-4b : desactive le veto-NOT post-admission",
+    )
     parser.add_argument("--no-global", dest="global_scope", action="store_false", default=True)
     parser.add_argument("--no-per-asset", dest="per_asset", action="store_false", default=True)
 
@@ -1775,6 +1895,8 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument("--pattern-t-stat", type=float, default=3.0)
     p_run.add_argument("--pattern-min-occ", type=int, default=60)
     p_run.add_argument("--pattern-max-candidates", type=int, default=15)
+    p_run.add_argument("--no-or-regimes", dest="no_or_regimes", action="store_true", default=False)
+    p_run.add_argument("--no-veto", dest="no_veto", action="store_true", default=False)
     p_run.set_defaults(func=cmd_run)
 
     # Sprint 3.6 : cmd_discover - discovery complet en parallele
@@ -1863,6 +1985,8 @@ def main(argv: list[str] | None = None) -> int:
     p_disc.add_argument("--pattern-t-stat", type=float, default=3.0)
     p_disc.add_argument("--pattern-min-occ", type=int, default=60)
     p_disc.add_argument("--pattern-max-candidates", type=int, default=15)
+    p_disc.add_argument("--no-or-regimes", dest="no_or_regimes", action="store_true", default=False)
+    p_disc.add_argument("--no-veto", dest="no_veto", action="store_true", default=False)
     p_disc.set_defaults(func=cmd_discover)
 
     # FIX Sprint 3.7 (user request) : si pas de subcommand, lancer
