@@ -644,12 +644,19 @@ def run_pipeline(
             max_depth=max_depth,
             backend="auto",
         )
-    # PERF-GPU (2026-08-24) : detection CUDA une fois par process. Sur les
-    # machines avec GPU NVIDIA (GTX 1660 Ti ici), xgboost device=cuda accelere
-    # fortement l'entrainement hist ; fallback CPU silencieux sinon.
-    if _cuda_available():
+    # PERF-GPU (2026-08-26, bench reel GTX 1660 Ti) :
+    #   n=42k (per-asset)  : CPU 1.3s vs GPU 2.0s -> le transfert CPU->GPU domine
+    #   n=250k (market+)   : GPU 1.5s vs CPU 4.5s -> GPU gagne ~3x
+    # Le device est donc choisi selon la TAILLE DU TRAIN, pas seulement sa dispo.
+    _GPU_MIN_ROWS = 100_000
+    if _cuda_available() and split_train_X.shape[0] >= _GPU_MIN_ROWS:
         config = GBDTConfig(**{**config.__dict__, "device": "cuda", "tree_method": "hist"})
-        logger.info("  GPU CUDA detecte : xgboost device=cuda")
+        logger.info("  GPU CUDA actif (train >= %d lignes)", _GPU_MIN_ROWS)
+    elif _cuda_available():
+        logger.info(
+            "  CUDA dispo mais train=%d < %d lignes : CPU plus rapide a ce volume",
+            split_train_X.shape[0], _GPU_MIN_ROWS,
+        )
     else:
         logger.info("  Pas de CUDA : entrainement CPU")
     # Problème 5 : grid search léger TOUJOURS actif (validé Jovanny).

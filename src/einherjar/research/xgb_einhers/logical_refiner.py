@@ -333,7 +333,7 @@ def find_veto_condition(
                     and removed_frac <= VETO_MAX_TRADES_REMOVED
                     and new_trades >= 10
                 ):
-                    if best is None or res.metrics.sharpe_ratio > best[1].metrics.sharpe_ratio:
+                    if best is None or res.metrics.sharpe_ratio > best[1]["sharpe_after"]:
                         info = {
                             "veto_feature": fname,
                             "veto_operator": op,
