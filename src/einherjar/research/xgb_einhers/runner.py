@@ -1272,6 +1272,12 @@ def _discover_one_triplet(
             extra={"n_admitted": summary.get("n_admitted", 0),
                    "n_rejected": summary.get("n_rejected", 0)},
         )
+        logger.info(
+            "[TRIPLET DONE] %s/%s/%s scope=%s id=%s | %d admis, %d rejetes, %d chemins | corpus=%s",
+            asset, tf, horizon, scope, triplet["triplet_id"],
+            summary.get("n_admitted", 0), summary.get("n_rejected", 0),
+            summary.get("n_paths_extracted", 0), corpus_path,
+        )
         return {"status": "ok", "summary": summary}
     except Exception as e:
         import traceback
@@ -1279,6 +1285,10 @@ def _discover_one_triplet(
         _mark_triplet_done(
             triplet.get("triplet_id", "?"), "error",
             extra={"error": str(e)[:200]},
+        )
+        logger.error(
+            "[TRIPLET FAILED] %s/%s/%s scope=%s id=%s | erreur: %s",
+            asset, tf, horizon, scope, triplet.get("triplet_id", "?"), str(e)[:120],
         )
         return {
             "status": "error",
