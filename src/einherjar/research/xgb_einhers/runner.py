@@ -296,6 +296,10 @@ def run_pipeline(
     archive_path: Path | None = None,  # Sprint 3.6 : si fourni, ecrit les rejetes ici
     runner_scope: str | None = None,  # Sprint 3.7 : scope reel (asset/market/general)
     optimize_params: bool = True,  # Problème 5 : grid search léger TOUJOURS actif
+    enable_pattern_miner: bool = True,  # P3-1 : event-study binaires (générateur parallèle)
+    pattern_min_t_stat: float = 3.0,  # P3-1 : seuil de significativité train
+    pattern_min_occurrences: int = 60,  # P3-1 : occurrences minimales train
+    pattern_max_candidates: int = 15,  # P3-1 : cap de candidats patterns par triplet
 ) -> dict[str, Any]:
     """Pipeline complet XGBoost -> Einher (single ou multi-actif).
 
@@ -323,6 +327,14 @@ def run_pipeline(
         archive_path : chemin de l'archive (Einhers rejetes) si fourni.
         runner_scope : scope reel pour propagation dans l'archive.
         optimize_params : grid search leger TOUJOURS actif (Sprint 3.7).
+        enable_pattern_miner: TODO: documenter.
+        pattern_max_candidates: TODO: documenter.
+        pattern_min_occurrences: TODO: documenter.
+        pattern_min_t_stat: TODO: documenter.
+            enable_pattern_miner: TODO: documenter.
+            pattern_max_candidates: TODO: documenter.
+            pattern_min_occurrences: TODO: documenter.
+            pattern_min_t_stat: TODO: documenter.
 
     Returns:
         dict avec stats et chemins d'outputs.
@@ -665,12 +677,18 @@ def run_pipeline(
 
     # 8. Extraire les chemins
     logger.info("[8/10] Extraction des chemins ...")
+    # P3-2 : family map pour le cap par macro-famille (chargee 1x par process)
+    from .admission import load_feature_family_map
+
+    _family_map = load_feature_family_map()
     paths = extract_paths(
         model,
         backend,
         feature_names,
         min_score=effective_min_score,
         max_paths=max_paths,
+        family_map=_family_map,
+        macro_family_cap=0.40,
         # LOGIC-01 (2026-08-24) : variantes OR/NOT/XOR DESACTIVEES par defaut.
         # Preuve disque : 34/68 candidats BTC/1h/6h avaient 0 trade a cause des
         # variantes NOT arbitraires. Reactivation explicite uniquement.
@@ -786,6 +804,68 @@ def run_pipeline(
         einher = set_einher_metrics(einher, result.metrics)
         einher = set_einher_tp_sl(einher, result.effective_tp_pct, result.effective_sl_pct)
         all_einhers.append(einher)
+
+    # ---- P3-1 (2026-08-25) : générateur event-study pour les binaires ----
+    # Les patterns rares conditionnels sont invisibles pour XGBoost MSE
+    # (min_child_weight, biais de gain vers les continues). L'event-study
+    # train les détecte sans modèle ; ils passent le MÊME circuit backtest/
+    # admission/BH ci-dessous. Désactivable via --no-pattern-miner.
+    if enable_pattern_miner:
+        from .pattern_miner import build_einhers_from_patterns, mine_pattern_candidates
+
+        logger.info("[9a-bis/10] Event-study des patterns binaires (train) ...")
+        _pat_cands = mine_pattern_candidates(
+            split_train_X,
+            split_train_y,
+            feature_names,
+            min_t_stat=pattern_min_t_stat,
+            min_occurrences=pattern_min_occurrences,
+        )
+        pat_einhers = build_einhers_from_patterns(
+            _pat_cands,
+            asset=primary_asset if not multi else "multi",
+            asset_class=asset_class,
+            timeframe=timeframe,
+            horizon_str=horizon_str,
+            horizon_bars=horizon_bars,
+            max_candidates=pattern_max_candidates,
+        )
+        logger.info("  pattern_miner : %d Einhers candidats ajoutes", len(pat_einhers))
+        backtest_embargo_pm = max(50, horizon_bars)
+        for einher in pat_einhers:
+            n_generated += 1
+            n_aligned_pm = X_aligned.shape[0]
+            if n_aligned_pm > 0:
+                _te = int(n_aligned_pm * 0.6)
+                _vs = _te + backtest_embargo_pm
+                _ve = min(n_aligned_pm, _vs + int(n_aligned_pm * 0.2))
+                if _vs < _ve:
+                    result = backtest_einher(
+                        einher=einher,
+                        ohlcv_df=ohlcv_aligned[_vs:_ve],
+                        X=X_aligned[_vs:_ve],
+                        feature_names=feature_names,
+                        costs_pct=costs,
+                    )
+                else:
+                    result = backtest_einher(
+                        einher=einher,
+                        ohlcv_df=ohlcv_aligned[:0],
+                        X=X_aligned[:0],
+                        feature_names=feature_names,
+                        costs_pct=costs,
+                    )
+            else:
+                result = backtest_einher(
+                    einher=einher,
+                    ohlcv_df=ohlcv_aligned[:0],
+                    X=X_aligned[:0],
+                    feature_names=feature_names,
+                    costs_pct=costs,
+                )
+            einher = set_einher_metrics(einher, result.metrics)
+            einher = set_einher_tp_sl(einher, result.effective_tp_pct, result.effective_sl_pct)
+            all_einhers.append(einher)
 
     # Phase 2 : Sprint 3.1 P1 - Benjamini-Hochberg sur TOUS les Einhers
     bh_rejected_list: list[bool] = [True] * len(all_einhers)
@@ -972,6 +1052,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         primary_class=asset_classes_list[0] if asset_classes_list else args.asset_class,
         corpus_path=corpus_path,
         archive_path=archive_path,
+        enable_pattern_miner=not args.no_pattern_miner,
+        pattern_min_t_stat=args.pattern_t_stat,
+        pattern_min_occurrences=args.pattern_min_occ,
+        pattern_max_candidates=args.pattern_max_candidates,
     )
     # Resume JSON
     asset_tag = "_".join(assets) if len(assets) <= 3 else f"multi_{len(assets)}"
@@ -1066,6 +1150,10 @@ def _discover_one_triplet(
             corpus_path=Path(corpus_path),
             archive_path=Path(archive_path),
             runner_scope=scope,  # FIX P2-6 : propager le vrai scope
+            enable_pattern_miner=triplet.get("enable_pattern_miner", True),
+            pattern_min_t_stat=triplet.get("pattern_t_stat", 3.0),
+            pattern_min_occurrences=triplet.get("pattern_min_occ", 60),
+            pattern_max_candidates=triplet.get("pattern_max_candidates", 15),
         )
         # CKPT-01 : checkpoint immediat APRES ecriture corpus/archive du triplet.
         _mark_triplet_done(
@@ -1330,6 +1418,10 @@ def cmd_discover(args: argparse.Namespace) -> int:
     common = {
         "corpus_path": str(corpus_file),
         "archive_path": str(archive_file),
+        "enable_pattern_miner": not args.no_pattern_miner,
+        "pattern_t_stat": args.pattern_t_stat,
+        "pattern_min_occ": args.pattern_min_occ,
+        "pattern_max_candidates": args.pattern_max_candidates,
         "debug": args.debug,
         "n_estimators": args.n_estimators,
         "max_depth": args.max_depth,
@@ -1552,6 +1644,31 @@ def main(argv: list[str] | None = None) -> int:
         "--max-assets", type=int, default=3, help="Limite actifs par classe (defaut: 3)"
     )
     parser.add_argument("--no-per-class", dest="per_class", action="store_false", default=True)
+    parser.add_argument(
+        "--no-pattern-miner",
+        dest="no_pattern_miner",
+        action="store_true",
+        default=False,
+        help="P3-1 : desactive le generateur event-study des binaires",
+    )
+    parser.add_argument(
+        "--pattern-t-stat",
+        type=float,
+        default=3.0,
+        help="P3-1 : seuil |t| minimal de l'event-study (defaut: 3.0)",
+    )
+    parser.add_argument(
+        "--pattern-min-occ",
+        type=int,
+        default=60,
+        help="P3-1 : occurrences minimales d'un pattern actif (defaut: 60)",
+    )
+    parser.add_argument(
+        "--pattern-max-candidates",
+        type=int,
+        default=15,
+        help="P3-1 : cap de candidats patterns par triplet (defaut: 15)",
+    )
     parser.add_argument("--no-global", dest="global_scope", action="store_false", default=True)
     parser.add_argument("--no-per-asset", dest="per_asset", action="store_false", default=True)
 
@@ -1652,6 +1769,12 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Sprint 3.6 : chemin de l'archive (Einhers rejetes avec raison).",
     )
+    p_run.add_argument(
+        "--no-pattern-miner", dest="no_pattern_miner", action="store_true", default=False
+    )
+    p_run.add_argument("--pattern-t-stat", type=float, default=3.0)
+    p_run.add_argument("--pattern-min-occ", type=int, default=60)
+    p_run.add_argument("--pattern-max-candidates", type=int, default=15)
     p_run.set_defaults(func=cmd_run)
 
     # Sprint 3.6 : cmd_discover - discovery complet en parallele
@@ -1734,6 +1857,12 @@ def main(argv: list[str] | None = None) -> int:
         default="outputs/archive.jsonl",
         help="Chemin de l'archive (Einhers rejetes avec raison)",
     )
+    p_disc.add_argument(
+        "--no-pattern-miner", dest="no_pattern_miner", action="store_true", default=False
+    )
+    p_disc.add_argument("--pattern-t-stat", type=float, default=3.0)
+    p_disc.add_argument("--pattern-min-occ", type=int, default=60)
+    p_disc.add_argument("--pattern-max-candidates", type=int, default=15)
     p_disc.set_defaults(func=cmd_discover)
 
     # FIX Sprint 3.7 (user request) : si pas de subcommand, lancer

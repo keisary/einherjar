@@ -347,6 +347,8 @@ def extract_paths(
     max_path_length: int = 6,
     max_paths: int = 100,
     enable_logical_variants: bool = False,
+    family_map: dict[str, str] | None = None,
+    macro_family_cap: float = 0.40,
 ) -> list[XGBPath]:
     """Extrait et filtre les chemins d'un modèle GBDT (xgboost ou sklearn).
 
@@ -359,7 +361,16 @@ def extract_paths(
       vraiment significatives, adapté à la vol (crypto vs forex).
 
     Args:
+            model: TODO: documenter.
             backend: TODO: documenter.
+            feature_names: TODO: documenter.
+            min_score: TODO: documenter.
+            max_score: TODO: documenter.
+            min_path_length: TODO: documenter.
+            max_path_length: TODO: documenter.
+            max_paths: TODO: documenter.
+            family_map: mapping feature_name -> economic_family (taxonomie).
+            macro_family_cap: part maximale du budget pour une macro-famille.
             feature_names: TODO: documenter.
             max_path_length: TODO: documenter.
             max_paths: TODO: documenter.
@@ -367,6 +378,8 @@ def extract_paths(
             min_path_length: TODO: documenter.
             min_score: TODO: documenter.
             model: TODO: documenter.
+                family_map: TODO: documenter.
+                macro_family_cap: TODO: documenter.
 
     Args:
         enable_logical_variants : si True (problème 3), ajoute des variantes
@@ -396,13 +409,31 @@ def extract_paths(
         if min_path_length <= len(p.conditions) <= max_path_length and effective_min <= abs(p.score) <= max_score
     ]
     filtered.sort(key=lambda p: abs(p.score), reverse=True)
-    # FIX DIVERSITE (2026-08-21) : la selection top-max_paths par |score| seul
-    # concentrait les chemins sur les 2-3 features a plus fort gain (les premiers
-    # arbres), ecrasant les 210+ autres. On applique un CAP par feature dominante
-    # (la 1ere condition = trigger principal) pour forcer la diversite.
+    # FIX DIVERSITE (2026-08-21) : CAP par feature dominante (1re condition)
     cap_per_feature = max(1, max_paths // 8)
     result: list[XGBPath] = []
     feat_count: dict[str, int] = {}
+
+    # P3-2 (2026-08-25) : CAP PAR MACRO-FAMILLE avec redistribution.
+    # Un plafond (pas un plancher) : une famille ne peut pas monopoliser plus de
+    # macro_family_cap du budget ; les budgets non consommes sont redistribues
+    # aux familles suivantes. Aucun remplissage artificiel si une famille n'a
+    # pas de chemins qualifies.
+    def _macro_family(feature: str) -> str:
+        if not family_map:
+            return "default"
+        fam = family_map.get(feature, "unknown")
+        if fam in ("price_action", "market_structure"):
+            return "binary"
+        if fam == "market_regime":
+            return "regime"
+        return "continuous"
+
+    macro_counts: dict[str, int] = {}
+    macro_cap = max(1, int(max_paths * macro_family_cap))
+    skipped_macro: list[XGBPath] = []
+
+    # Passe 1 : top-N avec caps (feature ET macro-famille)
     for p in filtered:
         if len(result) >= max_paths:
             break
@@ -410,8 +441,36 @@ def extract_paths(
         head_key = str(head)
         if feat_count.get(head_key, 0) >= cap_per_feature:
             continue
+        macro = _macro_family(head) # type: ignore
+        if family_map and macro_counts.get(macro, 0) >= macro_cap:
+            skipped_macro.append(p)
+            continue
         feat_count[head_key] = feat_count.get(head_key, 0) + 1
+        macro_counts[macro] = macro_counts.get(macro, 0) + 1
         result.append(p)
+
+    # Passe 2 (redistribution) : reprendre les chemins skippés par le cap macro
+    # si le budget global n'est pas consomme. Le cap par feature reste actif.
+    if skipped_macro and len(result) < max_paths and family_map:
+        for p in skipped_macro:
+            if len(result) >= max_paths:
+                break
+            head = p.conditions[0][0] if p.conditions else p.tree_idx
+            head_key = str(head)
+            if feat_count.get(head_key, 0) >= cap_per_feature:
+                continue
+            feat_count[head_key] = feat_count.get(head_key, 0) + 1
+            result.append(p)
+        logger.info(
+            "extract_paths redistribution : %d chemins repris apres cap macro-familles",
+            len([p for p in result if p not in filtered[:len(result)]]),
+        )
+    if family_map:
+        logger.info(
+            "extract_paths repartition macro-familles : %s (cap=%d/%d)",
+            dict(macro_counts), macro_cap, max_paths,
+        )
+
     # Problème 3 : ajouter les variantes logiques depuis les chemins retenus
     if enable_logical_variants and result:
         variants = build_logical_variants(result, top_n=min(5, len(result)))
