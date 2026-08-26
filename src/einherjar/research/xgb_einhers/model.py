@@ -302,17 +302,19 @@ def predict_gbdt(model: Any, X: np.ndarray, backend: str) -> np.ndarray:
     DMatrix due to mismatched devices"). On transfere X sur le device du
     booster pour rester sur le chemin rapide inplace_predict.
     """
-    try:
-        if backend == "xgboost":
+    if backend == "xgboost":
+        try:
             booster = model.get_booster()
             device = getattr(booster, "device", "") or ""
             if "cuda" in str(device):
                 import xgboost as _xgb
 
+                # TRANSFER SUR GPU : pour garder le path inplace_predict rapide
+                # sans le fallback DMatrix lent qui genere des warnings.
                 dmat = _xgb.DMatrix(X.astype(np.float32))
                 return booster.predict(dmat).astype(np.float64)
-    except Exception as e:  # pragma: no cover - fallback securitaire
-        logger.debug("predict_gpu fast-path failed (%s), fallback standard", e)
+        except Exception as e:  # pragma: no cover - fallback securitaire
+            logger.debug("predict_gpu fast-path failed (%s), fallback standard", e)
     return model.predict(X)
 
 
