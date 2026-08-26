@@ -302,6 +302,7 @@ def run_pipeline(
     pattern_max_candidates: int = 15,  # P3-1 : cap de candidats patterns par triplet
     enable_or_regimes: bool = True,  # P3-4a : OR-de-régimes post-génération
     enable_veto: bool = True,  # P3-4b : veto-NOT post-admission
+    workers: int = 6,  # Nombre de workers paralleles (pour decision GPU)
 ) -> dict[str, Any]:
     """Pipeline complet XGBoost -> Einher (single ou multi-actif).
 
@@ -332,6 +333,7 @@ def run_pipeline(
         enable_pattern_miner: TODO: documenter.
         enable_or_regimes: P3-4a - active les paires OR-de-regimes post-generation.
         enable_veto: P3-4b - active le veto-NOT post-admission (retire <=20% des trades).
+        workers : nombre de workers paralleles (pour decision GPU).
         pattern_max_candidates: TODO: documenter.
         pattern_min_occurrences: TODO: documenter.
         pattern_min_t_stat: TODO: documenter.
@@ -647,11 +649,26 @@ def run_pipeline(
     # PERF-GPU (2026-08-26, bench reel GTX 1660 Ti) :
     #   n=42k (per-asset)  : CPU 1.3s vs GPU 2.0s -> le transfert CPU->GPU domine
     #   n=250k (market+)   : GPU 1.5s vs CPU 4.5s -> GPU gagne ~3x
-    # Le device est donc choisi selon la TAILLE DU TRAIN, pas seulement sa dispo.
+    # Le device est donc choisi selon la TAILLE DU TRAIN ET la dispo GPU.
+    # FIX GPU-CONTENTION : xgboost CUDA ne gere pas le partage GPU entre
+    # processus. Quand workers>1 + CUDA simultane -> "No visible GPU" errors.
+    # Solution : forcer CPU si workers>1, OU utiliser CUDA uniquement en mode
+    # sequentiel (workers=1). Au dela de _GPU_MIN_ROWS, le gain GPU vaut le
+    # cout d'etre sequentiel.
     _GPU_MIN_ROWS = 100_000
-    if _cuda_available() and split_train_X.shape[0] >= _GPU_MIN_ROWS:
+    _multi_worker = workers > 1
+    _use_gpu = (
+        _cuda_available()
+        and split_train_X.shape[0] >= _GPU_MIN_ROWS
+        and not _multi_worker
+    )
+    if _use_gpu:
         config = GBDTConfig(**{**config.__dict__, "device": "cuda", "tree_method": "hist"})
-        logger.info("  GPU CUDA actif (train >= %d lignes)", _GPU_MIN_ROWS)
+        logger.info("  GPU CUDA actif (train >= %d lignes, workers=1)", _GPU_MIN_ROWS)
+    elif _cuda_available() and _multi_worker:
+        logger.info(
+            "  CUDA dispo mais workers>1 : GPU non partageable, mode CPU (perf OK)",
+            )
     elif _cuda_available():
         logger.info(
             "  CUDA dispo mais train=%d < %d lignes : CPU plus rapide a ce volume",
@@ -1220,6 +1237,7 @@ def _discover_one_triplet(
     min_score = triplet.get("min_score", 0.0)  # <=0 => auto (aucune feuille exclue)
     min_holdout_trades = triplet.get("min_holdout_trades", 5)
     multi_assets = triplet.get("multi_assets", None)
+    n_workers = triplet.get("workers", 1)
 
     try:
         # FIX 2026-08-21 (prob. 1) : les actifs sont deja la bonne selection
@@ -1251,6 +1269,7 @@ def _discover_one_triplet(
             max_paths=max_paths,
             debug=debug,
             regularized=True,
+            workers=n_workers,
             apply_dedup_flag=True,
             drop_sparse=True,
             min_holdout_trades=min_holdout_trades,
@@ -1552,6 +1571,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
         "min_score": args.min_score,
         "min_holdout_trades": args.min_holdout_trades,
         "max_assets": args.max_assets,
+        "workers": args.workers,
     }
     jobs = [{**t, **common} for t in triplets]
     if done_ids:
