@@ -295,7 +295,24 @@ def _train_sklearn(
 
 
 def predict_gbdt(model: Any, X: np.ndarray, backend: str) -> np.ndarray:
-    """Prédit Y_ret sur X (compatible xgboost et sklearn)."""
+    """Prédit Y_ret sur X (compatible xgboost et sklearn).
+
+    FIX PERF (2026-08-26) : si le booster tourne sur CUDA et que X est sur CPU,
+    xgboost fait un fallback DMatrix lent ("Falling back to prediction using
+    DMatrix due to mismatched devices"). On transfere X sur le device du
+    booster pour rester sur le chemin rapide inplace_predict.
+    """
+    try:
+        if backend == "xgboost":
+            booster = model.get_booster()
+            device = getattr(booster, "device", "") or ""
+            if "cuda" in str(device):
+                import xgboost as _xgb
+
+                dmat = _xgb.DMatrix(X.astype(np.float32))
+                return booster.predict(dmat).astype(np.float64)
+    except Exception as e:  # pragma: no cover - fallback securitaire
+        logger.debug("predict_gpu fast-path failed (%s), fallback standard", e)
     return model.predict(X)
 
 
