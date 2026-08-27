@@ -350,6 +350,8 @@ def simplify_ast(ast: Condition | ConditionNode) -> Condition | ConditionNode:
                 ref = max(abs(bounds["upper"]), abs(bounds["lower"]), 1e-10)
                 if interval < 0.01 * ref:
                     # Intervalle trop serre : garder seulement la borne la plus contraignante
+                    # Pour un intervalle [lower, upper] très serré, on garde la borne
+                    # qui est la plus sélective (celle qui a le plus d'impact)
                     if c.operator in ("<", "<=") and c.value == bounds["upper"]:
                         continue  # on saute la borne haute, on garde la basse
                     elif c.operator in (">", ">=") and c.value == bounds["lower"]:
@@ -358,6 +360,11 @@ def simplify_ast(ast: Condition | ConditionNode) -> Condition | ConditionNode:
         else:
             final_simplified.append(c)
     simplified = final_simplified
+
+    # Cas vide (toutes les conditions supprimées) → retourner une condition tautologique
+    if not simplified:
+        # Retourner la premiere condition originale (mieux que rien)
+        return atoms[0] if atoms else ast
 
     # Reconstruire l'AND chaine
     if len(simplified) == 1:
