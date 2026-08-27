@@ -890,6 +890,20 @@ def run_pipeline(
                     feature_names=feature_names,
                     costs_pct=costs,
                 )
+            # FIX HOLDOUT (2026-08-27) : backtest holdout en single-asset
+            # AVANT : holdout_metrics restait None → holdout check sauté
+            # APRES : backtest sur la fenêtre holdout (20% restant)
+            if admission_cfg.min_holdout_trades > 0:
+                holdout_start = val_end + backtest_embargo
+                if holdout_start < n_aligned:
+                    holdout_result = backtest_einher(
+                        einher=einher,
+                        ohlcv_df=ohlcv_aligned[holdout_start:],
+                        X=X_aligned[holdout_start:],
+                        feature_names=feature_names,
+                        costs_pct=costs,
+                    )
+                    einher = set_einher_holdout_metrics(einher, holdout_result.metrics)
         else:
             result = backtest_einher(
                 einher=einher,
@@ -987,6 +1001,18 @@ def run_pipeline(
                 )
             einher = set_einher_metrics(einher, result.metrics)
             einher = set_einher_tp_sl(einher, result.effective_tp_pct, result.effective_sl_pct)
+            # FIX HOLDOUT PM (2026-08-27) : backtest holdout pour les Einhers pattern_miner
+            if admission_cfg.min_holdout_trades > 0 and n_aligned_pm > 0:
+                _hs = _ve + backtest_embargo_pm
+                if _hs < n_aligned_pm:
+                    h_result = backtest_einher(
+                        einher=einher,
+                        ohlcv_df=ohlcv_aligned[_hs:],
+                        X=X_aligned[_hs:],
+                        feature_names=feature_names,
+                        costs_pct=costs,
+                    )
+                    einher = set_einher_holdout_metrics(einher, h_result.metrics)
             all_einhers.append(einher)
 
     # ---- SD-2 (2026-08-27) : backtest des Einhers Subgroup Discovery ----
@@ -1016,6 +1042,18 @@ def run_pipeline(
                                         feature_names, costs_pct=costs)
             einher = set_einher_metrics(einher, result.metrics)
             einher = set_einher_tp_sl(einher, result.effective_tp_pct, result.effective_sl_pct)
+            # FIX HOLDOUT SD (2026-08-27) : backtest holdout pour les Einhers SD
+            if admission_cfg.min_holdout_trades > 0 and n_aligned_sd > 0:
+                _hs = _ve + backtest_embargo_sd
+                if _hs < n_aligned_sd:
+                    h_result = backtest_einher(
+                        einher=einher,
+                        ohlcv_df=ohlcv_aligned[_hs:],
+                        X=X_aligned[_hs:],
+                        feature_names=feature_names,
+                        costs_pct=costs,
+                    )
+                    einher = set_einher_holdout_metrics(einher, h_result.metrics)
             all_einhers.append(einher)
 
     # Phase 2 : Sprint 3.1 P1 - Benjamini-Hochberg sur TOUS les Einhers
