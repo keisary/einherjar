@@ -1753,59 +1753,91 @@ def cmd_discover(args: argparse.Namespace) -> int:
         ctx_args = {} if sys.platform == "win32" else {"ctx": None}
         # MEM-02 : max_tasks_per_child recycle les workers regulierement -> purge
         # la fragmentation memoire numpy/xgboost/polars. Plus d'OOM apres N jobs.
+        # FIX DEADLOCK (2026-08-27) : soumission bornée au lieu de tout soumettre d'un coup.
+        # Sur Windows (spawn mode), soumettre 552 jobs d'un coup cause un deadlock
+        # quand un worker crash silencieusement : as_completed attend indéfiniment.
+        # Solution : soumettre max_workers*2 jobs à la fois, puis resoumettre à chaque completion.
+        max_pending = args.workers * 2
         with ProcessPoolExecutor(
             max_workers=args.workers, max_tasks_per_child=4, **ctx_args
         ) as ex:
-            futures = {ex.submit(_discover_one_triplet, j): j for j in jobs}
+            from collections import OrderedDict
+            futures = OrderedDict()
+            job_iter = iter(jobs)
             n_done = 0
-            for fut in as_completed(futures):
-                job = futures[fut]
-                n_done += 1
+            n_total = len(jobs)
+
+            # Soumettre le premier batch
+            for _ in range(min(max_pending, n_total)):
                 try:
-                    res = fut.result()
-                except Exception as e:
-                    res = {"status": "error", "error": str(e)}
-                if res["status"] == "ok":
-                    n_ok += 1
-                    s: dict = res.get("summary") or {}  # pyright: ignore[reportAssignmentType]
-                    n_admitted_total += s.get("n_admitted", 0)
-                    n_rejected_total += s.get("n_rejected", 0)
-                    logger.info(
-                        "[%d/%d] OK  %s/%s/%s scope=%s : %d admis, %d rejetes",
-                        n_done,
-                        len(jobs),
-                        job.get("asset_class"),
-                        job["timeframe"],
-                        job["horizon"],
-                        job["scope"],
-                        s.get("n_admitted", 0),
-                        s.get("n_rejected", 0),
-                    )
-                elif res["status"] == "skipped":
-                    n_skipped += 1
-                    logger.warning(
-                        "[%d/%d] SKIP %s/%s/%s scope=%s : %s",
-                        n_done,
-                        len(jobs),
-                        job.get("asset_class"),
-                        job["timeframe"],
-                        job["horizon"],
-                        job["scope"],
-                        res.get("reason", "?"),
-                    )
-                else:
-                    n_err += 1
-                    errors.append(res)
-                    logger.error(
-                        "[%d/%d] ERR %s/%s/%s scope=%s : %s",
-                        n_done,
-                        len(jobs),
-                        job.get("asset_class"),
-                        job["timeframe"],
-                        job["horizon"],
-                        job["scope"],
-                        res.get("error", "?")[:200],
-                    )
+                    j = next(job_iter)
+                    futures[ex.submit(_discover_one_triplet, j)] = j
+                except StopIteration:
+                    break
+
+            while futures:
+                # Attendre le prochain résultat avec timeout
+                done_set = set()
+                for fut in as_completed(futures, timeout=600):
+                    job = futures[fut]
+                    done_set.add(fut)
+                    n_done += 1
+                    try:
+                        res = fut.result(timeout=30)
+                    except Exception as e:
+                        res = {"status": "error", "error": str(e)}
+                    if res["status"] == "ok":
+                        n_ok += 1
+                        s: dict = res.get("summary") or {}  # pyright: ignore[reportAssignmentType]
+                        n_admitted_total += s.get("n_admitted", 0)
+                        n_rejected_total += s.get("n_rejected", 0)
+                        logger.info(
+                            "[%d/%d] OK  %s/%s/%s scope=%s : %d admis, %d rejetes",
+                            n_done,
+                            n_total,
+                            job.get("asset_class"),
+                            job["timeframe"],
+                            job["horizon"],
+                            job["scope"],
+                            s.get("n_admitted", 0),
+                            s.get("n_rejected", 0),
+                        )
+                    elif res["status"] == "skipped":
+                        n_skipped += 1
+                        logger.warning(
+                            "[%d/%d] SKIP %s/%s/%s scope=%s : %s",
+                            n_done,
+                            n_total,
+                            job.get("asset_class"),
+                            job["timeframe"],
+                            job["horizon"],
+                            job["scope"],
+                            res.get("reason", "?"),
+                        )
+                    else:
+                        n_err += 1
+                        errors.append(res)
+                        logger.error(
+                            "[%d/%d] ERR %s/%s/%s scope=%s : %s",
+                            n_done,
+                            n_total,
+                            job.get("asset_class"),
+                            job["timeframe"],
+                            job["horizon"],
+                            job["scope"],
+                            res.get("error", "?")[:200],
+                        )
+                    # Soumettre le prochain job pour remplacer celui qui vient de finir
+                    try:
+                        j = next(job_iter)
+                        futures[ex.submit(_discover_one_triplet, j)] = j
+                    except StopIteration:
+                        pass
+                    break  # sortir du for fut, on a traité un résultat
+
+                # Nettoyer les futures terminés
+                for f in done_set:
+                    del futures[f]
 
     elapsed = time.time() - t0
 
