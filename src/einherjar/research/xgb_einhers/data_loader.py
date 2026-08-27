@@ -100,11 +100,13 @@ def load_xy(
         raise FileNotFoundError(f"Répertoire absent : {base}")
 
     # Charger arrays
+    # FIX MMAP (2026-08-27) : mmap_mode='r' pour les gros arrays → pas de copie en RAM
+    # jusqu'à ce qu'on en ait besoin. Les slicing [:, idx] créent des copies de toute façon.
     ts = np.load(base / f"{asset}_ts.npy")
-    X_raw = np.load(base / f"{asset}_X.npy")
-    Y_dir = np.load(base / f"{asset}_Y_dir.npy")
-    Y_ret = np.load(base / f"{asset}_Y_ret.npy")
-    Y_hor = np.load(base / f"{asset}_Y_hor.npy")
+    X_raw = np.load(base / f"{asset}_X.npy", mmap_mode="r")
+    Y_dir = np.load(base / f"{asset}_Y_dir.npy", mmap_mode="r")
+    Y_ret = np.load(base / f"{asset}_Y_ret.npy", mmap_mode="r")
+    Y_hor = np.load(base / f"{asset}_Y_hor.npy", mmap_mode="r")
 
     # Charger metadata
     with open(base / "metadata.json") as f:
