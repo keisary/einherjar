@@ -327,6 +327,38 @@ def simplify_ast(ast: Condition | ConditionNode) -> Condition | ConditionNode:
         simplified.append(Condition(feature_ref=feat, operator=op, value=chosen,
                                     transformation=None))
 
+    # FIX TAUTOLOGIE (2026-08-27) : si un feature a des bornes < et >=,
+    # verifier que l'intervalle n'est pas trop serre (< 5% du range observe).
+    # Ex: x < 0.7008 AND x >= 0.7000 → intervalle de 0.0008 = tautologie.
+    # On regroupe par feature et on detecte les paires bornées.
+    from collections import defaultdict
+    feat_bounds = defaultdict(dict)
+    for c in simplified:
+        if isinstance(c, Condition):
+            if c.operator in ("<", "<="):
+                feat_bounds[c.feature_ref]["upper"] = c.value
+            elif c.operator in (">", ">="):
+                feat_bounds[c.feature_ref]["lower"] = c.value
+
+    # Supprimer les paires tautologiques (intervalle < 1% de la borne supérieure)
+    final_simplified = []
+    for c in simplified:
+        if isinstance(c, Condition):
+            bounds = feat_bounds.get(c.feature_ref, {})
+            if "upper" in bounds and "lower" in bounds:
+                interval = bounds["upper"] - bounds["lower"]
+                ref = max(abs(bounds["upper"]), abs(bounds["lower"]), 1e-10)
+                if interval < 0.01 * ref:
+                    # Intervalle trop serre : garder seulement la borne la plus contraignante
+                    if c.operator in ("<", "<=") and c.value == bounds["upper"]:
+                        continue  # on saute la borne haute, on garde la basse
+                    elif c.operator in (">", ">=") and c.value == bounds["lower"]:
+                        continue  # on saute la borne basse, on garde la haute
+            final_simplified.append(c)
+        else:
+            final_simplified.append(c)
+    simplified = final_simplified
+
     # Reconstruire l'AND chaine
     if len(simplified) == 1:
         return simplified[0]

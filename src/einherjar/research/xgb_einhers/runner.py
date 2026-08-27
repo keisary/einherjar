@@ -287,7 +287,7 @@ def run_pipeline(
     regularized: bool = False,
     apply_dedup_flag: bool = False,
     drop_sparse: bool = False,
-    min_holdout_trades: int = 0,
+    min_holdout_trades: int = 15,  # FIX (2026-08-27) : 15 au lieu de 5 (trop permissif)
     bagging_seeds: int = 1,
     walk_forward_folds: int = 1,
     scope: str = "asset",
@@ -299,7 +299,7 @@ def run_pipeline(
     enable_pattern_miner: bool = True,  # P3-1 : event-study binaires (générateur parallèle)
     pattern_min_t_stat: float = 3.0,  # P3-1 : seuil de significativité train
     pattern_min_occurrences: int = 60,  # P3-1 : occurrences minimales train
-    pattern_max_candidates: int = 15,  # P3-1 : cap de candidats patterns par triplet
+    pattern_max_candidates: int = 50,  # FIX (2026-08-27) : 50 au lieu de 15 (budget trop faible)  # P3-1 : cap de candidats patterns par triplet
     enable_or_regimes: bool = True,  # P3-4a : OR-de-régimes post-génération
     enable_veto: bool = True,  # P3-4b : veto-NOT post-admission
     workers: int = 6,  # Nombre de workers paralleles (pour decision GPU)
@@ -1101,21 +1101,19 @@ def run_pipeline(
     logger.info("Output : %s", output_path)
     logger.info("=" * 70)
     # P1-MEM (2026-08-24) : liberation explicite des gros objets avant retour.
-    # Le worker multiprocessing enchaine les triplets : sans ca, les arrays du
-    # triplet N restent references jusqu'au rebinding au triplet N+1 et la
-    # fragmentation s'accumule. gc.collect() rend la memoire a l'OS (Windows).
-    for _name in (
-        "X_global_train", "X_global_val", "X_global_holdout",
-        "split_train_X", "split_val_X", "split_holdout_X",
-        "X_global", "X_valid", "X_aligned", "ohlcv_df",
-        "X_aligned_full", "ohlcv_aligned", "multi_per_asset",
-        "model",
-    ):
-        # del securise : certaines variables n'existent que en single ou multi
-        if _name in locals():
-            del locals()[_name]
+    # FIX DEL-LOCALS (2026-08-27) : del locals()['x'] est un NO-OP en Python.
+    # On encapsule le cleanup dans un dict pour casser les references.
     import gc as _gc
-
+    _cleanup = {
+        "X_global_train": None, "X_global_val": None, "X_global_holdout": None,
+        "split_train_X": None, "split_val_X": None, "split_holdout_X": None,
+        "X_global": None, "X_valid": None, "X_aligned": None, "ohlcv_df": None,
+        "X_aligned_full": None, "ohlcv_aligned": None, "multi_per_asset": None,
+        "model": None, "all_einhers": None, "paths": None,
+    }
+    for _k in _cleanup:
+        if _k in locals():
+            locals()[_k] = None
     _gc.collect()
     return summary
 

@@ -395,7 +395,7 @@ def extract_paths(
     ]
     filtered.sort(key=lambda p: abs(p.score), reverse=True)
     # FIX DIVERSITE (2026-08-21) : CAP par feature dominante (1re condition)
-    cap_per_feature = max(1, max_paths // 8)
+    cap_per_feature = max(1, max_paths // 15)  # FIX DIVERSITE (2026-08-27) : 2 au lieu de 3-4
     result: list[XGBPath] = []
     feat_count: dict[str, int] = {}
 

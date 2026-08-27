@@ -246,7 +246,10 @@ def _train_xgb(
     if config.device == "cuda":
         params["device"] = "cuda"
     else:
-        params["n_jobs"] = -1
+        # FIX OVERSUBSCRIPTION (2026-08-27) : n_jobs=-1 × N workers = chaos de threads.
+        # On limite à 1 thread par worker quand multiprocessing est actif.
+        import os
+        params["n_jobs"] = 1
     # FIX (2026-08-21) : early stopping REEL.
     # API xgboost 3.x : `early_stopping_rounds` se passe au CONSTRUCTEUR
     # XGBRegressor(...), pas a .fit() (fit() n'accepte ce kwarg que via

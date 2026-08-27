@@ -138,7 +138,6 @@ def select_features_to_drop(
 
     dropped = [name for name, keep in zip(feature_names, keep_mask) if not keep]
     return dropped
-    return dropped
 
 
 def apply_dedup(
