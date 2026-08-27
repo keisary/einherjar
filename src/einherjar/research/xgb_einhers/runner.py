@@ -732,6 +732,42 @@ def run_pipeline(
     )
     logger.info("  %d chemins retenus", len(paths))
 
+    # ---- SD-1 (2026-08-27) : Subgroup Discovery pour les features binaires ----
+    # XGBoost MSE ignore structurellement les features binaires (patterns chartistes).
+    # Le SD les teste directement via WRAcc + t-stat, en ~1 seconde.
+    sd_einhers: list[Einher] = []
+    if enable_pattern_miner:  # reutilise le flag pattern_miner pour le SD
+        from .subgroup_discovery import (
+            convert_candidates_to_einhers,
+            detect_binary_features,
+            subgroup_discovery,
+        )
+
+        logger.info("[8b/10] Subgroup Discovery sur les features binaires ...")
+        _binary_mask = detect_binary_features(split_train_X)
+        logger.info(
+            "  %d/%d features binaires detectées",
+            int(_binary_mask.sum()), len(feature_names),
+        )
+        _sd_candidates = subgroup_discovery(
+            split_train_X,
+            split_train_y,
+            feature_names,
+            binary_mask=_binary_mask,
+            min_t_stat=pattern_min_t_stat,
+            min_coverage=0.02,
+        )
+        sd_einhers = convert_candidates_to_einhers(
+            _sd_candidates,
+            asset=primary_asset if not multi else "multi",
+            asset_class=asset_class,
+            timeframe=timeframe,
+            horizon_str=horizon_str,
+            horizon_bars=horizon_bars,
+            max_candidates=pattern_max_candidates,
+        )
+        logger.info("  Subgroup Discovery : %d Einhers candidats", len(sd_einhers))
+
     # ---- P3-4a (2026-08-26) : OR-de-régimes post-génération ----
     # Paires de chemins même-direction complémentaires (mécanismes distincts,
     # cf. Disjunctive Emerging Patterns). Désactivable via --no-or-regimes.
@@ -949,6 +985,35 @@ def run_pipeline(
                     feature_names=feature_names,
                     costs_pct=costs,
                 )
+            einher = set_einher_metrics(einher, result.metrics)
+            einher = set_einher_tp_sl(einher, result.effective_tp_pct, result.effective_sl_pct)
+            all_einhers.append(einher)
+
+    # ---- SD-2 (2026-08-27) : backtest des Einhers Subgroup Discovery ----
+    if sd_einhers:
+        logger.info("[9a-ter/10] Backtest de %d Einhers Subgroup Discovery ...", len(sd_einhers))
+        backtest_embargo_sd = max(50, horizon_bars)
+        for einher in sd_einhers:
+            n_generated += 1
+            n_aligned_sd = X_aligned.shape[0]
+            if n_aligned_sd > 0:
+                _te = int(n_aligned_sd * 0.6)
+                _vs = _te + backtest_embargo_sd
+                _ve = min(n_aligned_sd, _vs + int(n_aligned_sd * 0.2))
+                if _vs < _ve:
+                    result = backtest_einher(
+                        einher=einher,
+                        ohlcv_df=ohlcv_aligned[_vs:_ve],
+                        X=X_aligned[_vs:_ve],
+                        feature_names=feature_names,
+                        costs_pct=costs,
+                    )
+                else:
+                    result = backtest_einher(einher, ohlcv_aligned[:0], X_aligned[:0],
+                                            feature_names, costs_pct=costs)
+            else:
+                result = backtest_einher(einher, ohlcv_aligned[:0], X_aligned[:0],
+                                        feature_names, costs_pct=costs)
             einher = set_einher_metrics(einher, result.metrics)
             einher = set_einher_tp_sl(einher, result.effective_tp_pct, result.effective_sl_pct)
             all_einhers.append(einher)
