@@ -252,12 +252,20 @@ def _quick_importances(
     """
     try:
         # FIX LEAKAGE : utiliser train_mask si fourni, sinon valid_mask
-        if train_mask is not None:
+        # FIX DIMENSION (2026-08-27) : en multi-asset, X_global est la concat
+        # des splits mais Y_ret_global est du primary seul → dimensions différentes.
+        # Solution : ne pas utiliser valid_mask si les dimensions ne correspondent pas.
+        if train_mask is not None and len(train_mask) == X.shape[0]:
             target = Y_ret[train_mask, horizon_idx].astype(np.float32)
             X_valid = X[train_mask]
-        else:
+        elif valid_mask is not None and len(valid_mask) == X.shape[0]:
             target = Y_ret[valid_mask, horizon_idx].astype(np.float32)
             X_valid = X[valid_mask]
+        else:
+            # Fallback : utiliser X tel quel (multi-asset ou dimensions incohérentes)
+            n_rows = min(X.shape[0], Y_ret.shape[0])
+            target = Y_ret[:n_rows, horizon_idx].astype(np.float32)
+            X_valid = X[:n_rows]
         # Split rapide 80/20
         n = X_valid.shape[0]
         split = int(n * 0.8)
