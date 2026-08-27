@@ -238,18 +238,26 @@ def _quick_importances(
     horizon_idx: int,
     valid_mask: np.ndarray,
     n_estimators: int = 30,
+    train_mask: np.ndarray | None = None,
 ) -> dict[str, float]:
     """FIX BUG-07 : pre-train rapide pour avoir les vraies importances.
 
     Entraine un petit XGBoost (30 estimateurs) sur les donnees, retourne
     le dict {feature_name: gain}.
 
+    FIX LEAKAGE (2026-08-27) : si train_mask est fourni, on ne calcule
+    les importances que sur le TRAIN (pas sur train+val+holdout).
     Objectif : remplacer le vecteur uniforme {name: 1.0} qui causait
     une elimination arbitraire en cas d'egalite d'importance.
     """
     try:
-        target = Y_ret[valid_mask, horizon_idx].astype(np.float32)
-        X_valid = X[valid_mask]
+        # FIX LEAKAGE : utiliser train_mask si fourni, sinon valid_mask
+        if train_mask is not None:
+            target = Y_ret[train_mask, horizon_idx].astype(np.float32)
+            X_valid = X[train_mask]
+        else:
+            target = Y_ret[valid_mask, horizon_idx].astype(np.float32)
+            X_valid = X[valid_mask]
         # Split rapide 80/20
         n = X_valid.shape[0]
         split = int(n * 0.8)
@@ -1036,6 +1044,7 @@ def run_pipeline(
                     feature_names,
                     costs_pct=costs,
                     backtest_fn=backtest_einher,
+                    max_features=50,
                 )
                 if res_v is not None:
                     cand_v, info_v = res_v

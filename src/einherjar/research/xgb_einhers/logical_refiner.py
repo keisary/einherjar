@@ -254,6 +254,8 @@ def find_veto_condition(
     feature_names: list[str],
     costs_pct: float,
     backtest_fn,
+    max_features: int = 50,
+    importance_ranking: dict[str, float] | None = None,
 ) -> tuple[Einher, dict] | None:
     """Cherche une condition de veto améliorant le sharpe val d'un Einher admis.
 
@@ -261,12 +263,19 @@ def find_veto_condition(
     la condition de veto est fausse sont conservés. On teste toutes les
     conditions atomiques simples (feature, op, seuil par quantiles).
 
+    FIX PERF (2026-08-27) : on limite à max_features features (top importance)
+    au lieu de tester les 213 features. Réduit le coût de 1278 à ~300 backtests
+    par Einher admis.
+
     Args:
         einher : Einher ADMIS (avec métriques val remplies).
         ohlcv_val : fenêtre OHLCV val alignée.
         X_val : features val alignées.
         feature_names : noms des colonnes.
         costs_pct : coût round-trip.
+        backtest_fn : fonction backtest_einher(einher, ohlcv_df, X, names, costs_pct).
+        max_features : nombre max de features à tester (défaut 50).
+        importance_ranking : dict {feature_name: importance} pour trier les features.
         backtest_fn : fonction backtest_einher(einher, ohlcv_df, X, names, costs_pct).
 
     Returns:
@@ -282,7 +291,18 @@ def find_veto_condition(
     best = None
     tested = 0
 
-    for fname in feature_names:
+    # FIX PERF (2026-08-27) : limiter aux top features par importance
+    features_to_test = feature_names
+    if importance_ranking and len(feature_names) > max_features:
+        sorted_features = sorted(
+            feature_names,
+            key=lambda f: importance_ranking.get(f, 0.0),
+            reverse=True,
+        )
+        features_to_test = sorted_features[:max_features]
+        logger.info("  veto: limité à %d/%d features (top importance)", max_features, len(feature_names))
+
+    for fname in features_to_test:
         idx = name_to_idx.get(fname)
         if idx is None:
             continue
