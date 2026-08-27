@@ -412,15 +412,43 @@ def subgroup_discovery(
     # -----------------------------------------------------------------------
     all_candidates.sort(key=lambda c: -abs(c.t_stat))
 
+    # FIX PERF (2026-08-27) : limiter à 200 candidats avant dedup.
+    # Avec 600+ candidats sur 834k lignes, la dédup O(n²) prend 4 minutes.
+    # Les top 200 par |t_stat| sont les plus significatifs.
+    max_before_dedup = 200
+    if len(all_candidates) > max_before_dedup:
+        logger.info(
+            "subgroup_discovery: limité à %d/%d candidats avant dedup (top |t_stat|)",
+            max_before_dedup, len(all_candidates),
+        )
+        all_candidates = all_candidates[:max_before_dedup]
+
+    # Dédup rapide : précalculer les sommes des masks pour éviter
+    # de recalculer l'intersection complète à chaque comparaison
     deduped: list[SubgroupCandidate] = []
+    dedup_sums: list[int] = []  # précalculer sum(mask) pour chaque candidat retenu
     for cand in all_candidates:
+        cand_sum = int(cand.mask.sum())
         is_dup = False
-        for existing in deduped:
+        for idx, existing in enumerate(deduped):
+            # Fast reject : si les tailles sont trop différentes, pas de dup
+            existing_sum = dedup_sums[idx]
+            # Jaccard = inter / union = inter / (sum_a + sum_b - inter)
+            # Si sum_a et sum_b sont très différentes, Jaccard est forcément bas
+            min_sum = min(cand_sum, existing_sum)
+            max_sum = max(cand_sum, existing_sum)
+            if max_sum == 0:
+                continue
+            # Jaccard max possible = min_sum / max_sum (si un contient l'autre)
+            if min_sum / max_sum < jaccard_threshold:
+                continue  # impossible d'atteindre le seuil
+            # Calcul complet seulement si le fast reject passe
             if _jaccard(cand.mask, existing.mask) >= jaccard_threshold:
                 is_dup = True
                 break
         if not is_dup:
             deduped.append(cand)
+            dedup_sums.append(cand_sum)
 
     n_buy = sum(1 for c in deduped if c.direction == "BUY")
     n_sell = sum(1 for c in deduped if c.direction == "SELL")
