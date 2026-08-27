@@ -836,6 +836,29 @@ def run_pipeline(
             **{**admission_cfg.__dict__, "min_holdout_trades": min_holdout_trades}
         )
 
+    # FIX FDR ADAPTATIF (2026-08-27) : le FDR doit dépendre du volume de données.
+    # Plus de barres val → plus de trades → t-stats plus fiables → BH peut être strict.
+    # Moins de barres → moins de trades → t-stats moins fiables → BH plus permissif.
+    # Échelle : 5m (~250k barres val) → FDR=0.03 | 1h (~14k) → FDR=0.05 | 1d (~400) → FDR=0.15
+    if not debug and n_val_bars > 0:
+        if n_val_bars > 100_000:
+            adaptive_fdr = 0.03  # 5m : très strict (beaucoup de données)
+        elif n_val_bars > 20_000:
+            adaptive_fdr = 0.05  # 15m-1h : standard
+        elif n_val_bars > 5_000:
+            adaptive_fdr = 0.08  # 4h : légèrement permissif
+        elif n_val_bars > 1_000:
+            adaptive_fdr = 0.12  # 1d court : permissif
+        else:
+            adaptive_fdr = 0.15  # 1d long : très permissif (peu de données)
+        admission_cfg = AdmissionConfig(
+            **{**admission_cfg.__dict__, "fdr": adaptive_fdr}
+        )
+        logger.info(
+            "  FDR adaptatif : %.2f (val_bars=%d, trades possibles=%d)",
+            adaptive_fdr, n_val_bars, max_possible_trades,
+        )
+
     # Phase 1 : generer + backtester TOUS les Einhers (sans admission)
     logger.info("[9a/10] Generation + backtest de tous les Einhers (avant BH) ...")
     all_einhers: list[Einher] = []
