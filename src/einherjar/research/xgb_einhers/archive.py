@@ -16,12 +16,13 @@ from __future__ import annotations
 
 import json
 import logging
-import threading
+import os
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC
 from pathlib import Path
 
+from .corpus import _file_lock, _file_unlock
 from .types import Einher
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,6 @@ class ArchiveStore:
         """
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._lock = threading.Lock()
         if not self.path.exists():
             self.path.touch()
 
@@ -91,9 +91,14 @@ class ArchiveStore:
             rejected_at=datetime.now(UTC).isoformat(),
         )
         line = json.dumps(entry.to_dict(), ensure_ascii=False, default=str)
-        with self._lock:
+        _file_lock(self.path)
+        try:
             with open(self.path, "a", encoding="utf-8") as f:
                 f.write(line + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+        finally:
+            _file_unlock(self.path)
 
     def add_batch(
         self,
@@ -110,7 +115,8 @@ class ArchiveStore:
             return 0
         from datetime import datetime
         ts = datetime.now(UTC).isoformat()
-        with self._lock:
+        _file_lock(self.path)
+        try:
             with open(self.path, "a", encoding="utf-8") as f:
                 for e in einhers:
                     entry = ArchiveEntry(
@@ -124,6 +130,10 @@ class ArchiveStore:
                         rejected_at=ts,
                     )
                     f.write(json.dumps(entry.to_dict(), ensure_ascii=False, default=str) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+        finally:
+            _file_unlock(self.path)
         return len(einhers)
 
     def iter(self) -> Iterator[ArchiveEntry]:
@@ -165,5 +175,8 @@ class ArchiveStore:
 
     def clear(self) -> None:
         """Clear."""
-        with self._lock:
+        _file_lock(self.path)
+        try:
             self.path.write_text("", encoding="utf-8")
+        finally:
+            _file_unlock(self.path)

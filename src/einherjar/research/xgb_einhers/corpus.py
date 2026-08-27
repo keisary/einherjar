@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import json
 import logging
-import threading
+import os
+import struct
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -23,10 +24,38 @@ from .types import Einher
 logger = logging.getLogger(__name__)
 
 
+def _file_lock(path: Path) -> None:
+    """Acquire an exclusive file lock (cross-process, Windows+Linux)."""
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    # Busy-wait with a lock file (simple, cross-platform)
+    import time
+    for _ in range(500):  # max 5 seconds
+        try:
+            # O_CREAT | O_EXCL : atomic create, fails if exists
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            return
+        except FileExistsError:
+            time.sleep(0.01)
+    # Fallback : proceed without lock (better than hanging)
+    logger.warning("File lock timeout on %s, proceeding without lock", path)
+
+
+def _file_unlock(path: Path) -> None:
+    """Release the file lock."""
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    try:
+        os.remove(str(lock_path))
+    except OSError:
+        pass
+
+
 class CorpusStore:
     """Append-only JSONL store pour Einhers admis.
 
-    Thread-safe via un lock (les workers en parallele peuvent append).
+    Cross-process safe via file lock (fonctionne avec multiprocessing).
     """
 
     def __init__(self, path: Path | str):
@@ -37,26 +66,35 @@ class CorpusStore:
         """
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._lock = threading.Lock()
         if not self.path.exists():
             self.path.touch()
 
     def add(self, einher: Einher) -> None:
-        """Append un Einher au corpus (thread-safe)."""
+        """Append un Einher au corpus (cross-process safe)."""
         d = einher.to_dict()
         line = json.dumps(d, ensure_ascii=False, default=str)
-        with self._lock:
+        _file_lock(self.path)
+        try:
             with open(self.path, "a", encoding="utf-8") as f:
                 f.write(line + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+        finally:
+            _file_unlock(self.path)
 
     def add_batch(self, einhers: list[Einher]) -> int:
         """Append N Einhers d'un coup, retourne le nombre ajoute."""
         if not einhers:
             return 0
-        with self._lock:
+        _file_lock(self.path)
+        try:
             with open(self.path, "a", encoding="utf-8") as f:
                 for e in einhers:
                     f.write(json.dumps(e.to_dict(), ensure_ascii=False, default=str) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+        finally:
+            _file_unlock(self.path)
         return len(einhers)
 
     def iter(self) -> Iterator[Einher]:
@@ -81,5 +119,8 @@ class CorpusStore:
 
     def clear(self) -> None:
         """Vide le corpus (utilise avec precaution)."""
-        with self._lock:
+        _file_lock(self.path)
+        try:
             self.path.write_text("", encoding="utf-8")
+        finally:
+            _file_unlock(self.path)
