@@ -84,8 +84,8 @@ class AdmissionConfig:
     - min_holdout_trades : 30 (au lieu de 100) - plus permissif, ajuste par horizon
     """
     min_trades: int = 30
-    min_sharpe: float = 0.3
-    min_win_rate: float = 0.40
+    min_sharpe: float = 0.90  # FIX (2026-08-27) : 0.90 au lieu de 0.3
+    min_win_rate: float = 0.55  # FIX (2026-08-27) : 0.55 au lieu de 0.40
     min_profit_factor: float = 1.0
     max_drawdown: float = 0.30
     min_families: int = 1  # Sprint 3.5 : 1 au lieu de 2 (regles simples OK)

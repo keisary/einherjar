@@ -13,7 +13,8 @@ MÉTHODE :
        where baseline = mean(y_train > 0) and precision = mean(y_sg > 0).
     3. Compute t-stat = mean(y_sg) / (std(y_sg) / sqrt(n_sg)).
     4. Filter selectors with |t_stat| > min_t_stat and coverage >= min_coverage.
-    5. Combine top selectors into depth-2 pairs (AND), avoiding same-feature pairs.
+    5. Combine top selectors into depth-2, depth-3, depth-4 pairs (AND),
+       avoiding same-feature pairs.
     6. Deduplicate by Jaccard similarity of masks (threshold 0.8).
     7. Return sorted list of SubgroupCandidate.
 
@@ -46,7 +47,8 @@ DEFAULT_MIN_T_STAT = 3.0
 DEFAULT_MIN_COVERAGE = 0.02  # subgroup must cover >= 2% of population
 DEFAULT_JACCARD_THRESHOLD = 0.8
 DEFAULT_TOP_K_ATOMIC = 50  # top atomic selectors for depth-2 pairing
-DEFAULT_MAX_DEPTH2_PAIRS = 200  # max depth-2 candidates before dedup
+DEFAULT_MAX_DEPTH2_PAIRS = 500  # FIX (2026-08-27) : 500 au lieu de 200
+DEFAULT_MAX_DEPTH = 4  # FIX (2026-08-27) : depth max 4 (combinaisons de 2, 3, 4 features)
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +67,7 @@ class SubgroupCandidate:
     coverage: float  # fraction of population covered
     n_occurrences: int  # absolute count
     mean_return: float  # mean signed return in subgroup
-    depth: int  # 1 = atomic, 2 = pair
+    depth: int  # 1 = atomic, 2 = pair, 3 = triple, 4 = quad
     direction: str = "BUY"  # BUY if mean_return > 0, else SELL
 
 
@@ -149,6 +151,11 @@ def _jaccard(a: np.ndarray, b: np.ndarray) -> float:
     return inter / union
 
 
+def _get_features_in_desc(desc: tuple) -> set[str]:
+    """Extract unique feature names from a description tuple."""
+    return {feat for feat, _, _ in desc}
+
+
 # ---------------------------------------------------------------------------
 # Main search
 # ---------------------------------------------------------------------------
@@ -164,12 +171,18 @@ def subgroup_discovery(
     jaccard_threshold: float = DEFAULT_JACCARD_THRESHOLD,
     top_k_atomic: int = DEFAULT_TOP_K_ATOMIC,
     max_depth2_pairs: int = DEFAULT_MAX_DEPTH2_PAIRS,
+    max_depth: int = DEFAULT_MAX_DEPTH,
 ) -> list[SubgroupCandidate]:
-    """Find subgroups with significantly positive returns using WRAcc + t-stat.
+    """Find subgroups with significantly positive OR negative returns using WRAcc + t-stat.
 
     Tests atomic selectors (binary ==1/==-1, continuous quantile intervals),
     scores with WRAcc, filters by t-stat and coverage, combines top selectors
-    into depth-2 pairs, and deduplicates by Jaccard similarity.
+    into depth-2/3/4 combinations, and deduplicates by Jaccard similarity.
+
+    FIX SELL (2026-08-27) : teste aussi les sous-groupes avec rendement
+    négatif significatif (direction SELL).
+
+    FIX DEPTH (2026-08-27) : supporte depth=3 et depth=4 en plus de depth=2.
 
     Args:
         X_train: (N, F) float32 feature matrix.
@@ -180,7 +193,8 @@ def subgroup_discovery(
         min_coverage: minimum fraction of population covered (default 0.02).
         jaccard_threshold: dedup threshold for mask similarity (default 0.8).
         top_k_atomic: number of top atomic selectors for depth-2 pairing (default 50).
-        max_depth2_pairs: max depth-2 candidates before dedup (default 200).
+        max_depth2_pairs: max depth-2 candidates before dedup (default 500).
+        max_depth: maximum combination depth (default 4).
 
     Returns:
         Sorted list of SubgroupCandidate (by |t_stat| descending).
@@ -198,27 +212,75 @@ def subgroup_discovery(
 
     y = y_train.astype(np.float64)
     y_positive = y > 0
-    baseline = float(y_positive.mean())
+    y_negative = y < 0
+    baseline_buy = float(y_positive.mean())
+    baseline_sell = float(y_negative.mean())
 
     # Precompute quantile thresholds for continuous features (vectorized)
-    # Shape: (n_features, 3) for q25, q50, q75
-    quantile_levels = np.array([0.25, 0.50, 0.75])
-    # Only compute for non-binary features
     continuous_mask = ~binary_mask
     cont_indices = np.where(continuous_mask)[0]
 
     thresholds = np.full((n_features, 3), np.nan, dtype=np.float64)
     if len(cont_indices) > 0:
         cont_cols = X_train[:, cont_indices].astype(np.float64)
-        # nanpercentile along axis=0 gives (3, n_cont_features)
         q_vals = np.nanpercentile(cont_cols, [25, 50, 75], axis=0)
-        thresholds[cont_indices, :] = q_vals.T  # (n_cont, 3)
+        thresholds[cont_indices, :] = q_vals.T
 
     # -----------------------------------------------------------------------
-    # Phase 1: Generate and score atomic selectors
+    # Phase 1: Generate and score atomic selectors (BUY + SELL)
     # -----------------------------------------------------------------------
     atomic_candidates: list[SubgroupCandidate] = []
     n_tested = 0
+
+    def _eval_selector(mask: np.ndarray, desc: tuple, n_tested_ref: list) -> list[SubgroupCandidate]:
+        """Evaluate a single selector for both BUY and SELL."""
+        n_tested_ref[0] += 1
+        n_sg = int(mask.sum())
+        if n_sg == 0:
+            return []
+        coverage = n_sg / n_total
+        if coverage < min_coverage:
+            return []
+
+        results = []
+        y_sg = y[mask]
+        mean_ret = float(np.mean(y_sg))
+
+        # BUY: test if mean_return > 0 and significant
+        if mean_ret > 0:
+            wracc = _compute_wracc(mask, y_positive, n_total, baseline_buy)
+            t_stat = _compute_t_stat(y_sg)
+            if abs(t_stat) >= min_t_stat:
+                results.append(SubgroupCandidate(
+                    description=desc,
+                    mask=mask,
+                    wracc=wracc,
+                    t_stat=t_stat,
+                    coverage=coverage,
+                    n_occurrences=n_sg,
+                    mean_return=mean_ret,
+                    depth=len(desc),
+                    direction="BUY",
+                ))
+
+        # SELL: test if mean_return < 0 and significant
+        if mean_ret < 0:
+            wracc_sell = _compute_wracc(mask, y_negative, n_total, baseline_sell)
+            t_stat_sell = _compute_t_stat(-y_sg)  # flip sign for SELL
+            if abs(t_stat_sell) >= min_t_stat:
+                results.append(SubgroupCandidate(
+                    description=desc,
+                    mask=mask,
+                    wracc=wracc_sell,
+                    t_stat=t_stat_sell,
+                    coverage=coverage,
+                    n_occurrences=n_sg,
+                    mean_return=mean_ret,
+                    depth=len(desc),
+                    direction="SELL",
+                ))
+
+        return results
 
     # Binary features: test ==1 and ==-1
     bin_indices = np.where(binary_mask)[0]
@@ -226,44 +288,16 @@ def subgroup_discovery(
         col = X_train[:, j]
         fname = feature_names[j]
         for val, op_label in [(1.0, "==1"), (-1.0, "==-1")]:
-            # Vectorized mask: |col - val| < 0.5 (handles float noise)
             mask = np.abs(col - val) < 0.5
-            n_sg = int(mask.sum())
-            n_tested += 1
-            if n_sg == 0:
-                continue
-            coverage = n_sg / n_total
-            if coverage < min_coverage:
-                continue
-
-            y_sg = y[mask]
-            wracc = _compute_wracc(mask, y_positive, n_total, baseline)
-            t_stat = _compute_t_stat(y_sg)
-
-            if abs(t_stat) < min_t_stat:
-                continue
-
-            direction = "BUY" if float(np.mean(y_sg)) > 0 else "SELL"
-            atomic_candidates.append(SubgroupCandidate(
-                description=((fname, "==", val),),
-                mask=mask,
-                wracc=wracc,
-                t_stat=t_stat,
-                coverage=coverage,
-                n_occurrences=n_sg,
-                mean_return=float(np.mean(y_sg)),
-                depth=1,
-                direction=direction,
-            ))
+            desc = ((fname, "==", val),)
+            atomic_candidates.extend(_eval_selector(mask, desc, [n_tested]))
 
     # Continuous features: quantile-based intervals
-    # 6 selectors per feature: <=q25, >q25, <=q50, >q50, <=q75, >q75
     for j in cont_indices:
         col = X_train[:, j].astype(np.float64)
         fname = feature_names[j]
         q25, q50, q75 = thresholds[j]
 
-        # Skip if all NaN
         if np.isnan(q25):
             continue
 
@@ -271,39 +305,13 @@ def subgroup_discovery(
             (q25, "q25"), (q50, "q50"), (q75, "q75"),
         ]:
             for op, op_str in [("<=", "<="), (">", ">")]:
-                # Vectorized mask
                 if op == "<=":
                     mask = col <= thresh
                 else:
                     mask = col > thresh
 
-                n_sg = int(mask.sum())
-                n_tested += 1
-                if n_sg == 0:
-                    continue
-                coverage = n_sg / n_total
-                if coverage < min_coverage:
-                    continue
-
-                y_sg = y[mask]
-                wracc = _compute_wracc(mask, y_positive, n_total, baseline)
-                t_stat = _compute_t_stat(y_sg)
-
-                if abs(t_stat) < min_t_stat:
-                    continue
-
-                direction = "BUY" if float(np.mean(y_sg)) > 0 else "SELL"
-                atomic_candidates.append(SubgroupCandidate(
-                    description=((fname, op_str, float(thresh)),),
-                    mask=mask,
-                    wracc=wracc,
-                    t_stat=t_stat,
-                    coverage=coverage,
-                    n_occurrences=n_sg,
-                    mean_return=float(np.mean(y_sg)),
-                    depth=1,
-                    direction=direction,
-                ))
+                desc = ((fname, op_str, float(thresh)),)
+                atomic_candidates.extend(_eval_selector(mask, desc, [n_tested]))
 
     logger.info(
         "subgroup_discovery: %d atomic selectors tested, %d candidates "
@@ -315,84 +323,111 @@ def subgroup_discovery(
     atomic_candidates.sort(key=lambda c: -abs(c.t_stat))
 
     # -----------------------------------------------------------------------
-    # Phase 2: Depth-2 pairs (AND of top atomic selectors)
+    # Phase 2+: Depth-k combinations (k=2,3,4)
     # -----------------------------------------------------------------------
-    top_atomic = atomic_candidates[:top_k_atomic]
-    depth2_candidates: list[SubgroupCandidate] = []
-    n_pairs_tested = 0
+    all_candidates = list(atomic_candidates)
+    prev_depth = atomic_candidates  # start with depth-1
 
-    # Build feature index for each atomic candidate to avoid same-feature pairs
-    def _get_feature(desc: tuple) -> str:
-        return desc[0][0]
+    for depth in range(2, max_depth + 1):
+        # Take top candidates from previous depth
+        top_prev = prev_depth[:top_k_atomic]
+        # Also take top atomic for combining
+        top_atomic = atomic_candidates[:top_k_atomic]
 
-    for i in range(len(top_atomic)):
-        if n_pairs_tested >= max_depth2_pairs:
-            break
-        for j in range(i + 1, len(top_atomic)):
-            if n_pairs_tested >= max_depth2_pairs:
+        depth_candidates: list[SubgroupCandidate] = []
+        n_pairs_tested = 0
+        max_pairs = max_depth2_pairs if depth == 2 else max_depth2_pairs // 2
+
+        for prev_cand in top_prev:
+            if n_pairs_tested >= max_pairs:
                 break
-            a = top_atomic[i]
-            b = top_atomic[j]
-            # Avoid same-feature pairs
-            if _get_feature(a.description) == _get_feature(b.description):
-                continue
+            prev_features = _get_features_in_desc(prev_cand.description)
 
-            n_pairs_tested += 1
-            combined_mask = a.mask & b.mask
-            n_sg = int(combined_mask.sum())
-            if n_sg == 0:
-                continue
-            coverage = n_sg / n_total
-            if coverage < min_coverage:
-                continue
+            for atom in top_atomic:
+                if n_pairs_tested >= max_pairs:
+                    break
 
-            y_sg = y[combined_mask]
-            wracc = _compute_wracc(combined_mask, y_positive, n_total, baseline)
-            t_stat = _compute_t_stat(y_sg)
+                # Avoid same-feature combinations
+                atom_features = _get_features_in_desc(atom.description)
+                if prev_features & atom_features:
+                    continue
 
-            if abs(t_stat) < min_t_stat:
-                continue
+                n_pairs_tested += 1
+                combined_mask = prev_cand.mask & atom.mask
+                n_sg = int(combined_mask.sum())
+                if n_sg == 0:
+                    continue
+                coverage = n_sg / n_total
+                if coverage < min_coverage:
+                    continue
 
-            direction = "BUY" if float(np.mean(y_sg)) > 0 else "SELL"
-            combined_desc = a.description + b.description
-            depth2_candidates.append(SubgroupCandidate(
-                description=combined_desc,
-                mask=combined_mask,
-                wracc=wracc,
-                t_stat=t_stat,
-                coverage=coverage,
-                n_occurrences=n_sg,
-                mean_return=float(np.mean(y_sg)),
-                depth=2,
-                direction=direction,
-            ))
+                y_sg = y[combined_mask]
+                mean_ret = float(np.mean(y_sg))
+                combined_desc = prev_cand.description + atom.description
 
-    logger.info(
-        "subgroup_discovery: %d depth-2 pairs tested, %d candidates",
-        n_pairs_tested, len(depth2_candidates),
-    )
+                # BUY
+                if mean_ret > 0:
+                    wracc = _compute_wracc(combined_mask, y_positive, n_total, baseline_buy)
+                    t_stat = _compute_t_stat(y_sg)
+                    if abs(t_stat) >= min_t_stat:
+                        depth_candidates.append(SubgroupCandidate(
+                            description=combined_desc,
+                            mask=combined_mask,
+                            wracc=wracc,
+                            t_stat=t_stat,
+                            coverage=coverage,
+                            n_occurrences=n_sg,
+                            mean_return=mean_ret,
+                            depth=depth,
+                            direction="BUY",
+                        ))
+
+                # SELL
+                if mean_ret < 0:
+                    wracc_sell = _compute_wracc(combined_mask, y_negative, n_total, baseline_sell)
+                    t_stat_sell = _compute_t_stat(-y_sg)
+                    if abs(t_stat_sell) >= min_t_stat:
+                        depth_candidates.append(SubgroupCandidate(
+                            description=combined_desc,
+                            mask=combined_mask,
+                            wracc=wracc_sell,
+                            t_stat=t_stat_sell,
+                            coverage=coverage,
+                            n_occurrences=n_sg,
+                            mean_return=mean_ret,
+                            depth=depth,
+                            direction="SELL",
+                        ))
+
+        logger.info(
+            "subgroup_discovery: %d depth-%d combinations tested, %d candidates",
+            n_pairs_tested, depth, len(depth_candidates),
+        )
+
+        all_candidates.extend(depth_candidates)
+        prev_depth = depth_candidates  # next depth builds on this
 
     # -----------------------------------------------------------------------
-    # Phase 3: Merge, deduplicate by Jaccard, sort
+    # Final: sort and deduplicate by Jaccard
     # -----------------------------------------------------------------------
-    all_candidates = atomic_candidates + depth2_candidates
     all_candidates.sort(key=lambda c: -abs(c.t_stat))
 
-    # Deduplicate by Jaccard similarity of masks
     deduped: list[SubgroupCandidate] = []
     for cand in all_candidates:
         is_dup = False
         for existing in deduped:
             if _jaccard(cand.mask, existing.mask) >= jaccard_threshold:
-                # Keep the one with higher |t_stat| (already sorted, so existing wins)
                 is_dup = True
                 break
         if not is_dup:
             deduped.append(cand)
 
+    n_buy = sum(1 for c in deduped if c.direction == "BUY")
+    n_sell = sum(1 for c in deduped if c.direction == "SELL")
     logger.info(
-        "subgroup_discovery: %d total candidates -> %d after Jaccard dedup (threshold=%.2f)",
-        len(all_candidates), len(deduped), jaccard_threshold,
+        "subgroup_discovery: %d total candidates -> %d after Jaccard dedup "
+        "(%d BUY, %d SELL, threshold=%.2f)",
+        len(all_candidates), len(deduped), n_buy, n_sell, jaccard_threshold,
     )
 
     return deduped
@@ -410,13 +445,13 @@ def convert_candidates_to_einhers(
     timeframe: str,
     horizon_str: str,
     horizon_bars: int,
-    max_candidates: int = 30,
+    max_candidates: int = 50,  # FIX (2026-08-27) : 50 au lieu de 30
     source_tag: str = "subgroup_discovery",
 ) -> list[Einher]:
     """Convert SubgroupCandidate list to Einher objects.
 
     Each candidate's description tuple is converted to a ConditionNode (AND
-    for depth-2) or a single Condition (depth-1).
+    for depth-2+) or a single Condition (depth-1).
 
     Args:
         candidates: output of subgroup_discovery().

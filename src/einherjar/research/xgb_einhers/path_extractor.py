@@ -327,7 +327,7 @@ def extract_paths(
     backend: str,
     feature_names: list[str],
     min_score: float = 0.0005,
-    max_score: float = 0.10,
+    max_score: float = 0.20,  # FIX (2026-08-27) : 0.20 au lieu de 0.10 (signaux forts)
     min_path_length: int = 1,
     max_path_length: int = 6,
     max_paths: int = 100,

@@ -54,7 +54,7 @@ class GBDTConfig:
     max_depth: int = 4
     learning_rate: float = 0.05
     subsample: float = 0.8
-    colsample_bytree: float = 0.8      # ignoré par sklearn
+    colsample_bytree: float = 0.6      # FIX (2026-08-27) : 0.6 au lieu de 0.8 (plus de diversité)
     min_child_weight: int = 10          # ignoré par sklearn
     reg_alpha: float = 0.1              # ignoré par sklearn
     reg_lambda: float = 1.0             # ignoré par sklearn

@@ -307,7 +307,7 @@ def run_pipeline(
     enable_pattern_miner: bool = True,  # P3-1 : event-study binaires (générateur parallèle)
     pattern_min_t_stat: float = 3.0,  # P3-1 : seuil de significativité train
     pattern_min_occurrences: int = 60,  # P3-1 : occurrences minimales train
-    pattern_max_candidates: int = 50,  # FIX (2026-08-27) : 50 au lieu de 15 (budget trop faible)  # P3-1 : cap de candidats patterns par triplet
+    pattern_max_candidates: int = 100,  # FIX (2026-08-27) : 100 au lieu de 50
     enable_or_regimes: bool = True,  # P3-4a : OR-de-régimes post-génération
     enable_veto: bool = True,  # P3-4b : veto-NOT post-admission
     workers: int = 6,  # Nombre de workers paralleles (pour decision GPU)
@@ -1304,8 +1304,8 @@ def _discover_one_triplet(
     archive_path = triplet["archive_path"]
     debug = triplet.get("debug", False)
     n_estimators = triplet.get("n_estimators", 100)
-    max_depth = triplet.get("max_depth", 3)
-    max_paths = triplet.get("max_paths", 30)
+    max_depth = triplet.get("max_depth", 4)  # FIX (2026-08-27) : 4 au lieu de 3
+    max_paths = triplet.get("max_paths", 50)  # FIX (2026-08-27) : 50 au lieu de 30
     min_score = triplet.get("min_score", 0.0)  # <=0 => auto (aucune feuille exclue)
     min_holdout_trades = triplet.get("min_holdout_trades", 5)
     multi_assets = triplet.get("multi_assets", None)
