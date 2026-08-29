@@ -468,6 +468,44 @@ def run_pipeline(
             horizons,
         )
 
+    # SMART-5M (2026-08-29) : filtre volume pour les barres 5m (single).
+    # Le 5M a 37k-1.17M lignes dominees par le bruit. On garde les barres
+    # a volume significatif (mult x moyenne glissante) : reduction ~50-70%
+    # du bruit sans changer la resolution temporelle (les horizons restent
+    # valides en barres 5m). Memes indices appliques a X_global, Y, ohlcv.
+    # NOTE : le dollar-bar (echantillonnage par $ traded) necessite de
+    # recalculer le target - reserve a une iteration ulterieure.
+    if timeframe == "5m" and not multi:
+        try:
+            from .smart_sampling import filter_volume_indices
+
+            logger.info("[1b/10] SMART-5M : filtre volume (5m) ...")
+            _vols = ohlcv_aligned["volume"].to_numpy().astype(np.float64)
+            _keep_idx = filter_volume_indices(_vols, volume_mult=1.5)
+            if 100 <= len(_keep_idx) < X_aligned_full.shape[0]:
+                _keep_list = _keep_idx.tolist()
+                # Appliquer les memes indices a toutes les matrices de lignes
+                X_aligned_full = X_aligned_full[_keep_idx]
+                ohlcv_aligned = ohlcv_aligned.take(_keep_list)
+                ts_aligned = ts_aligned[_keep_idx]
+                if not multi:
+                    loaded.X = loaded.X[_keep_idx]
+                    loaded.Y_dir = loaded.Y_dir[_keep_idx]
+                    loaded.Y_ret = loaded.Y_ret[_keep_idx]
+                    X_global = loaded.X
+                    Y_dir_global = loaded.Y_dir
+                    Y_ret_global = loaded.Y_ret
+                logger.info(
+                    "  SMART-5M : %d -> %d barres (reduction %.1fx)",
+                    loaded.n_samples, len(_keep_idx),
+                    loaded.n_samples / max(1, len(_keep_idx)),
+                )
+            else:
+                logger.info("  SMART-5M : reduction insuffisante, conserve tout")
+        except Exception as _s5m_err:
+            logger.warning("  SMART-5M : erreur (%s) - conserve toutes les barres", _s5m_err)
+
+
     # 2. Pre-compute valid_mask (single ; multi deja tout-True via l'init ci-dessus)
     logger.info("[2a/10] Pre-compute valid_mask ...")
     if not multi:
@@ -692,6 +730,33 @@ def run_pipeline(
             "min_child_weight": 20,
         })
         logger.info("  Config adaptee 5M : depth<=4, subsample=0.7, colsample=0.5, mcw=20")
+
+    # IC-REDUCE (2026-08-29) : reduction des features par IC pour le 1D.
+    # Ratio obs/features ~9:1 sur 1d -> XGBoost overfitte. Selection
+    # univariee (Spearman IC sur TRAIN uniquement) + dedup correlation
+    # + cap top-40. Applique sur TOUTES les matrices avant entrainement.
+    if timeframe == "1d" and split_train_X is not None and split_train_y is not None:
+        try:
+            from .feature_reduction import select_features_by_ic
+
+            logger.info("[6b/10] Reduction features 1D par IC (train)...")
+            _ic_names, _ic_idx = select_features_by_ic(
+                split_train_X, split_train_y, feature_names,
+                max_features=40,
+            )
+            if len(_ic_idx) < len(feature_names) and len(_ic_idx) >= 10:
+                split_train_X = split_train_X[:, _ic_idx]
+                split_val_X = split_val_X[:, _ic_idx]
+                if split_holdout_X is not None:
+                    split_holdout_X = split_holdout_X[:, _ic_idx]
+                feature_names = _ic_names
+                logger.info(
+                    "  IC-REDUCE : %d features gardees pour le 1D",
+                    len(feature_names),
+                )
+        except Exception as _ic_err:
+            logger.warning("  IC-REDUCE : erreur (%s) - conserve toutes les features", _ic_err)
+
     # PERF-GPU (2026-08-26, bench reel GTX 1660 Ti) :
     #   n=42k (per-asset)  : CPU 1.3s vs GPU 2.0s -> le transfert CPU->GPU domine
     #   n=250k (market+)   : GPU 1.5s vs CPU 4.5s -> GPU gagne ~3x
