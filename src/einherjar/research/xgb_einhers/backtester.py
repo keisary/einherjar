@@ -169,6 +169,7 @@ def compute_metrics(
     trades: list[TradeResult],
     buy_hold_return: float,
     years_in_period: float = 1.0,
+    independence_scale: float = 1.0,
 ) -> EinherMetrics:
     """Calcule les métriques d'un Einher depuis la liste de trades.
 
@@ -176,6 +177,12 @@ def compute_metrics(
         trades : liste de TradeResult
         buy_hold_return : rendement buy & hold sur la même période (en decimal)
         years_in_period : durée du backtest en années (pour annualisation)
+        independence_scale : facteur de correction d'indépendance.
+            En multi-actif, les trades des différents actifs sont SIMULTANES
+            (même signal sur l'univers) donc fortement corrélés — les compter
+            comme observations indépendantes gonfle trades_per_year et donc
+            le Sharpe annualisé (valeurs absurdes 100-500 observees).
+            Passer len(actifs) pour ne compter qu'une observation par periode.
 
     Returns:
         EinherMetrics
@@ -213,7 +220,14 @@ def compute_metrics(
     # FIX BASELINE-01 (2026-08-20) : garde anti-degenerescence (std numerique ~0).
     degenerate = std <= 1e-12 * max(1e-12, abs(avg_net))
     if std > 0 and not degenerate and years_in_period > 0:
-        trades_per_year = n / years_in_period
+        scale = max(1.0, float(independence_scale))
+        # FIX SHARPE-MULTI (2026-08-29) : en multi-actif, les trades des
+        # differents actifs sont simultanes (correles) -> diviser le taux
+        # d'echantillonnage par le nombre d'actifs pour un Sharpe annualise
+        # credible. + CAP de securite : au-dela de 50_000 trades/an, le
+        # sqrt() produirait des valeurs absurdes (>200) impossibles en
+        # pratique -> on plafonne.
+        trades_per_year = min(n / years_in_period / scale, 50_000.0)
         sharpe = float(avg_net / std * np.sqrt(trades_per_year))
     else:
         sharpe = 0.0
@@ -348,7 +362,6 @@ def backtest_einher_multi(
             ),
             equity_curve=np.array([0.0]))
     # Recalculer les metriques sur l'union (agreg)
-    # Recalculer les metriques sur l'union (agreg)
     buy_hold = 0.0
     import numpy as _np
     # FIX : estimer les annees a partir des timestamps reels (ms) des trades
@@ -356,7 +369,13 @@ def backtest_einher_multi(
     _ts_max = max(t.exit_timestamp_ms for t in all_trades)
     dur_h = (_ts_max - _ts_min) / 3_600_000.0 if _ts_max > _ts_min else 1.0
     years = max(dur_h / 8_760.0, 1.0 / 365.0)  # minimum ~1 jour
-    metrics = compute_metrics(all_trades, buy_hold, years_in_period=years)
+    # FIX SHARPE-MULTI (2026-08-29) : les trades des actifs sont simultanes
+    # (correles) -> scale = nombre d'actifs ayant produit des trades.
+    n_assets_with_trades = float(max(1, len({t.asset for t in all_trades})) if hasattr(all_trades[0], "asset") else len(per_asset))
+    metrics = compute_metrics(
+        all_trades, buy_hold, years_in_period=years,
+        independence_scale=n_assets_with_trades,
+    )
     _tp = primary_result.effective_tp_pct if primary_result else 0.0
     _sl = primary_result.effective_sl_pct if primary_result else 0.0
     return BacktestResult(

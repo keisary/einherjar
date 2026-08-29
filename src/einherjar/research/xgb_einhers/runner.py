@@ -779,6 +779,8 @@ def run_pipeline(
                 macro_family_cap=0.40,
                 enable_logical_variants=False,
             )
+            if len(cross_paths) > max_paths:
+                cross_paths = cross_paths[:max_paths]
             logger.info("  inter-familles : %d chemins retenus", len(cross_paths))
         else:
             logger.warning(
@@ -834,6 +836,13 @@ def run_pipeline(
                 macro_family_cap=1.0,  # une seule famille -> pas de cap
                 enable_logical_variants=False,
             )
+            # FIX FLUX (2026-08-29) : extract_paths ne limite pas strictement
+            # le nombre de chemins retournes (variantes de feuilles) -> une
+            # famille de 100 chemins en produit 500-800. On plafonne durement
+            # a max_paths//10 pour que chaque source contribue ~5-8 chemins
+            # (9 familles x 7 = ~60 chemins au lieu de 1100).
+            if len(_fam_paths) > max_paths // 10:
+                _fam_paths = _fam_paths[: max_paths // 10]
             logger.info(
                 "  family %-18s : %2d features, %d chemins",
                 _fam_name, len(_idxs), len(_fam_paths),
