@@ -26,3 +26,8 @@ dist/
 .vscode/
 .idea/
 *.swp
+
+# Fichiers de test (outputs)
+outputs/corpus_*test*.jsonl
+outputs/archive_*test*.jsonl
+outputs/diagnostics_*.json
