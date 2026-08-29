@@ -1,0 +1,42 @@
+{
+  "assets": [
+    "ETHUSD"
+  ],
+  "multi_asset": false,
+  "timeframe": "1h",
+  "horizon": "6h",
+  "horizon_bars": 6,
+  "n_features_before": 213,
+  "n_features_after": 213,
+  "regularized": false,
+  "apply_dedup": false,
+  "drop_sparse": false,
+  "n_samples_total": 66002,
+  "n_valid": 65996,
+  "n_train": 39597,
+  "n_val": 13199,
+  "n_holdout": 13100,
+  "n_paths_extracted": 100,
+  "n_cross_paths": 100,
+  "n_family_paths": 44,
+  "n_einhers_generated": 4623,
+  "n_admitted": 0,
+  "n_rejected": 4623,
+  "output_path": "D:\\midas_v2\\einherjar\\outputs\\einhers.jsonl",
+  "costs_pct": 0.002,
+  "gbdt_config": {
+    "backend": "auto",
+    "n_estimators": 100,
+    "max_depth": 4,
+    "learning_rate": 0.05,
+    "subsample": 0.8,
+    "colsample_bytree": 0.6,
+    "min_child_weight": 10,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "tree_method": "hist",
+    "device": "cpu",
+    "early_stopping_rounds": 10
+  }
+}
