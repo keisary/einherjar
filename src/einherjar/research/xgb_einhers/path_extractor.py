@@ -44,7 +44,7 @@ class XGBPath:
 # --------------------------------------------------------------------------- #
 
 
-def parse_xgb_dump(dump_str: str) -> list[XGBPath]:
+def parse_xgb_dump(dump_str: str, tree_idx: int = 0) -> list[XGBPath]:
     """Parse le dump texte d'un arbre XGBoost."""
     node_re = re.compile(r"^(\d+):\[(.+?)\s*([<>=!]+)\s*([\-\d\.eE+]+)\]\s*yes=(\d+),no=(\d+),missing=(\d+)")
     leaf_re = re.compile(r"^(\d+):leaf=([\-\d\.eE+]+)")
@@ -78,7 +78,7 @@ def parse_xgb_dump(dump_str: str) -> list[XGBPath]:
     if not root_candidates:
         return []
     paths = []
-    _walk_xgb(root_candidates[0], [], nodes, paths)
+    _walk_xgb(root_candidates[0], [], nodes, paths, tree_idx=tree_idx)
     return paths
 
 
@@ -480,7 +480,9 @@ def _extract_xgb(model: Any, feature_names: list[str]) -> list[XGBPath]:
     all_paths = []
     for tree_idx, dump_str in enumerate(dumps):
         dump_named = _name_features_in_dump(dump_str, feature_names)
-        paths = parse_xgb_dump(dump_named)
+        # FIX TREE-IDX (2026-08-29) : parse_xgb_dump ne recevait pas tree_idx
+        # -> TOUS les chemins avaient tree_idx=0 (IDs d'Einhers trompeurs).
+        paths = parse_xgb_dump(dump_named, tree_idx=tree_idx)
         for p in paths:
             all_paths.append(p)
     return all_paths

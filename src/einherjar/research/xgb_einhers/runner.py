@@ -1068,22 +1068,22 @@ def run_pipeline(
         n_generated += 1
         all_einhers.append(_backtest_full(einher))
 
-        # Boucle 3 : chemins des modeles PER-FAMILY (2026-08-28)
-        for fam_path, fam_name in family_paths:
-            einher = build_einher_from_path(
-                path=fam_path,
-                asset=primary_asset if not multi else "multi",
-                asset_class=asset_class,
-                timeframe=timeframe,
-                horizon_str=horizon_str,
-                horizon_bars=horizon_bars,
-                min_abs_score=min_score,
-                model_tag=f"XGBRegressor+family:{fam_name}",
-            )
-            if einher is None:
-                continue
-            n_generated += 1
-            all_einhers.append(_backtest_full(einher))
+    # Boucle 3 : chemins des modeles PER-FAMILY (2026-08-28)
+    for fam_path, fam_name in family_paths:
+        einher = build_einher_from_path(
+            path=fam_path,
+            asset=primary_asset if not multi else "multi",
+            asset_class=asset_class,
+            timeframe=timeframe,
+            horizon_str=horizon_str,
+            horizon_bars=horizon_bars,
+            min_abs_score=min_score,
+            model_tag=f"XGBRegressor+family:{fam_name}",
+        )
+        if einher is None:
+            continue
+        n_generated += 1
+        all_einhers.append(_backtest_full(einher))
 
     # ---- P3-4a suite : construire les Einhers OR maintenant qu'on a un template ----
     if enable_or_regimes and or_candidates:
@@ -1096,7 +1096,6 @@ def run_pipeline(
                 n_generated += 1
                 all_einhers.append(_backtest_full(oe))
             logger.info("  or_refiner : %d Einhers OR ajoutes", len(or_candidates))
-
     # ---- P3-1 (2026-08-25) : générateur event-study pour les binaires ----
     # Les patterns rares conditionnels sont invisibles pour XGBoost MSE
     # (min_child_weight, biais de gain vers les continues). L'event-study
