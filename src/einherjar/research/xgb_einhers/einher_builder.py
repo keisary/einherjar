@@ -39,6 +39,7 @@ def build_einher_from_path(
     sl_atr_mult: float = 1.5,
     data_version: str = "",
     min_abs_score: float = MIN_ABS_SCORE_FOR_DIRECTION,
+    model_tag: str = "XGBRegressor",  # 2026-08-28 : identifie la source (ex: "XGBRegressor+cross")
 ) -> Einher | None:
     """Construit un Einher depuis un XGBPath.
 
@@ -102,13 +103,13 @@ def build_einher_from_path(
         metrics=empty_metrics,
         scope="asset",
         source={
-            "model": "XGBRegressor",
-            "tree_idx": path.tree_idx,
-            "path_idx": path.path_idx,
-            "path_score": float(path.score),
-            "n_conditions": len(path.conditions),
-            "feature_names": [c[0] for c in path.conditions],
-        },
+                    "model": model_tag,
+                    "tree_idx": path.tree_idx,
+                    "path_idx": path.path_idx,
+                    "path_score": float(path.score),
+                    "n_conditions": len(path.conditions),
+                    "feature_names": [c[0] for c in path.conditions],
+                },
         data_version=data_version,
     )
     logger.debug(

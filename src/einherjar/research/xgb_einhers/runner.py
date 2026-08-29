@@ -317,9 +317,10 @@ def run_pipeline(
     pattern_min_occurrences: int = 60,  # P3-1 : occurrences minimales train
     pattern_max_candidates: int = 100,  # FIX (2026-08-27) : 100 au lieu de 50
     enable_or_regimes: bool = True,  # P3-4a : OR-de-régimes post-génération
-    enable_veto: bool = True,  # P3-4b : veto-NOT post-admission
-    workers: int = 6,  # Nombre de workers paralleles (pour decision GPU)
-) -> dict[str, Any]:
+        enable_veto: bool = True,  # P3-4b : veto-NOT post-admission
+        enable_cross_family: bool = True,  # 2026-08-28 : modele inter-familles (sans Factor_*)
+        workers: int = 6,  # Nombre de workers paralleles (pour decision GPU)
+    ) -> dict[str, Any]:
     """Pipeline complet XGBoost -> Einher (single ou multi-actif).
 
     Args:
@@ -740,6 +741,50 @@ def run_pipeline(
     )
     logger.info("  %d chemins retenus", len(paths))
 
+    # ---- 8c (2026-08-28) : modele INTER-FAMILLES sans les Factor_* ----
+    # Le modele global est structurellement domine par les Factor_* composites
+    # (Factor_Momentum_Score = RSI+Stoch+Williams+ROC : un split ecrase 5
+    # indicateurs). Ce second modele s'entraine sur les features NON-Factor
+    # uniquement : il decouvre des combinaisons entre familles (trend x
+    # momentum x price_action) que le global ne voit jamais. Source
+    # ADDITIONNELLE, ne remplace rien : meme backtest, meme BH, meme admission.
+    # Decision Jovanny (2026-08-28) : on AJOUTE des modeles inter-familles avec
+    # les familles interessantes, en excluant les Facteurs.
+    cross_paths: list = []
+    if enable_cross_family:
+        cross_idx = [
+            i for i, n in enumerate(feature_names) if not n.startswith("Factor_")
+        ]
+        logger.info(
+            "[8c/10] Modele inter-familles (hors Factor_*) : %d/%d features ...",
+            len(cross_idx), len(feature_names),
+        )
+        if len(cross_idx) >= 10 and split_train_X is not None and split_train_y is not None:
+            cross_model, cross_backend = train_gbdt(
+                split_train_X[:, cross_idx],
+                split_train_y,
+                split_val_X[:, cross_idx],
+                split_val_y,
+                config,  # meme config que le global (grid deja calcule)
+            )
+            cross_feature_names = [feature_names[i] for i in cross_idx]
+            cross_paths = extract_paths(
+                cross_model,
+                cross_backend,
+                cross_feature_names,
+                min_score=effective_min_score,
+                max_paths=max_paths,
+                family_map=_family_map,
+                macro_family_cap=0.40,
+                enable_logical_variants=False,
+            )
+            logger.info("  inter-familles : %d chemins retenus", len(cross_paths))
+        else:
+            logger.warning(
+                "  inter-familles : trop peu de features non-Factor (%d), skip",
+                len(cross_idx),
+            )
+
     # ---- SD-1 (2026-08-27) : Subgroup Discovery pour les features binaires ----
     # XGBoost MSE ignore structurellement les features binaires (patterns chartistes).
     # Le SD les teste directement via WRAcc + t-stat, en ~1 seconde.
@@ -860,117 +905,115 @@ def run_pipeline(
         )
 
     # Phase 1 : generer + backtester TOUS les Einhers (sans admission)
-    logger.info("[9a/10] Generation + backtest de tous les Einhers (avant BH) ...")
-    all_einhers: list[Einher] = []
-    for path in paths:
-        einher = build_einher_from_path(
-            path=path,
-            asset=primary_asset if not multi else "multi",
-            asset_class=asset_class,
-            timeframe=timeframe,
-            horizon_str=horizon_str,
-            horizon_bars=horizon_bars,
-            min_abs_score=min_score,  # Sprint 2.3 : respecte --min-score
-        )
-        if einher is None:
-            continue
-        n_generated += 1
-        # Sprint 2.5.1 + 3.3 : FIX bug "val=full" + embargo en backtest
-        n_aligned = X_aligned.shape[0]
-        # FIX BUG-04 (2026-08-24) : result DOIT etre defini dans tous les cas
-        # (avant : UnboundLocalError si n_aligned == 0 en single).
-        backtest_embargo = max(50, horizon_bars)
-        if multi and multi_per_asset and n_aligned > 0:
-            # FIX BUG-1 : en multi, backtest sur TOUT l'univers (multi_per_asset).
-            result = backtest_einher_multi(
-                einher=einher,
-                per_asset=multi_per_asset,
-                feature_names=feature_names,
-                costs_pct=costs,
-                holdout_embargo=backtest_embargo,
-            )
-            # holdout : applique aussi en multi (union sur tous actifs)
-            if admission_cfg.min_holdout_trades > 0:
-                holdout_result = backtest_einher_multi(
-                    einher=einher,
-                    per_asset=[(o, X) for o, X in multi_per_asset],
-                    feature_names=feature_names,
-                    costs_pct=costs,
-                    holdout_embargo=backtest_embargo,
-                    phase="holdout",
+        logger.info("[9a/10] Generation + backtest de tous les Einhers (avant BH) ...")
+        all_einhers: list[Einher] = []
+
+        # Refactor 2026-08-28 : backtest val + holdout factorise en une closure.
+        # Avant : 4 copies quasi-identiques (global, OR, pattern_miner, SD) qui
+        # divergeaient (SD/PM en multi backtestaient sur le PRIMARY seulement alors
+        # que l'univers declare est "multi").
+        # Apres : tous les Einhers passent par le meme circuit, single ET multi,
+        # avec holdout dans les deux cas (FIX HOLDOUT 2026-08-27 preserve).
+        def _backtest_full(einher: Einher, n_aligned_override: int | None = None) -> Einher:
+            """Backtest fenetre val + holdout d'un Einher (single ou multi)."""
+            n_aligned = X_aligned.shape[0] if n_aligned_override is None else n_aligned_override
+            emb = max(50, horizon_bars)
+            if multi and multi_per_asset and n_aligned > 0:
+                # FIX BUG-1 : en multi, backtest sur TOUT l'univers (multi_per_asset)
+                # + holdout multi (union sur tous actifs).
+                result = backtest_einher_multi(
+                    einher=einher, per_asset=multi_per_asset,
+                    feature_names=feature_names, costs_pct=costs,
+                    holdout_embargo=emb,
                 )
-                einher = set_einher_holdout_metrics(einher, holdout_result.metrics)
-        elif n_aligned > 0:
-            train_end = int(n_aligned * 0.6)
-            val_start = train_end + backtest_embargo
-            val_end = min(n_aligned, val_start + int(n_aligned * 0.2))
-            if val_start < val_end:
-                result = backtest_einher(
-                    einher=einher,
-                    ohlcv_df=ohlcv_aligned[val_start:val_end],
-                    X=X_aligned[val_start:val_end],
-                    feature_names=feature_names,
-                    costs_pct=costs,
-                )
-            else:
-                # Pas assez de bougies pour le val avec embargo
-                result = backtest_einher(
-                    einher=einher,
-                    ohlcv_df=ohlcv_aligned[:0],  # 0 bougies
-                    X=X_aligned[:0],
-                    feature_names=feature_names,
-                    costs_pct=costs,
-                )
-            # FIX HOLDOUT (2026-08-27) : backtest holdout en single-asset
-            # AVANT : holdout_metrics restait None → holdout check sauté
-            # APRES : backtest sur la fenêtre holdout (20% restant)
-            if admission_cfg.min_holdout_trades > 0:
-                holdout_start = val_end + backtest_embargo
-                if holdout_start < n_aligned:
-                    holdout_result = backtest_einher(
+                if admission_cfg.min_holdout_trades > 0:
+                    holdout_result = backtest_einher_multi(
                         einher=einher,
-                        ohlcv_df=ohlcv_aligned[holdout_start:],
-                        X=X_aligned[holdout_start:],
-                        feature_names=feature_names,
-                        costs_pct=costs,
+                        per_asset=[(o, X) for o, X in multi_per_asset],
+                        feature_names=feature_names, costs_pct=costs,
+                        holdout_embargo=emb, phase="holdout",
                     )
                     einher = set_einher_holdout_metrics(einher, holdout_result.metrics)
-        else:
-            result = backtest_einher(
-                einher=einher,
-                ohlcv_df=ohlcv_aligned[:0],
-                X=X_aligned[:0],
-                feature_names=feature_names,
-                costs_pct=costs,
+            elif n_aligned > 0:
+                _te = int(n_aligned * 0.6)
+                _vs = _te + emb
+                _ve = min(n_aligned, _vs + int(n_aligned * 0.2))
+                if _vs < _ve:
+                    result = backtest_einher(
+                        einher=einher, ohlcv_df=ohlcv_aligned[_vs:_ve],
+                        X=X_aligned[_vs:_ve], feature_names=feature_names, costs_pct=costs,
+                    )
+                else:
+                    # Pas assez de bougies pour le val avec embargo
+                    result = backtest_einher(
+                        einher=einher, ohlcv_df=ohlcv_aligned[:0],
+                        X=X_aligned[:0], feature_names=feature_names, costs_pct=costs,
+                    )
+                # FIX HOLDOUT (2026-08-27) : backtest holdout en single-asset
+                # (avant : holdout_metrics restait None -> check holdout saute)
+                if admission_cfg.min_holdout_trades > 0:
+                    _hs = _ve + emb
+                    if _hs < n_aligned:
+                        h_result = backtest_einher(
+                            einher=einher, ohlcv_df=ohlcv_aligned[_hs:],
+                            X=X_aligned[_hs:], feature_names=feature_names, costs_pct=costs,
+                        )
+                        einher = set_einher_holdout_metrics(einher, h_result.metrics)
+            else:
+                result = backtest_einher(
+                    einher=einher, ohlcv_df=ohlcv_aligned[:0],
+                    X=X_aligned[:0], feature_names=feature_names, costs_pct=costs,
+                )
+            einher = set_einher_metrics(einher, result.metrics)
+            einher = set_einher_tp_sl(einher, result.effective_tp_pct, result.effective_sl_pct)
+            return einher
+
+        # Boucle 1 : chemins du modele GLOBAL (source historique, inchangee)
+        for path in paths:
+            einher = build_einher_from_path(
+                path=path,
+                asset=primary_asset if not multi else "multi",
+                asset_class=asset_class,
+                timeframe=timeframe,
+                horizon_str=horizon_str,
+                horizon_bars=horizon_bars,
+                min_abs_score=min_score,  # Sprint 2.3 : respecte --min-score
             )
-        einher = set_einher_metrics(einher, result.metrics)
-        einher = set_einher_tp_sl(einher, result.effective_tp_pct, result.effective_sl_pct)
-        all_einhers.append(einher)
+            if einher is None:
+                continue
+            n_generated += 1
+            all_einhers.append(_backtest_full(einher))
+
+        # Boucle 2 : chemins du modele INTER-FAMILLES (2026-08-28)
+        # Meme circuit de backtest/admission que le global ; la source est taggee
+        # "XGBRegressor+cross" pour pouvoir filtrer le corpus par source.
+        for path in cross_paths:
+            einher = build_einher_from_path(
+                path=path,
+                asset=primary_asset if not multi else "multi",
+                asset_class=asset_class,
+                timeframe=timeframe,
+                horizon_str=horizon_str,
+                horizon_bars=horizon_bars,
+                min_abs_score=min_score,
+                model_tag="XGBRegressor+cross",
+            )
+            if einher is None:
+                continue
+            n_generated += 1
+            all_einhers.append(_backtest_full(einher))
 
     # ---- P3-4a suite : construire les Einhers OR maintenant qu'on a un template ----
     if enable_or_regimes and or_candidates:
         from .logical_refiner import build_or_einher
 
         if all_einhers:
-            or_einher_template = all_einhers[-1]
-            for cand in or_candidates:
-                oe = build_or_einher(cand, or_einher_template)
-                n_generated += 1
-                n_aligned_o = X_aligned.shape[0]
-                emb_o = max(50, horizon_bars)
-                _te = int(n_aligned_o * 0.6)
-                _vs = _te + emb_o
-                _ve = min(n_aligned_o, _vs + int(n_aligned_o * 0.2))
-                if _vs < _ve:
-                    res_o = backtest_einher(oe, ohlcv_aligned[_vs:_ve], X_aligned[_vs:_ve],
-                                            feature_names, costs_pct=costs)
-                else:
-                    res_o = backtest_einher(oe, ohlcv_aligned[:0], X_aligned[:0],
-                                            feature_names, costs_pct=costs)
-                oe = set_einher_metrics(oe, res_o.metrics)
-                oe = set_einher_tp_sl(oe, res_o.effective_tp_pct, res_o.effective_sl_pct)
-                all_einhers.append(oe)
-            logger.info("  or_refiner : %d Einhers OR ajoutes", len(or_candidates))
+                    or_einher_template = all_einhers[-1]
+                    for cand in or_candidates:
+                        oe = build_or_einher(cand, or_einher_template)
+                        n_generated += 1
+                        all_einhers.append(_backtest_full(oe))
+                    logger.info("  or_refiner : %d Einhers OR ajoutes", len(or_candidates))
 
     # ---- P3-1 (2026-08-25) : générateur event-study pour les binaires ----
     # Les patterns rares conditionnels sont invisibles pour XGBoost MSE
@@ -998,94 +1041,16 @@ def run_pipeline(
             max_candidates=pattern_max_candidates,
         )
         logger.info("  pattern_miner : %d Einhers candidats ajoutes", len(pat_einhers))
-        backtest_embargo_pm = max(50, horizon_bars)
         for einher in pat_einhers:
             n_generated += 1
-            n_aligned_pm = X_aligned.shape[0]
-            if n_aligned_pm > 0:
-                _te = int(n_aligned_pm * 0.6)
-                _vs = _te + backtest_embargo_pm
-                _ve = min(n_aligned_pm, _vs + int(n_aligned_pm * 0.2))
-                if _vs < _ve:
-                    result = backtest_einher(
-                        einher=einher,
-                        ohlcv_df=ohlcv_aligned[_vs:_ve],
-                        X=X_aligned[_vs:_ve],
-                        feature_names=feature_names,
-                        costs_pct=costs,
-                    )
-                else:
-                    result = backtest_einher(
-                        einher=einher,
-                        ohlcv_df=ohlcv_aligned[:0],
-                        X=X_aligned[:0],
-                        feature_names=feature_names,
-                        costs_pct=costs,
-                    )
-            else:
-                result = backtest_einher(
-                    einher=einher,
-                    ohlcv_df=ohlcv_aligned[:0],
-                    X=X_aligned[:0],
-                    feature_names=feature_names,
-                    costs_pct=costs,
-                )
-            einher = set_einher_metrics(einher, result.metrics)
-            einher = set_einher_tp_sl(einher, result.effective_tp_pct, result.effective_sl_pct)
-            # FIX HOLDOUT PM (2026-08-27) : backtest holdout pour les Einhers pattern_miner
-            if admission_cfg.min_holdout_trades > 0 and n_aligned_pm > 0:
-                _hs = _ve + backtest_embargo_pm
-                if _hs < n_aligned_pm:
-                    h_result = backtest_einher(
-                        einher=einher,
-                        ohlcv_df=ohlcv_aligned[_hs:],
-                        X=X_aligned[_hs:],
-                        feature_names=feature_names,
-                        costs_pct=costs,
-                    )
-                    einher = set_einher_holdout_metrics(einher, h_result.metrics)
-            all_einhers.append(einher)
+            all_einhers.append(_backtest_full(einher))
 
     # ---- SD-2 (2026-08-27) : backtest des Einhers Subgroup Discovery ----
     if sd_einhers:
         logger.info("[9a-ter/10] Backtest de %d Einhers Subgroup Discovery ...", len(sd_einhers))
-        backtest_embargo_sd = max(50, horizon_bars)
         for einher in sd_einhers:
             n_generated += 1
-            n_aligned_sd = X_aligned.shape[0]
-            if n_aligned_sd > 0:
-                _te = int(n_aligned_sd * 0.6)
-                _vs = _te + backtest_embargo_sd
-                _ve = min(n_aligned_sd, _vs + int(n_aligned_sd * 0.2))
-                if _vs < _ve:
-                    result = backtest_einher(
-                        einher=einher,
-                        ohlcv_df=ohlcv_aligned[_vs:_ve],
-                        X=X_aligned[_vs:_ve],
-                        feature_names=feature_names,
-                        costs_pct=costs,
-                    )
-                else:
-                    result = backtest_einher(einher, ohlcv_aligned[:0], X_aligned[:0],
-                                            feature_names, costs_pct=costs)
-            else:
-                result = backtest_einher(einher, ohlcv_aligned[:0], X_aligned[:0],
-                                        feature_names, costs_pct=costs)
-            einher = set_einher_metrics(einher, result.metrics)
-            einher = set_einher_tp_sl(einher, result.effective_tp_pct, result.effective_sl_pct)
-            # FIX HOLDOUT SD (2026-08-27) : backtest holdout pour les Einhers SD
-            if admission_cfg.min_holdout_trades > 0 and n_aligned_sd > 0:
-                _hs = _ve + backtest_embargo_sd
-                if _hs < n_aligned_sd:
-                    h_result = backtest_einher(
-                        einher=einher,
-                        ohlcv_df=ohlcv_aligned[_hs:],
-                        X=X_aligned[_hs:],
-                        feature_names=feature_names,
-                        costs_pct=costs,
-                    )
-                    einher = set_einher_holdout_metrics(einher, h_result.metrics)
-            all_einhers.append(einher)
+            all_einhers.append(_backtest_full(einher))
 
     # Phase 2 : Sprint 3.1 P1 - Benjamini-Hochberg sur TOUS les Einhers
     bh_rejected_list: list[bool] = [True] * len(all_einhers)
@@ -1232,6 +1197,7 @@ def run_pipeline(
         "n_val": _n_val,
         "n_holdout": _n_holdout,
         "n_paths_extracted": len(paths),
+        "n_cross_paths": len(cross_paths),
         "n_einhers_generated": n_generated,
         "n_admitted": n_admitted,
         "n_rejected": n_rejected,
@@ -1425,6 +1391,7 @@ def _discover_one_triplet(
             pattern_max_candidates=triplet.get("pattern_max_candidates", 15),
             enable_or_regimes=triplet.get("enable_or_regimes", True),
             enable_veto=triplet.get("enable_veto", True),
+            enable_cross_family=triplet.get("enable_cross_family", True),
         )
         # CKPT-01 : checkpoint immediat APRES ecriture corpus/archive du triplet.
         _mark_triplet_done(
@@ -1705,6 +1672,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
         "pattern_max_candidates": args.pattern_max_candidates,
         "enable_or_regimes": not args.no_or_regimes,
         "enable_veto": not args.no_veto,
+        "enable_cross_family": not args.no_cross_family,
         "debug": args.debug,
         "n_estimators": args.n_estimators,
         "max_depth": args.max_depth,
@@ -2107,6 +2075,8 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument("--pattern-max-candidates", type=int, default=15)
     p_run.add_argument("--no-or-regimes", dest="no_or_regimes", action="store_true", default=False)
     p_run.add_argument("--no-veto", dest="no_veto", action="store_true", default=False)
+    p_run.add_argument("--no-cross-family", dest="no_cross_family", action="store_true",
+                       default=False, help="desactive le modele inter-familles (hors Factor_*)")
     p_run.set_defaults(func=cmd_run)
 
     # Sprint 3.6 : cmd_discover - discovery complet en parallele
@@ -2197,6 +2167,8 @@ def main(argv: list[str] | None = None) -> int:
     p_disc.add_argument("--pattern-max-candidates", type=int, default=15)
     p_disc.add_argument("--no-or-regimes", dest="no_or_regimes", action="store_true", default=False)
     p_disc.add_argument("--no-veto", dest="no_veto", action="store_true", default=False)
+    p_disc.add_argument("--no-cross-family", dest="no_cross_family", action="store_true",
+                        default=False, help="desactive le modele inter-familles (hors Factor_*)")
     p_disc.set_defaults(func=cmd_discover)
 
     # FIX Sprint 3.7 (user request) : si pas de subcommand, lancer
