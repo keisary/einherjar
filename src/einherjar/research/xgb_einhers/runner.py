@@ -664,6 +664,34 @@ def run_pipeline(
             max_depth=max_depth,
             backend="auto",
         )
+    # ADAPT-TF (2026-08-29) : config adaptee au timeframe.
+    # Le 1D a ~2000 lignes/actif (ratio obs/features ~9:1) -> il faut une
+    # regularisation beaucoup plus forte : arbres plus courts, lr plus bas,
+    # min_child_weight eleve, feature sampling agressif, L2 fort.
+    # Le 5M a ~800k lignes mais beaucoup de bruit -> subsampling + contrainte
+    # de profondeur. Les autres TF gardent la config standard.
+    if timeframe == "1d":
+        config = GBDTConfig(**{
+            **config.__dict__,
+            "max_depth": min(config.max_depth, 3),
+            "learning_rate": 0.02,
+            "min_child_weight": 30,
+            "colsample_bytree": 0.4,
+            "subsample": 0.7,
+            "reg_alpha": 0.5,
+            "reg_lambda": 5.0,
+            "early_stopping_rounds": 20,
+        })
+        logger.info("  Config adaptee 1D : depth<=3, lr=0.02, mcw=30, colsample=0.4, reg_lambda=5")
+    elif timeframe == "5m":
+        config = GBDTConfig(**{
+            **config.__dict__,
+            "max_depth": min(config.max_depth, 4),
+            "subsample": 0.7,
+            "colsample_bytree": 0.5,
+            "min_child_weight": 20,
+        })
+        logger.info("  Config adaptee 5M : depth<=4, subsample=0.7, colsample=0.5, mcw=20")
     # PERF-GPU (2026-08-26, bench reel GTX 1660 Ti) :
     #   n=42k (per-asset)  : CPU 1.3s vs GPU 2.0s -> le transfert CPU->GPU domine
     #   n=250k (market+)   : GPU 1.5s vs CPU 4.5s -> GPU gagne ~3x
