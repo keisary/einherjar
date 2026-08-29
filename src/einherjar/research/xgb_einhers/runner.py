@@ -1191,6 +1191,11 @@ def run_pipeline(
     n_admitted = 0
     n_rejected = 0
     einhers_admitted = []
+    # 2026-08-29 : generalisation des quasi-jumeaux parmi les ADMIS.
+    # Les groupes (meme features, seuils a <10%) sont fusionnes en une version
+    # generalisee (bornes les plus strictes) qui est backtestee et AJOUTEE au
+    # corpus SI ELLE PASSE. Non destructif : les originaux restent admis.
+    twin_generalized: list[Einher] = []
     # Stores optionnels (Sprint 3.6)
     corpus_store = None
     archive_store = None
@@ -1277,7 +1282,56 @@ def run_pipeline(
                     replaced.append(e_adm)
             einhers_admitted = replaced
 
-    # 10. Resume
+    # ---- 9d (2026-08-29) : generalisation des quasi-jumeaux parmi les admis ----
+    # Decision Jovanny : le corpus contient des "quasi-jumeaux" (meme features,
+    # seuils a <10%). On les detecte et on construit une version GENERALISEE
+    # (bornes les plus strictes couvrant le groupe) qui est backtestee et
+    # AJOUTEE au corpus SI ELLE PASSE l'admission. NON destructif : les
+    # originaux restent admis. La generalisation est une source supplementaire
+    # de robustesse (bornes larges = moins d'overfit).
+    if einhers_admitted and len(einhers_admitted) >= 2 and not debug:
+        try:
+            from .twin_clustering import build_generalized_einher, find_twin_groups
+
+            logger.info(
+                "[9d/10] Detection des quasi-jumeaux parmi %d admis ...",
+                len(einhers_admitted),
+            )
+            twin_groups = find_twin_groups(einhers_admitted, max_groups=20)
+            if twin_groups:
+                logger.info("  %d groupes de quasi-jumeaux trouves", len(twin_groups))
+                n_twin_admitted = 0
+                for grp in twin_groups:
+                    gen = build_generalized_einher(grp)
+                    if gen is None:
+                        continue
+                    # Backtest complet (val + holdout) de la version generalisee
+                    gen = _backtest_full(gen)
+                    passed, reason = check_admission(gen, admission_cfg, bh_rejected=True)
+                    if passed:
+                        n_twin_admitted += 1
+                        n_generated += 1
+                        if corpus_store is not None:
+                            corpus_store.add(gen)
+                        else:
+                            save_einher(gen, output_path)
+                    elif archive_store is not None:
+                        archive_store.add(
+                            gen,
+                            rejection_reason=f"twin_generalized REJECTED: {reason}",
+                            scope=runner_scope or scope or ("market" if multi else "asset"),
+                            asset=gen.universe.get("asset", ""),
+                            asset_class=gen.universe.get("asset_class", ""),
+                            timeframe=gen.universe.get("timeframe", ""),
+                            horizon=gen.universe.get("horizon", ""),
+                        )
+                logger.info("  twin_generalized : %d/%d groupes admis", n_twin_admitted, len(twin_groups))
+            else:
+                logger.info("  twin_generalized : aucun groupe de quasi-jumeaux")
+        except Exception as _twin_err:
+            logger.warning("  twin_generalized : erreur (%s) - ignoree", _twin_err)
+
+                # 10. Resume
     # FIX BUG-10 (Sprint 3.6) : en multi, on utilise les splits du multi_split
     # pas `split` (qui n'existe qu'en single).
     if multi:
