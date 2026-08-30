@@ -320,6 +320,7 @@ def run_pipeline(
     enable_veto: bool = True,  # P3-4b : veto-NOT post-admission
     enable_cross_family: bool = True,  # 2026-08-28 : modele inter-familles (sans Factor_*)
     enable_family_models: bool = True,  # 2026-08-28 : 1 modele XGBoost par famille economique
+    enable_twin_merge: bool = True,  # 2026-08-29 : generalisation des quasi-jumeaux admis
     workers: int = 6,  # Nombre de workers paralleles (pour decision GPU)
 ) -> dict[str, Any]:
     """Pipeline complet XGBoost -> Einher (single ou multi-actif).
@@ -1054,6 +1055,12 @@ def run_pipeline(
             adaptive_fdr = 0.12  # 1d court : permissif
         else:
             adaptive_fdr = 0.15  # 1d long : très permissif (peu de données)
+        # FIX FDR-1D (2026-08-29) : le 1d a naturellement peu de periodes
+        # temporelles independantes (une barre/jour). Meme en market pooling
+        # (n_val_bars > 20k), les trades sont rares -> ne jamais descendre
+        # sous 0.12 pour le 1d.
+        if timeframe == "1d":
+            adaptive_fdr = max(adaptive_fdr, 0.12)
         admission_cfg = AdmissionConfig(
             **{**admission_cfg.__dict__, "fdr": adaptive_fdr}
         )
@@ -1354,7 +1361,7 @@ def run_pipeline(
     # AJOUTEE au corpus SI ELLE PASSE l'admission. NON destructif : les
     # originaux restent admis. La generalisation est une source supplementaire
     # de robustesse (bornes larges = moins d'overfit).
-    if einhers_admitted and len(einhers_admitted) >= 2 and not debug:
+    if enable_twin_merge and einhers_admitted and len(einhers_admitted) >= 2 and not debug:
         try:
             from .twin_clustering import build_generalized_einher, find_twin_groups
 
@@ -1396,7 +1403,71 @@ def run_pipeline(
         except Exception as _twin_err:
             logger.warning("  twin_generalized : erreur (%s) - ignoree", _twin_err)
 
-                # 10. Resume
+                # ---- 9e (2026-08-29) : validation walk-forward des admis (1D prioritaire) ----
+    # Filter les Einhers admis par stabilite temporelle : ils doivent etre
+    # rentables dans >=60% des K fenetres walk-forward. Critique pour le 1d
+    # (peu de donnees, un seul holdout = biais de regime). Pour les autres TF,
+    # walk_forward_folds > 1 active aussi la validation.
+    if walk_forward_folds > 1 and einhers_admitted and not debug and not multi:
+        try:
+            from .walk_forward import walk_forward_evaluate
+
+            logger.info(
+                "[9e/10] Walk-forward validation (%d folds) sur %d admis ...",
+                walk_forward_folds, len(einhers_admitted),
+            )
+            n_wf_pass = 0
+            n_wf_reject = 0
+            # Les rejetes au walk-forward sont retires des admis et archives
+            # avec la raison "walk_forward_rejected" (non destructif : l'info
+            # est conservee dans l'archive).
+            survivors: list[Einher] = []
+            for e_adm in einhers_admitted:
+                wf = walk_forward_evaluate(
+                    backtest_fn=lambda ein, o, x, fn, c: backtest_einher(
+                        ein, o, x, fn, costs_pct=c
+                    ),
+                    einher=e_adm,
+                    ohlcv_aligned=ohlcv_aligned,
+                    X_aligned=X_aligned,
+                    feature_names=feature_names,
+                    costs_pct=costs,
+                    horizon_bars=horizon_bars,
+                    folds=walk_forward_folds,
+                    min_folds_pct=0.60,
+                    embargo_bars=50,
+                )
+                if wf.get("passed"):
+                    survivors.append(e_adm)
+                    n_wf_pass += 1
+                else:
+                    n_wf_reject += 1
+                    if archive_store is not None:
+                        archive_store.add(
+                            e_adm,
+                            rejection_reason=(
+                                "walk_forward_rejected : "
+                                f"{wf.get('n_profitable', 0)}/{wf.get('n_folds', 0)} folds"
+                            ),
+                            scope=runner_scope or scope or "asset",
+                            asset=e_adm.universe.get("asset", ""),
+                            asset_class=e_adm.universe.get("asset_class", ""),
+                            timeframe=e_adm.universe.get("timeframe", ""),
+                            horizon=e_adm.universe.get("horizon", ""),
+                        )
+            # NOTE : les Einhers retires du walk-forward sont deja ecrits au
+            # corpus plus haut. On ne les re-supprime PAS du corpus (append-only) :
+            # ils y restent marques, mais l'archive documente le rejet. Le
+            # binding n'affecte que cette execution.
+            einhers_admitted = survivors
+            logger.info(
+                "  walk_forward : %d passent, %d rejetes (retires des admis de ce run)",
+                n_wf_pass, n_wf_reject,
+            )
+        except Exception as _wf_err:
+            logger.warning("  walk_forward : erreur (%s) - ignoree", _wf_err)
+
+    # 10. Resume
     # FIX BUG-10 (Sprint 3.6) : en multi, on utilise les splits du multi_split
     # pas `split` (qui n'existe qu'en single).
     if multi:
@@ -1520,6 +1591,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         enable_veto=not args.no_veto,
         enable_cross_family=not args.no_cross_family,
         enable_family_models=not args.no_family_models,
+        enable_twin_merge=not args.no_twin_merge,
     )
     # Resume JSON
     asset_tag = "_".join(assets) if len(assets) <= 3 else f"multi_{len(assets)}"
@@ -1624,6 +1696,7 @@ def _discover_one_triplet(
             enable_veto=triplet.get("enable_veto", True),
             enable_cross_family=triplet.get("enable_cross_family", True),
             enable_family_models=triplet.get("enable_family_models", True),
+            enable_twin_merge=triplet.get("enable_twin_merge", True),
         )
         # CKPT-01 : checkpoint immediat APRES ecriture corpus/archive du triplet.
         _mark_triplet_done(
@@ -1906,6 +1979,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
         "enable_veto": not args.no_veto,
         "enable_cross_family": not args.no_cross_family,
         "enable_family_models": not args.no_family_models,
+        "enable_twin_merge": not args.no_twin_merge,
         "debug": args.debug,
         "n_estimators": args.n_estimators,
         "max_depth": args.max_depth,
@@ -2312,6 +2386,8 @@ def main(argv: list[str] | None = None) -> int:
                        default=False, help="desactive le modele inter-familles (hors Factor_*)")
     p_run.add_argument("--no-family-models", dest="no_family_models", action="store_true",
                        default=False, help="desactive les modeles XGBoost par famille")
+    p_run.add_argument("--no-twin-merge", dest="no_twin_merge", action="store_true",
+                       default=False, help="desactive la generalisation des quasi-jumeaux")
     p_run.set_defaults(func=cmd_run)
 
     # Sprint 3.6 : cmd_discover - discovery complet en parallele
@@ -2406,6 +2482,8 @@ def main(argv: list[str] | None = None) -> int:
                         default=False, help="desactive le modele inter-familles (hors Factor_*)")
     p_disc.add_argument("--no-family-models", dest="no_family_models", action="store_true",
                         default=False, help="desactive les modeles XGBoost par famille")
+    p_disc.add_argument("--no-twin-merge", dest="no_twin_merge", action="store_true",
+                        default=False, help="desactive la generalisation des quasi-jumeaux")
     p_disc.set_defaults(func=cmd_discover)
 
     # FIX Sprint 3.7 (user request) : si pas de subcommand, lancer
