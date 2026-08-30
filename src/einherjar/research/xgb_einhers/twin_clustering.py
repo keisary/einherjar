@@ -168,8 +168,6 @@ def build_generalized_einher(
     L'Einher generalise est clone du premier membre (univers, direction,
     amplitude, tp/sl) avec la nouvelle condition et un nouvel ID.
     """
-    from copy import deepcopy
-
     from .types import Einher
 
     if not group.members:
@@ -215,33 +213,47 @@ def build_generalized_einher(
     if not cond_atoms:
         return None
 
-    # AST : AND des atomes
-    if len(cond_atoms) == 1:
-        ast = {"node_type": "atom", **cond_atoms[0]}
-    else:
-        ast = {
-            "node_type": "and",
-            "children": [
-                {"node_type": "atom", **a} for a in cond_atoms
-            ],
-        }
+    # AST : Condition [AND ConditionNode]
+    # FIX TYPES (2026-08-30) : condition_tree est un Condition | ConditionNode
+    # (pas un dict). Einher est frozen -> dataclasses.replace, pas d'assignation.
+    from .types import Condition, ConditionNode
 
-    # Cloner le premier membre avec la nouvelle condition
+    atoms = []
+    for a in cond_atoms:
+        atoms.append(Condition(
+            feature_ref=a["feature_ref"],
+            operator=a["operator"],
+            value=a["value"],
+        ))
+    if len(atoms) == 1:
+        ast_new = atoms[0]
+    else:
+        # AND droite-associatif comme le reste du code (condition_tree.py)
+        node = atoms[0]
+        for a in atoms[1:]:
+            node = ConditionNode(op="AND", left=node, right=a)
+        ast_new = node
+
+    # Cloner le premier membre avec la nouvelle condition (frozen-safe)
+    import dataclasses
     import uuid
 
-    gen = deepcopy(base)
-    gen.condition_tree = ast
-    gen.id = (
+    gen_id = (
         f"twin_{base.universe.get('asset', 'x')}_{base.universe.get('timeframe', 'x')}_"
         f"{base.universe.get('horizon', 'x')}_{base.direction.lower()}_"
         f"{uuid.uuid4().hex[:8]}"
     )
-    gen.source = {
-        "model": model_tag,
-        "n_members": n_members,
-        "member_ids": [m.id for m in group.members[:10]],
-        "features": sorted(common),
-    }
+    gen = dataclasses.replace(
+        base,
+        id=gen_id,
+        condition_tree=ast_new,
+        source={
+            "model": model_tag,
+            "n_members": n_members,
+            "member_ids": [m.id for m in group.members[:10]],
+            "features": sorted(common),
+        },
+    )
     logger.info(
         "Generalisation twin : %d membres -> %s (%d features communes)",
         n_members, gen.id, len(common),
