@@ -44,17 +44,31 @@ except ImportError:
         logger.warning("⚠️ Numba non disponible - Mode fallback Python")
 
 
+@njit
 def safe_divide(numerator, denominator, default=0.0):
-    """Division securisee (NaN/Inf/overflow), unique definition pour tout le module."""
+    """Division securisee compatible Numba nopython (unique definition du module).
+
+    Version compilee (identique a MIDAS `data_enrichment/numba_pattern_detectors.py`) :
+    les detecteurs `@njit` du module appellent cette fonction, une version interpretee
+    ferait echouer la compilation de tous les patterns.
+    """
     if denominator == 0.0 or abs(denominator) < 1e-15:
         return default
-    try:
-        result = numerator / denominator
-        if result != result or abs(result) > 1e10:  # NaN or overflow check
-            return default
-        return result
-    except Exception:
+
+    if (
+        np.isnan(denominator)
+        or np.isinf(denominator)
+        or np.isnan(numerator)
+        or np.isinf(numerator)
+    ):
         return default
+
+    result = numerator / denominator
+
+    if np.isnan(result) or np.isinf(result) or abs(result) > 1e10:
+        return default
+
+    return result
 
 
 PATTERN_THRESHOLDS = {

@@ -24,7 +24,7 @@ CONFIG_PATH = PROJECT_ROOT / "config" / "settings.json"
 CREDENTIALS_PATH = PROJECT_ROOT / "config" / "credentials.json"
 DB_PATH = PROJECT_ROOT / "data" / "einherjar.db"
 DASHBOARD_BUILD = PROJECT_ROOT / "dashboard" / "einherjar-ui" / "dist"
-CORPUS_PATH = PROJECT_ROOT / "config" / "corpus_v2.json"
+CORPUS_PATH = PROJECT_ROOT / "outputs" / "corpus.jsonl"
 
 
 def _load_credentials() -> dict[str, Any] | None:

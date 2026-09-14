@@ -10,6 +10,7 @@ Cette classe couvre les etapes 4 et 5 : evaluation des Einhers et formation des 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -20,6 +21,28 @@ from einherjar.core.models import Einher, Signal
 from einherjar.signals.midas_bridge import PatternBridge
 
 logger = logging.getLogger(__name__)
+
+
+def _is_jsonl(path: Path) -> bool:
+    """Detecte un corpus JSONL (une ligne JSON par einher) sans lire tout le fichier."""
+    if not path.exists():
+        return False
+    try:
+        with path.open(encoding="utf-8", errors="ignore") as fh:
+            first = fh.readline().strip()
+            second = fh.readline().strip()
+    except OSError:
+        return False
+    if not first or not second:
+        return False
+    try:
+        import json
+
+        json.loads(first)
+        json.loads(second)
+    except ValueError:
+        return False
+    return True
 
 
 class EinherEngine:
@@ -40,13 +63,26 @@ class EinherEngine:
         self._feature_map: dict[str, str] = {}
 
     def load_corpus(self, path: str) -> None:
-        """Charge un corpus depuis un fichier JSON.
+        """Charge un corpus (JSONL de recherche ou JSON historique).
 
-        Le corpus JSON contient soit une liste directe d'Einhers,
-        soit un dict avec une cle 'einhers'. Chaque element peut
-        avoir les champs du dataclass en ligne ou imbriques sous
-        'definition'.
+        Deux formats sont acceptes :
+        - `outputs/corpus.jsonl` : une ligne JSON par Einher admis (format du
+          moteur de recherche) -> converti par `corpus_bridge`.
+        - JSON historique : liste directe d'Einhers ou dict avec une cle
+          'einhers', chaque element portant les champs du dataclass (ou
+          imbriques sous 'definition').
+
+        Args:
+            path: Chemin du corpus.
         """
+        raw_path = Path(path)
+        if raw_path.suffix.lower() == ".jsonl" or _is_jsonl(raw_path):
+            from einherjar.signals.corpus_bridge import load_einhers
+
+            self.einhers = load_einhers(raw_path)
+            logger.info("Corpus JSONL charge : %d einhers (%s)", len(self.einhers), raw_path.name)
+            return
+
         import json
         with open(path, encoding="utf-8") as f:
             raw = json.load(f)

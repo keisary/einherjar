@@ -39,12 +39,36 @@ logger = logging.getLogger("einherjar.main")
 PROJECT_ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = PROJECT_ROOT / "config" / "settings.json"
 CREDENTIALS_PATH = PROJECT_ROOT / "config" / "credentials.json"
-CORPUS_PATH = PROJECT_ROOT / "config" / "corpus_v2.json"
+CORPUS_PATH = PROJECT_ROOT / "outputs" / "corpus.jsonl"
 DB_PATH = PROJECT_ROOT / "data" / "einherjar.db"
 SRC_PATH = PROJECT_ROOT / "src"
 
 # Ajouter src au PYTHONPATH
 sys.path.insert(0, str(SRC_PATH))
+
+
+def _count_corpus(path: Path) -> int:
+    """Compte les einhers d'un corpus (JSONL une ligne par einher, ou JSON historique)."""
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    stripped = text.lstrip()
+    if stripped.startswith("[") or stripped.startswith("{"):
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            pass
+        else:
+            return len(data.get("einhers", data)) if isinstance(data, dict) else len(data)
+    count = 0
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        count += 1
+    return count
 
 
 class StatusChecker:
@@ -67,11 +91,9 @@ class StatusChecker:
             self.results["CONFIG"] = {"status": "MISSING", "path": str(CONFIG_PATH)}
             all_ok = False
 
-        # 2. Corpus
+        # 2. Corpus (JSONL du moteur de recherche ou JSON historique)
         if CORPUS_PATH.exists():
-            with open(CORPUS_PATH, encoding="utf-8") as f:
-                data = json.load(f)
-            count = len(data.get("einhers", data)) if isinstance(data, dict) else len(data)
+            count = _count_corpus(CORPUS_PATH)
             self.results["CORPUS"] = {"status": f"OK ({count} einhers)", "path": str(CORPUS_PATH)}
         else:
             self.results["CORPUS"] = {"status": "MISSING", "path": str(CORPUS_PATH)}

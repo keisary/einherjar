@@ -1,0 +1,761 @@
+{
+  "asset": "BTCUSD",
+  "timeframe": "1h",
+  "asset_class": "crypto",
+  "lignes_ohlcv": 5500,
+  "colonnes_pipeline": 271,
+  "duree_s": 86.88,
+  "statuts": {
+    "DIVERGENT": 82,
+    "OK": 1
+  },
+  "features": [
+    {
+      "feature": "Factor_Candlestick_Bearish_Score",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.0,
+      "diff_moyenne": 0.00260832,
+      "diff_relative": 0.002608,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "Factor_Candlestick_Bullish_Score",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.0,
+      "diff_moyenne": 0.00340615,
+      "diff_relative": 0.003406,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "Factor_Chart_Patterns_Score",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.0,
+      "diff_moyenne": 0.0037579,
+      "diff_relative": 0.003758,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "Factor_Momentum_Score",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.0,
+      "diff_moyenne": 0.50947642,
+      "diff_relative": 0.509476,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "Factor_Persistence_Score",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.00482,
+      "diff_moyenne": 0.11430129,
+      "diff_relative": 0.148033,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "Factor_Regime_Hurst_Score",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -0.02048,
+      "diff_moyenne": 0.3145213,
+      "diff_relative": 0.958601,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "Factor_Risk_TailEvent_Score",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.024434,
+      "diff_moyenne": 0.10921177,
+      "diff_relative": 0.46438,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "Factor_Support_Resistance_Score",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.0,
+      "diff_moyenne": 0.22603865,
+      "diff_relative": 0.226039,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "Factor_Trend_Score",
+      "n_commun": 5500,
+      "n_valides": 5473,
+      "correlation": 0.0,
+      "diff_moyenne": 0.32683492,
+      "diff_relative": 0.326835,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "Factor_Volatility_Score",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.0,
+      "diff_moyenne": 0.43332453,
+      "diff_relative": 0.433325,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "Factor_Volume_Score",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.0,
+      "diff_moyenne": 0.48841263,
+      "diff_relative": 0.488413,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "adx_strength_signal",
+      "n_commun": 5500,
+      "n_valides": 5473,
+      "correlation": 0.0,
+      "diff_moyenne": 0.2670386,
+      "diff_relative": 0.267039,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "aroon_down",
+      "n_commun": 5500,
+      "n_valides": 5486,
+      "correlation": 0.043541,
+      "diff_moyenne": 43.60554121,
+      "diff_relative": 10.469147,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "aroon_trend_signal",
+      "n_commun": 5500,
+      "n_valides": 5486,
+      "correlation": 0.0,
+      "diff_moyenne": 0.51111921,
+      "diff_relative": 0.511119,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "aroon_up",
+      "n_commun": 5500,
+      "n_valides": 5486,
+      "correlation": 0.027848,
+      "diff_moyenne": 46.35357514,
+      "diff_relative": 11.075597,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "atr_21",
+      "n_commun": 5500,
+      "n_valides": 5480,
+      "correlation": 0.0,
+      "diff_moyenne": 576.02632318,
+      "diff_relative": 115.205265,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "bb_percent",
+      "n_commun": 5500,
+      "n_valides": 5481,
+      "correlation": 0.427202,
+      "diff_moyenne": 0.34197409,
+      "diff_relative": 0.609118,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "bb_width",
+      "n_commun": 5500,
+      "n_valides": 5481,
+      "correlation": 0.399228,
+      "diff_moyenne": 0.0174175,
+      "diff_relative": 2.734293,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "bb_width_signal",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.0,
+      "diff_moyenne": 0.43365098,
+      "diff_relative": 0.433651,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "cci_20",
+      "n_commun": 5500,
+      "n_valides": 5481,
+      "correlation": 0.348474,
+      "diff_moyenne": 92.91338597,
+      "diff_relative": 18.764014,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "chaikin_oscillator",
+      "n_commun": 5500,
+      "n_valides": 5491,
+      "correlation": 0.416975,
+      "diff_moyenne": 0.00753701,
+      "diff_relative": 2.450223,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "di_minus",
+      "n_commun": 5500,
+      "n_valides": 5486,
+      "correlation": 0.117535,
+      "diff_moyenne": 16.05172772,
+      "diff_relative": 3.239208,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "di_plus",
+      "n_commun": 5500,
+      "n_valides": 5486,
+      "correlation": 0.107527,
+      "diff_moyenne": 15.34936247,
+      "diff_relative": 3.102571,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "ema_26",
+      "n_commun": 5500,
+      "n_valides": 5475,
+      "correlation": 0.0,
+      "diff_moyenne": 107877.39495006,
+      "diff_relative": 21575.47899,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "kurtosis_risk",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.031586,
+      "diff_moyenne": 0.13377256,
+      "diff_relative": 1.123309,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "macd_histogram",
+      "n_commun": 5500,
+      "n_valides": 5467,
+      "correlation": 0.001331,
+      "diff_moyenne": 104.55592322,
+      "diff_relative": 22.810603,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "macd_line",
+      "n_commun": 5500,
+      "n_valides": 5475,
+      "correlation": 0.101117,
+      "diff_moyenne": 343.46949344,
+      "diff_relative": 70.610332,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "macd_signal",
+      "n_commun": 5500,
+      "n_valides": 5467,
+      "correlation": 0.025441,
+      "diff_moyenne": 326.62124333,
+      "diff_relative": 67.332884,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "macd_trend_signal",
+      "n_commun": 5500,
+      "n_valides": 5467,
+      "correlation": 0.0,
+      "diff_moyenne": 0.49881105,
+      "diff_relative": 0.498811,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "momentum_10",
+      "n_commun": 5500,
+      "n_valides": 5490,
+      "correlation": 0.218487,
+      "diff_moyenne": 942.29552738,
+      "diff_relative": 189.819925,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "momentum_20",
+      "n_commun": 5500,
+      "n_valides": 5480,
+      "correlation": 0.178605,
+      "diff_moyenne": 1338.0853872,
+      "diff_relative": 268.633184,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "money_flow_index",
+      "n_commun": 5500,
+      "n_valides": 5486,
+      "correlation": 0.01014,
+      "diff_moyenne": 44.83587903,
+      "diff_relative": 8.970796,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "obv_ema",
+      "n_commun": 5500,
+      "n_valides": 5481,
+      "correlation": 0.02134,
+      "diff_moyenne": 1.15839988,
+      "diff_relative": 1.043355,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "obv_signal",
+      "n_commun": 5500,
+      "n_valides": 5491,
+      "correlation": 0.0,
+      "diff_moyenne": 0.50202149,
+      "diff_relative": 0.502021,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "parabolic_sar",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.0,
+      "diff_moyenne": 107668.81868182,
+      "diff_relative": 21533.763736,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "pattern_bear_flag",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.003103,
+      "diff_moyenne": 0.09964704,
+      "diff_relative": 1.691539,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "pattern_bull_flag",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.008361,
+      "diff_moyenne": 0.14502017,
+      "diff_relative": 1.647956,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "pattern_channel_down",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -0.014508,
+      "diff_moyenne": 0.03842767,
+      "diff_relative": 1.71831,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "pattern_doji",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.032249,
+      "diff_moyenne": 0.04527691,
+      "diff_relative": 3.276619,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "pattern_elliott_wave_1",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -5.4e-05,
+      "diff_moyenne": 0.09240912,
+      "diff_relative": 1.494853,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "pattern_four_price_doji",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -0.007497,
+      "diff_moyenne": 0.01484745,
+      "diff_relative": 2.093871,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "pattern_harami_bull",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -0.005358,
+      "diff_moyenne": 0.0300049,
+      "diff_relative": 1.556858,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "pattern_spinning_top",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.000267,
+      "diff_moyenne": 0.04861559,
+      "diff_relative": 4.456429,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "pattern_tri_star",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 1.0,
+      "diff_moyenne": 0.0,
+      "diff_relative": 0.0,
+      "statut": "OK"
+    },
+    {
+      "feature": "pattern_uptrend",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.002638,
+      "diff_moyenne": 0.0212735,
+      "diff_relative": 3.000109,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_amihud_illiquidity",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.0,
+      "diff_moyenne": 215016.56625071,
+      "diff_relative": 43003.31325,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_approximate_entropy",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -0.043804,
+      "diff_moyenne": 0.39175878,
+      "diff_relative": 0.680944,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_autocorr_10",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -0.007519,
+      "diff_moyenne": 0.20269781,
+      "diff_relative": 0.284628,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_autocorr_10_weighted",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -0.007519,
+      "diff_moyenne": 0.05067445,
+      "diff_relative": 0.118388,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_autocorr_50",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.012761,
+      "diff_moyenne": 0.28848294,
+      "diff_relative": 1.185816,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_dfa_exponent",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -0.034207,
+      "diff_moyenne": 0.25046212,
+      "diff_relative": 0.189024,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_dominant_frequency",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.011042,
+      "diff_moyenne": 0.00219264,
+      "diff_relative": 0.431676,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_dynamic_cvar",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.310123,
+      "diff_moyenne": 0.00498372,
+      "diff_relative": 1.11542,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_dynamic_var",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.412674,
+      "diff_moyenne": 0.00345935,
+      "diff_relative": 1.39188,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_garch_volatility",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.01193,
+      "diff_moyenne": 9.098e-05,
+      "diff_relative": 0.001286,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_hurst_exponent",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -0.020446,
+      "diff_moyenne": 0.1572667,
+      "diff_relative": 0.379826,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_kaufman_efficiency",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.008033,
+      "diff_moyenne": 0.1639529,
+      "diff_relative": 1.185705,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_kyles_lambda",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.0,
+      "diff_moyenne": 23038061414.566544,
+      "diff_relative": 4607612282.913309,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_max_drawdown",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.321965,
+      "diff_moyenne": 0.02831857,
+      "diff_relative": 2.474751,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_realized_vol_10",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.460177,
+      "diff_moyenne": 0.00632462,
+      "diff_relative": 1.217491,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_realized_vol_20",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.448485,
+      "diff_moyenne": 0.0086708,
+      "diff_relative": 1.051116,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_realized_vol_50",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.414077,
+      "diff_moyenne": 0.01477389,
+      "diff_relative": 1.206101,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_rolling_kurtosis",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.007899,
+      "diff_moyenne": 1.24088107,
+      "diff_relative": 0.408819,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_rolling_skewness",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.031486,
+      "diff_moyenne": 0.93497568,
+      "diff_relative": 1.284678,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_sample_entropy",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -0.043804,
+      "diff_moyenne": 0.39175878,
+      "diff_relative": 0.680944,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_shannon_entropy",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.018839,
+      "diff_moyenne": 0.46613321,
+      "diff_relative": 0.095712,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_spectral_centroid",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -0.04739,
+      "diff_moyenne": 0.00436727,
+      "diff_relative": 0.194774,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_variance_ratio",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": -0.002133,
+      "diff_moyenne": 0.60657451,
+      "diff_relative": 2.478592,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "quant_vol_persistence",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.024094,
+      "diff_moyenne": 0.2589926,
+      "diff_relative": 0.666991,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "roc_10",
+      "n_commun": 5500,
+      "n_valides": 5490,
+      "correlation": 0.346552,
+      "diff_moyenne": 0.82072911,
+      "diff_relative": 2.881578,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "roc_20",
+      "n_commun": 5500,
+      "n_valides": 5480,
+      "correlation": 0.297384,
+      "diff_moyenne": 1.19338187,
+      "diff_relative": 3.404596,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "skewness_risk",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.035087,
+      "diff_moyenne": 0.14929791,
+      "diff_relative": 0.295024,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "stoch_k",
+      "n_commun": 5500,
+      "n_valides": 5487,
+      "correlation": 0.15865,
+      "diff_moyenne": 48.04623182,
+      "diff_relative": 9.908942,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "supertrend_signal",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.143917,
+      "diff_moyenne": 0.856,
+      "diff_relative": 0.856,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "trix_14",
+      "n_commun": 5500,
+      "n_valides": 5460,
+      "correlation": 0.070385,
+      "diff_moyenne": 0.04688081,
+      "diff_relative": 4.726906,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "ultimate_oscillator",
+      "n_commun": 5500,
+      "n_valides": 5473,
+      "correlation": 0.0,
+      "diff_moyenne": 46.72488136,
+      "diff_relative": 9.344976,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "volume_ratio_signal",
+      "n_commun": 5500,
+      "n_valides": 5481,
+      "correlation": 0.0,
+      "diff_moyenne": 0.09793466,
+      "diff_relative": 0.097935,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "volume_sma_20",
+      "n_commun": 5500,
+      "n_valides": 5481,
+      "correlation": 0.735309,
+      "diff_moyenne": 0.01313453,
+      "diff_relative": 2.988004,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "volume_sma_signal",
+      "n_commun": 5500,
+      "n_valides": 5481,
+      "correlation": 0.0,
+      "diff_moyenne": 0.35168246,
+      "diff_relative": 0.351682,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "vortex_neg",
+      "n_commun": 5500,
+      "n_valides": 5486,
+      "correlation": 0.240261,
+      "diff_moyenne": 0.15670624,
+      "diff_relative": 0.170951,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "vortex_pos",
+      "n_commun": 5500,
+      "n_valides": 5486,
+      "correlation": 0.220093,
+      "diff_moyenne": 0.16349339,
+      "diff_relative": 0.177782,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "vwap_signal",
+      "n_commun": 5500,
+      "n_valides": 5500,
+      "correlation": 0.0,
+      "diff_moyenne": 0.82054545,
+      "diff_relative": 0.820545,
+      "statut": "DIVERGENT"
+    },
+    {
+      "feature": "williams_r",
+      "n_commun": 5500,
+      "n_valides": 5487,
+      "correlation": 0.14369,
+      "diff_moyenne": 42.57231595,
+      "diff_relative": 8.812482,
+      "statut": "DIVERGENT"
+    }
+  ]
+}

@@ -31,3 +31,6 @@ dist/
 outputs/corpus_*test*.jsonl
 outputs/archive_*test*.jsonl
 outputs/diagnostics_*.json
+
+# Artefacts de verification features (gros parquet, regenerables)
+outputs/_verify_live_*.parquet
