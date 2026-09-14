@@ -295,7 +295,11 @@ class RiskManager:
                 return Rejection(signal=signal, reason=RejectionReason.MIN_SIZE.value)
 
         # --- Verification marge ---
-        entry_price = signal.entry_price if signal.entry_price and signal.entry_price > 0 else 1.0
+        # Sans prix d'entree, le controle de marge serait faux (l'actif semblerait
+        # couter 1.0) : on rejette explicitement au lieu de laisser passer la taille.
+        if not signal.entry_price or signal.entry_price <= 0:
+            return Rejection(signal=signal, reason=RejectionReason.PRICE_MISSING.value)
+        entry_price = signal.entry_price
         if not self._check_margin(volume, entry_price, account):
             return Rejection(signal=signal, reason=RejectionReason.MARGIN.value)
 
