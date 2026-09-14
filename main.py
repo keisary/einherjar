@@ -262,6 +262,12 @@ class _MockBrokerAdapter:
             self._prices[asset] = defaults.get(asset, 100.0)
 
     async def get_ohlcv(self, asset: str, timeframe: str, since: int | None = None, limit: int = 500) -> pl.DataFrame:
+        # Requete d'historique OU derniere bougie : on sert les prix reels locaux si
+        # l'actif en a (demo = prix reels, execution simulee). Les bougies
+        # synthetiques ne sont qu'un repli pour les actifs absents du disque.
+        reel = self._load_real_history(asset, timeframe, max(limit, 2))
+        if reel is not None:
+            return reel
         import random
         base = self._prices.get(asset, 100.0)
         # Genere 2 bougies synthetiques
@@ -283,6 +289,46 @@ class _MockBrokerAdapter:
             "close": [r[4] for r in rows],
             "volume": [r[5] for r in rows],
         })
+
+    def _load_real_history(self, asset: str, timeframe: str, limit: int) -> pl.DataFrame | None:
+        """Charge l'historique OHLCV reel local pour l'amorcage (mode demo).
+
+        Les CSV bruts sont ranges par classe large (`crypto`, `forex`, `stocks`,
+        `indices`, `commodities`) alors que le corpus distingue `stocks_tech`,
+        `stocks_value`, `stocks_growth` : on ramene la classe a sa racine.
+
+        Args:
+            asset: Symbole.
+            timeframe: Timeframe.
+            limit: Nombre de bougies souhaitees.
+
+        Returns:
+            DataFrame OHLCV ou None si les donnees locales sont indisponibles.
+        """
+        try:
+            from einherjar.brokers.broker_utils import ASSET_CLASS_MAP
+            from einherjar.research.data.ohlcv import OhlcvProvider
+
+            classe = ASSET_CLASS_MAP.get(asset)
+            nom = getattr(classe, "value", None) or str(classe) if classe else None
+            candidats: list[str] = []
+            if nom:
+                candidats.append("stocks" if nom.startswith("stocks") else nom)
+            # Actifs du corpus absents de ASSET_CLASS_MAP (ex. NVDA, XOM) : on essaie
+            # les classes larges du disque avant de renoncer.
+            candidats += [c for c in ("crypto", "forex", "stocks", "indices", "commodities")
+                          if c not in candidats]
+            provider = OhlcvProvider()
+            for candidat in candidats:
+                try:
+                    frame = provider.load(asset, timeframe, "v1", asset_class=candidat)
+                except Exception:
+                    continue
+                return frame.df.tail(limit)
+            return None
+        except Exception as exc:
+            logger.debug("Historique reel indisponible %s %s : %s", asset, timeframe, exc)
+            return None
 
     async def subscribe_live(self, assets: list[str], callback: callable) -> None:
         pass
@@ -356,7 +402,9 @@ async def start_inference_loop(checker: StatusChecker, use_mock: bool = False) -
     einher_engine = EinherEngine()
     einher_engine.load_corpus(str(CORPUS_PATH))
     risk_manager = RiskManager(system_config)
-    live_store = LiveDataStore()
+    # La fenetre du store live doit couvrir le lookback du pipeline, sinon le
+    # recalcul de chaque bougie se ferait sur un historique tronque.
+    live_store = LiveDataStore(window_size=feature_engine.max_lookback)
     data_store = DataStore(db_path=DB_PATH)
 
     assets = list(ASSET_CLASS_MAP.keys())

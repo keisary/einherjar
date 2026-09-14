@@ -1,0 +1,2426 @@
+{
+  "asset": "NVDA",
+  "timeframe": "1d",
+  "lignes": 2000,
+  "colonnes_live": 271,
+  "colonnes_reference": 271,
+  "statuts": {
+    "IDENTIQUE": 268
+  },
+  "feature_refs_absentes_live": [],
+  "feature_refs_absentes_reference": [],
+  "colonnes": [
+    {
+      "colonne": "open",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "high",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "low",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "close",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "volume",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "rsi_14",
+      "dans_corpus": false,
+      "n_valides": 1986,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "rsi_21",
+      "dans_corpus": false,
+      "n_valides": 1979,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "rsi_30",
+      "dans_corpus": false,
+      "n_valides": 1970,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "macd_line",
+      "dans_corpus": true,
+      "n_valides": 1975,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "macd_signal",
+      "dans_corpus": true,
+      "n_valides": 1967,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "macd_histogram",
+      "dans_corpus": true,
+      "n_valides": 1967,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_9",
+      "dans_corpus": false,
+      "n_valides": 1992,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_12",
+      "dans_corpus": false,
+      "n_valides": 1989,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_21",
+      "dans_corpus": false,
+      "n_valides": 1980,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_26",
+      "dans_corpus": true,
+      "n_valides": 1975,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_50",
+      "dans_corpus": false,
+      "n_valides": 1951,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_100",
+      "dans_corpus": false,
+      "n_valides": 1901,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_200",
+      "dans_corpus": false,
+      "n_valides": 1801,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "sma_20",
+      "dans_corpus": false,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "sma_50",
+      "dans_corpus": false,
+      "n_valides": 1951,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "sma_100",
+      "dans_corpus": false,
+      "n_valides": 1901,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "sma_200",
+      "dans_corpus": false,
+      "n_valides": 1801,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "bb_upper",
+      "dans_corpus": false,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "bb_middle",
+      "dans_corpus": false,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "bb_lower",
+      "dans_corpus": false,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "bb_width",
+      "dans_corpus": true,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "bb_percent",
+      "dans_corpus": true,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "volume_sma_20",
+      "dans_corpus": true,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "volume_ratio",
+      "dans_corpus": false,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "atr_14",
+      "dans_corpus": false,
+      "n_valides": 1987,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "atr_21",
+      "dans_corpus": true,
+      "n_valides": 1980,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "stoch_k",
+      "dans_corpus": true,
+      "n_valides": 1987,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "stoch_d",
+      "dans_corpus": false,
+      "n_valides": 1985,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "williams_r",
+      "dans_corpus": true,
+      "n_valides": 1987,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "cci_20",
+      "dans_corpus": true,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "adx_14",
+      "dans_corpus": false,
+      "n_valides": 1973,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "di_plus",
+      "dans_corpus": true,
+      "n_valides": 1986,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "di_minus",
+      "dans_corpus": true,
+      "n_valides": 1986,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "obv",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "obv_ema",
+      "dans_corpus": true,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "vwap",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "momentum_10",
+      "dans_corpus": true,
+      "n_valides": 1990,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "momentum_20",
+      "dans_corpus": true,
+      "n_valides": 1980,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "roc_10",
+      "dans_corpus": true,
+      "n_valides": 1990,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "roc_20",
+      "dans_corpus": true,
+      "n_valides": 1980,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "trix_14",
+      "dans_corpus": true,
+      "n_valides": 1960,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ultimate_oscillator",
+      "dans_corpus": true,
+      "n_valides": 1973,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "money_flow_index",
+      "dans_corpus": true,
+      "n_valides": 1986,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "chaikin_oscillator",
+      "dans_corpus": true,
+      "n_valides": 1991,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "aroon_up",
+      "dans_corpus": true,
+      "n_valides": 1986,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "aroon_down",
+      "dans_corpus": true,
+      "n_valides": 1986,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "parabolic_sar",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "supertrend",
+      "dans_corpus": false,
+      "n_valides": 1990,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "supertrend_signal",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "choppiness_index",
+      "dans_corpus": false,
+      "n_valides": 1986,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "vortex_pos",
+      "dans_corpus": true,
+      "n_valides": 1986,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "vortex_neg",
+      "dans_corpus": true,
+      "n_valides": 1986,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_realized_vol_10",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_realized_vol_20",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_realized_vol_50",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_garch_volatility",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_vol_clustering",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_hurst_exponent",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_autocorr_10",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_autocorr_20",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_autocorr_50",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_shannon_entropy",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_sample_entropy",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_dominant_frequency",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_spectral_centroid",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_fractal_dimension",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_dfa_exponent",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_vol_persistence",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_approximate_entropy",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_permutation_entropy",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_rolling_skewness",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_rolling_kurtosis",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_dynamic_var",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_dynamic_cvar",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_max_drawdown",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_regime_detection",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_amihud_illiquidity",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_kyles_lambda",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_kaufman_efficiency",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_variance_ratio",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_hammer",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_inverted_hammer",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_dragonfly_doji",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_morning_star",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_piercing_line",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_three_white_soldiers",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_engulfing_bull",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_engulfing_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_harami_bull",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_pin_bar_bull",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_pin_bar_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_marubozu_bull",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_abandoned_baby_bull",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_three_inside_up",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_three_outside_up",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_concealing_baby_swallow",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_unique_three_river_bottom",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_belt_hold_bull",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_kicking_bull",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_matching_low",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_ladder_bottom",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_breakaway_bull",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_hanging_man",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_shooting_star",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_gravestone_doji",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_evening_star",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_dark_cloud_cover",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_three_black_crows",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_harami_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_marubozu_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_abandoned_baby_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_three_inside_down",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_three_outside_down",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_advance_block",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_deliberation",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_belt_hold_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_kicking_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_matching_high",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_ladder_top",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_breakaway_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_doji",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_long_legged_doji",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_spinning_top",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_four_price_doji",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_rickshaw_man",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_high_wave_candle",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_tri_star",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_double_top",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_double_bottom",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_triple_top",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_triple_bottom",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_head_shoulders",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_inv_head_shoulders",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_rounding_top",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_rounding_bottom",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_diamond_top",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_diamond_bottom",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_v_top",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_v_bottom",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_island_top",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_island_bottom",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_spike_reversal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_ascending_triangle",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_descending_triangle",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_symmetrical_triangle",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_rectangle",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_bull_flag",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_bear_flag",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_bull_pennant",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_bear_pennant",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_rising_wedge",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_falling_wedge",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_broadening_wedge",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_cup_handle",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_channel_up",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_channel_down",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_measured_move",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_gartley_bull",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_gartley_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_butterfly_bull",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_butterfly_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_bat_bull",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_bat_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_crab_bull",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_crab_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_shark_bull",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_shark_bear",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_support",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_resistance",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_uptrend",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_downtrend",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_sideways_trend",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_gap_up",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_gap_down",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_gap_fill",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_breakaway_gap",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_runaway_gap",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_exhaustion_gap",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_island_reversal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_gap_and_go",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_three_drives",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_wolfe_wave",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_elliott_wave_1",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_elliott_wave_3",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_elliott_wave_5",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_fibonacci_retracement",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "pattern_fibonacci_extension",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "rsi_14_norm",
+      "dans_corpus": false,
+      "n_valides": 1986,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "rsi_21_norm",
+      "dans_corpus": false,
+      "n_valides": 1979,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "rsi_30_norm",
+      "dans_corpus": false,
+      "n_valides": 1970,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "stoch_k_norm",
+      "dans_corpus": false,
+      "n_valides": 1987,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "stoch_d_norm",
+      "dans_corpus": false,
+      "n_valides": 1985,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "williams_r_norm",
+      "dans_corpus": false,
+      "n_valides": 1987,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "roc_10_norm",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "roc_20_norm",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "momentum_10_norm",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "momentum_20_norm",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "cci_20_norm",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ultimate_oscillator_norm",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "money_flow_index_norm",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "chaikin_oscillator_norm",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "trix_14_norm",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Momentum_Score",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "sma_20_signal",
+      "dans_corpus": false,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "sma_50_signal",
+      "dans_corpus": false,
+      "n_valides": 1951,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "sma_100_signal",
+      "dans_corpus": false,
+      "n_valides": 1901,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "sma_200_signal",
+      "dans_corpus": false,
+      "n_valides": 1801,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_9_signal",
+      "dans_corpus": false,
+      "n_valides": 1992,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_12_signal",
+      "dans_corpus": false,
+      "n_valides": 1989,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_21_signal",
+      "dans_corpus": false,
+      "n_valides": 1980,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_26_signal",
+      "dans_corpus": false,
+      "n_valides": 1975,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_50_signal",
+      "dans_corpus": false,
+      "n_valides": 1951,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_100_signal",
+      "dans_corpus": false,
+      "n_valides": 1901,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "ema_200_signal",
+      "dans_corpus": false,
+      "n_valides": 1801,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "macd_trend_signal",
+      "dans_corpus": true,
+      "n_valides": 1967,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "di_trend_signal",
+      "dans_corpus": false,
+      "n_valides": 1986,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "aroon_trend_signal",
+      "dans_corpus": true,
+      "n_valides": 1986,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Trend_Score",
+      "dans_corpus": true,
+      "n_valides": 1973,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "adx_strength_signal",
+      "dans_corpus": true,
+      "n_valides": 1973,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "volume_ratio_signal",
+      "dans_corpus": true,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "obv_signal",
+      "dans_corpus": true,
+      "n_valides": 1991,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "obv_ema_signal",
+      "dans_corpus": false,
+      "n_valides": 1980,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "vwap_signal",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "volume_sma_signal",
+      "dans_corpus": true,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Volume_Score",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "atr_14_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "atr_21_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "bb_width_signal",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "bb_extreme_signal",
+      "dans_corpus": false,
+      "n_valides": 1981,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Volatility_Score",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_realized_vol_10_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_realized_vol_20_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_realized_vol_50_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_shannon_entropy_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_sample_entropy_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_approximate_entropy_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_permutation_entropy_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "regime_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_vol_clustering_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_hurst_exponent_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999998,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_vol_persistence_signal",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Quantitative_Score",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Candlestick_Bullish_Score",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Candlestick_Bearish_Score",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Chart_Patterns_Score",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Harmonic_Patterns_Score",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Support_Resistance_Score",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Regime_Hurst_Score",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "skewness_risk",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "kurtosis_risk",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Risk_TailEvent_Score",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_autocorr_10_weighted",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_autocorr_20_weighted",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "quant_autocorr_50_weighted",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Persistence_Score",
+      "dans_corpus": true,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_RelativeStrength_Momentum",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Correlation_Dynamic",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Momentum_Acceleration_Score",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Volatility_Expansion_Rate",
+      "dans_corpus": false,
+      "n_valides": 1999,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Divergence_Score_Bearish",
+      "dans_corpus": false,
+      "n_valides": 1995,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Divergence_Score_Bullish",
+      "dans_corpus": false,
+      "n_valides": 1995,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Trend_Confirmation_Score",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 1.0,
+      "statut": "IDENTIQUE"
+    },
+    {
+      "colonne": "Factor_Reversal_Climax_Score",
+      "dans_corpus": false,
+      "n_valides": 2000,
+      "ecart_max_rel": 0.0,
+      "ecart_moyen": 0.0,
+      "correlation": 0.9999999999999999,
+      "statut": "IDENTIQUE"
+    }
+  ]
+}

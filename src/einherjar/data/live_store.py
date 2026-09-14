@@ -79,6 +79,48 @@ class LiveDataStore:
             }
         )
 
+    def bulk_append(
+        self,
+        asset: str,
+        timeframe: str,
+        rows: list[dict[str, Any]],
+    ) -> pl.DataFrame:
+        """Ajoute plusieurs bougies en une seule ecriture disque (amorcage historique).
+
+        `append` reecrit le parquet a chaque bougie : pour amorcer 1500 bougies cela
+        ferait 1500 ecritures. L'amorcage passe donc par cette methode.
+
+        Args:
+            asset: Symbole.
+            timeframe: Timeframe.
+            rows: Liste de dicts {timestamp, open, high, low, close, volume}.
+
+        Returns:
+            DataFrame mis a jour (fenetre glissante).
+        """
+        if not rows:
+            return self.get_window(asset, timeframe)
+        key = (asset, timeframe)
+        df = self._cache.get(key)
+        if df is None:
+            df = self.load(asset, timeframe)
+        new_df = pl.DataFrame(rows)
+        if df.height:
+            # Aligner les dtypes (les dicts Python peuvent donner des types differents)
+            new_df = new_df.with_columns(
+                [pl.col(c).cast(df[c].dtype) for c in new_df.columns if c in df.columns
+                 and new_df[c].dtype != df[c].dtype]
+            )
+            df = pl.concat([df, new_df], how="vertical_relaxed")
+        else:
+            df = new_df
+        df = df.unique(subset=["timestamp"], keep="last", maintain_order=True)
+        if len(df) > self.window_size:
+            df = df.tail(self.window_size)
+        self._cache[key] = df
+        df.write_parquet(self._get_path(asset, timeframe))
+        return df
+
     def append(
         self,
         asset: str,
@@ -106,12 +148,19 @@ class LiveDataStore:
         if df is None:
             df = self.load(asset, timeframe)
 
-        # Construire la nouvelle ligne
-        row = dict(candle)
+        # Construire la nouvelle ligne (colonnes inconnues du store ecartees :
+        # une ligne enrichie de features ne doit pas casser le schema OHLCV)
+        row = {k: v for k, v in candle.items() if df.height == 0 or k in df.columns}
         if features:
-            row.update(features)
+            row.update({k: v for k, v in features.items() if k in df.columns})
+        if not row:
+            raise ValueError(f"Aucune colonne commune avec le store {asset}/{timeframe}")
 
         new_df = pl.DataFrame([row])
+        if df.height and any(new_df[c].dtype != df[c].dtype for c in new_df.columns):
+            new_df = new_df.with_columns(
+                [pl.col(c).cast(df[c].dtype) for c in new_df.columns if new_df[c].dtype != df[c].dtype]
+            )
 
         # Concatener et tronquer a la fenetre
         df = pl.concat([df, new_df], how="vertical_relaxed")

@@ -198,9 +198,10 @@ class InferenceLoop:
             df_enriched = self.feature_engine.compute_incremental(
                 df_history, candle, asset=asset, timeframe=timeframe
             )
-            if "feature_placeholder" not in df_enriched.columns or len(df_enriched.columns) > 6:
-                last_row = df_enriched.to_dicts()[-1]
-                self.live_store.append(asset, timeframe, last_row)
+            # Le store live ne contient QUE l'OHLCV (une seule bougie ajoutee plus
+            # haut) : y ecrire la ligne enrichie melangerait 271 colonnes de features
+            # a un schema OHLCV et ferait echouer le prochain concat. Les features sont
+            # recalculees a chaque cycle, les signaux sont persistes par le DataStore.
 
             from einherjar.core.enums import TimeFrame as TFEnum
 
@@ -306,10 +307,64 @@ class InferenceLoop:
 
         return wake_at
 
+    async def bootstrap_history(self, limit: int | None = None) -> dict[str, int]:
+        """Amorce le LiveDataStore avec l'historique broker avant le premier cycle.
+
+        Sans amorcage, le premier cycle ne dispose que de la derniere bougie : toutes
+        les features a fenetre (RSI, EMA, patterns, quant) sont NaN et aucun einher ne
+        peut se declencher — la boucle tournerait a vide.
+
+        Args:
+            limit: Nombre de bougies demandees par (asset, tf).
+                Defaut : `max_lookback` du pipeline de features.
+
+        Returns:
+            Dict {"ASSET|tf": bougies ajoutees}.
+        """
+        objectif = limit or getattr(self.feature_engine, "max_lookback", 500)
+        ajouts: dict[str, int] = {}
+        now = datetime.now(UTC)
+        for asset, timeframe in self.assets_timeframes:
+            cle = f"{asset}|{timeframe}"
+            if not self.calendar.is_open(asset, now):
+                ajouts[cle] = 0
+                continue
+            deja = self.live_store.get_window(asset, timeframe)
+            if len(deja) >= objectif:
+                ajouts[cle] = 0
+                continue
+            try:
+                df = await self.broker.get_ohlcv(asset, timeframe, limit=objectif)
+            except Exception as exc:
+                logger.warning("Amorcage %s echoue : %s", cle, exc)
+                ajouts[cle] = 0
+                continue
+            if df is None or len(df) == 0:
+                logger.warning("Amorcage %s : le broker n'a renvoye aucune bougie", cle)
+                ajouts[cle] = 0
+                continue
+            rows = df.tail(objectif).to_dicts()
+            self.live_store.bulk_append(asset, timeframe, rows)
+            ajouts[cle] = len(rows)
+            if len(rows) < 200:
+                logger.warning(
+                    "Amorcage %s insuffisant (%d bougies) : les features a fenetre "
+                    "resteront NaN sur les premieres bougies",
+                    cle,
+                    len(rows),
+                )
+        total = sum(ajouts.values())
+        logger.info("Amorcage historique : %d couples, %d bougies chargees", len(ajouts), total)
+        return ajouts
+
     async def run(self) -> None:
         """Boucle principale d'inference."""
         self.running = True
         logger.info("InferenceLoop demarre avec %d actifs/TF", len(self.assets_timeframes))
+        try:
+            await self.bootstrap_history()
+        except Exception as exc:  # l'amorcage ne doit jamais empecher la boucle de tourner
+            logger.exception("Amorcage historique echoue : %s", exc)
 
         while self.running:
             try:

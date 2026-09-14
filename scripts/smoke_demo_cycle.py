@@ -1,0 +1,99 @@
+#!/usr/bin/env python
+"""Smoke test du cycle de demo (chemin live complet, ordres simules).
+
+Reproduit ce que fait `main.py` en mode demo sur un seul couple (asset, timeframe) :
+    broker (mock, prix reels locaux) -> amortage LiveDataStore -> bougie -> features
+    -> EinherEngine -> confluence -> RiskManager -> ordre simule
+
+Verifie que l'amorcage fonctionne (sans lui, les features a fenetre sont NaN) et
+rapporte signaux / ordres / rejets.
+
+Usage :
+    python scripts/smoke_demo_cycle.py --asset BTCUSD --timeframe 1h
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import logging
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+
+import main as app  # noqa: E402  (mock broker + chemins de reference)
+from einherjar.core.config import load_settings  # noqa: E402
+from einherjar.core.enums import TimeFrame  # noqa: E402
+from einherjar.data.live_store import LiveDataStore  # noqa: E402
+from einherjar.data.store import DataStore  # noqa: E402
+from einherjar.risk.manager import RiskManager  # noqa: E402
+from einherjar.scheduler.loop import InferenceLoop  # noqa: E402
+from einherjar.signals.einher_engine import EinherEngine  # noqa: E402
+from einherjar.signals.feature_pipeline import FeaturePipeline  # noqa: E402
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(name)s | %(message)s")
+
+
+async def run(asset: str, timeframe: str, lookback: int) -> int:
+    """Execute l'amorcage puis un cycle d'inference complet sur un couple."""
+    system_config = load_settings(app.CONFIG_PATH)
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+        store = DataStore(db_path=Path(tmp) / "einherjar.db")
+        live_store = LiveDataStore(base_dir=Path(tmp) / "live", window_size=lookback)
+        loop = InferenceLoop(
+            broker=app._MockBrokerAdapter(),
+            assets_timeframes=[(asset, timeframe)],
+            feature_engine=FeaturePipeline(max_lookback=lookback),
+            einher_engine=EinherEngine(),
+            risk_manager=RiskManager(system_config),
+            live_store=live_store,
+            data_store=store,
+            config=system_config,
+        )
+        loop.einher_engine.load_corpus(str(app.CORPUS_PATH))
+        print(f"einhers charges : {len(loop.einher_engine.einhers)}")
+
+        t0 = time.time()
+        ajouts = await loop.bootstrap_history()
+        print(f"amorcage : {ajouts} en {time.time()-t0:.1f}s")
+
+        fenetre = live_store.get_window(asset, timeframe)
+        print(f"fenetre live : {fenetre.height} bougies | colonnes {fenetre.columns}")
+        assert fenetre.height >= 200, "amorcage insuffisant pour des features a fenetre"
+
+        bougie = await loop._fetch_last_candle(asset, timeframe)
+        print(f"derniere bougie : {bougie}")
+
+        t0 = time.time()
+        result = await loop._process_asset_tf(asset, timeframe)
+        print(f"cycle : {time.time()-t0:.1f}s -> signals={result['signals_count']} "
+              f"forming={result['forming_count']} error={result['error']}")
+        for sig in result["signals"][:5]:
+            print(f"  SIGNAL {sig.einher_name} [{sig.direction.value}] entry={sig.entry_price:.4f} "
+                  f"tp={sig.tp_price:.4f} sl={sig.sl_price:.4f} conf={sig.confidence}")
+
+        # Cycle complet (confluence + risk manager + ordre simule)
+        await loop._run_cycle(__import__("datetime").datetime.now(__import__("datetime").UTC))
+        print("cycle complet (confluence + risque + execution simulee) : OK")
+        store.close()
+        return 0
+
+
+def main() -> int:
+    """Point d'entree."""
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--asset", default="BTCUSD")
+    ap.add_argument("--timeframe", default="1h")
+    ap.add_argument("--lookback", type=int, default=1500)
+    args = ap.parse_args()
+    return asyncio.run(run(args.asset, args.timeframe, args.lookback))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
