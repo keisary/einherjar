@@ -268,7 +268,13 @@ class FeaturePipeline:
         Returns:
             DataFrame enrichi (colonnes du schema MIDAS) tronque a `max_lookback`.
         """
-        new_row = pl.DataFrame([new_candle])
+        # Construire la bougie AVEC le schema de l'historique : un dict Python
+        # (candle du broker) donnerait sinon `timestamp` en object et le concat
+        # echouerait faute de supertype datetime[us]/object.
+        schema = {c: df_history[c].dtype for c in df_history.columns if c in new_candle}
+        if not schema:
+            raise FeaturePipelineError("Bougie sans colonne commune avec l'historique")
+        new_row = pl.DataFrame({c: [new_candle[c]] for c in schema}, schema=schema)
         df = pl.concat([df_history, new_row], how="vertical_relaxed")
         if len(df) > self.max_lookback:
             df = df.tail(self.max_lookback)
@@ -342,14 +348,10 @@ def _pandas_to_polars(df: Any) -> pl.DataFrame:
         return df
     if not isinstance(df, pd.DataFrame):
         raise FeaturePipelineError(f"Type de sortie inattendu : {type(df)!r}")
+    # Les colonnes dupliquees (enrichisseurs MIDAS) doivent etre ecartees AVANT la
+    # conversion : polars refuse la construction et suffixe ou echoue sinon.
+    if df.columns.duplicated().any():
+        keep = ~df.columns.duplicated()
+        df = df.loc[:, keep]
     frame = pl.from_pandas(df, include_index=False)
-    # pl.from_pandas peut suffixer les colonnes dupliquees : on garde le 1er exemplaire.
-    if frame.width != len(set(frame.columns)):
-        seen: set[str] = set()
-        keep: list[str] = []
-        for c in frame.columns:
-            if c not in seen:
-                seen.add(c)
-                keep.append(c)
-        frame = frame.select(keep)
     return frame
