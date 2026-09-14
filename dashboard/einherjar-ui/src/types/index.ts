@@ -65,7 +65,8 @@ export interface BrokerStatus {
 
 export interface Metric {
   label: string;
-  value: number;
+  /** null = donnee indisponible (ex. aucune courbe d'equity) : afficher "—", jamais 0 */
+  value: number | null;
   change?: number;
   format: 'currency' | 'percent' | 'number';
 }
@@ -82,12 +83,14 @@ export interface EquityPoint {
 }
 
 export interface Account {
-  balance: number;
-  equity: number;
-  margin: number;
-  marginFree: number;
-  leverage: number;
-  currency: string;
+  /** Le serveur renvoie { connected: false, reason } tant qu'aucun broker n'est connecte. */
   connected: boolean;
-  accountId: number;
+  reason?: string;
+  balance?: number;
+  equity?: number;
+  margin?: number;
+  marginFree?: number;
+  leverage?: number;
+  currency?: string;
+  accountId?: number;
 }

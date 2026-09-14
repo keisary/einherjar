@@ -79,7 +79,9 @@ export function HealthPage() {
                 <div className="flex items-center justify-between py-2 border-b border-border">
                   <span className="text-[11px] text-textMuted uppercase tracking-wider">Equity</span>
                   <span className="font-mono text-[12px] text-textPrimary">
-                    ${account.equity.toLocaleString()} {account.currency}
+                    {account.equity !== undefined
+                      ? `$${account.equity.toLocaleString()} ${account.currency ?? ''}`
+                      : '—'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b border-border">

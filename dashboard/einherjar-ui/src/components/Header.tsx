@@ -69,11 +69,15 @@ export function Header() {
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1">
                   <span className="text-frostDark">ᛒ</span>
-                  <span className="text-textPrimary">${account.equity.toLocaleString()}</span>
+                  <span className="text-textPrimary">
+                    {account.equity !== undefined ? `$${account.equity.toLocaleString()}` : '—'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-frostDark">ᛗ</span>
-                  <span>${account.marginFree.toLocaleString()}</span>
+                  <span>
+                    {account.marginFree !== undefined ? `$${account.marginFree.toLocaleString()}` : '—'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-frostDark">ᛚ</span>

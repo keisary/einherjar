@@ -4,7 +4,8 @@ import { cn, formatCurrency, formatPercent, formatNumber } from '@/lib/utils'
 
 interface MetricCardProps {
   label: string
-  value: number
+  /** null = donnee indisponible : la carte affiche "—" au lieu d'un 0 trompeur */
+  value: number | null
   change?: number
   format: 'currency' | 'percent' | 'number'
   className?: string
@@ -12,8 +13,13 @@ interface MetricCardProps {
 
 export function MetricCard({ label, value, change, format, className }: MetricCardProps) {
   const [displayValue, setDisplayValue] = useState(0)
+  const indisponible = value === null || Number.isNaN(value)
 
   useEffect(() => {
+    if (value === null || Number.isNaN(value)) {
+      setDisplayValue(0)
+      return
+    }
     const duration = 800
     const steps = 30
     const stepDuration = duration / steps
@@ -35,12 +41,13 @@ export function MetricCard({ label, value, change, format, className }: MetricCa
     return () => clearInterval(timer)
   }, [value])
 
-  const formattedValue =
-    format === 'currency'
+  const formattedValue = indisponible
+    ? '—'
+    : format === 'currency'
       ? formatCurrency(displayValue)
       : format === 'percent'
-      ? formatPercent(displayValue)
-      : formatNumber(displayValue)
+        ? formatPercent(displayValue)
+        : formatNumber(displayValue)
 
   const isPositive = change !== undefined && change >= 0
   const isNegative = change !== undefined && change < 0
