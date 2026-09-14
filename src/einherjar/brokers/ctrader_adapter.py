@@ -45,7 +45,7 @@ logger = logging.getLogger("einherjar.ctrader")
 try:
     from ctrader_open_api import Client, EndPoints, Protobuf, TcpProtocol  # noqa: F401
     from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import (  # noqa: F401
-        ProtoOAErrorRes,  # noqa: F401
+        ProtoHeartbeatEvent,  # noqa: F401
     )
     from ctrader_open_api.messages.OpenApiMessages_pb2 import (  # noqa: F401
         ProtoOAAccountAuthReq,
@@ -53,21 +53,25 @@ try:
         ProtoOAApplicationAuthReq,
         ProtoOAApplicationAuthRes,  # noqa: F401
         ProtoOAClosePositionReq,
+        ProtoOAErrorRes,  # noqa: F401
         ProtoOAExecutionEvent,
-        ProtoOAGetAccountListReq,
-        ProtoOAGetAccountListRes,
-        ProtoOAGetPositionListReq,
-        ProtoOAGetPositionListRes,
+        ProtoOAGetAccountListByAccessTokenReq,
+        ProtoOAGetAccountListByAccessTokenRes,
+        ProtoOAGetTrendbarsReq,
+        ProtoOAGetTrendbarsRes,
         ProtoOANewOrderReq,
+        ProtoOAReconcileReq,
+        ProtoOAReconcileRes,
         ProtoOASymbolByIdReq,
         ProtoOASymbolByIdRes,
         ProtoOASymbolsListReq,
         ProtoOASymbolsListRes,
-        ProtoOATrendbarReq,
-        ProtoOATrendbarRes,
+        ProtoOATraderReq,
+        ProtoOATraderRes,
     )
 
     CTRADER_AVAILABLE = True
+    CTRADER_IMPORT_ERROR = ""
 except ImportError as _imp_err:
     CTRADER_AVAILABLE = False
     CTRADER_IMPORT_ERROR = str(_imp_err)
@@ -299,10 +303,9 @@ class _CTraderTwistedThread:
         if asset in self._symbol_cache:
             return self._symbol_cache[asset]
         symbol_name = normalize_symbol(asset, self.broker_name)
-        # Tentative de resolution via ProtoOASymbolByIdReq si on connait l'ID
-        # Sinon on essaye de chercher par nom — cela necessite ProtoOAGetSymbolsReq
-        # Pour l'instant on simule une resolution par defaut basee sur un hash
-        # (a remplacer par une vraie requete API quand les stubs sont confirmes)
+        # Resolution par le cache alimente par ProtoOASymbolsListRes (symbolName ->
+        # symbolId) : on refuse de deviner un symbolId, un ordre sur le mauvais
+        # symbole serait pire qu'une erreur explicite.
         symbol_id = self._symbol_cache.get(symbol_name.upper())
         if symbol_id is None:
             raise CTraderError(f"Symbole indisponible chez le broker: {asset} ({symbol_name})")
@@ -322,14 +325,16 @@ class _CTraderTwistedThread:
         bar_duration_ms = period * 60_000
         from_ms = now_ms - (limit * bar_duration_ms * 2)
 
-        req = ProtoOATrendbarReq()
+        req = ProtoOAGetTrendbarsReq()
         req.ctidTraderAccountId = self.account_id
         req.symbolId = symbol_id
         req.period = period
         req.fromTimestamp = from_ms
         req.toTimestamp = now_ms
+        # Une bougie de plus : la premiere est ecartee (pas de close de reference).
+        req.count = limit + 1
 
-        future = self._send_request(req, ProtoOATrendbarRes)
+        future = self._send_request(req, ProtoOAGetTrendbarsRes)
         try:
             res = future.result(timeout=10.0)
         except Exception as exc:
@@ -409,6 +414,9 @@ class _CTraderTwistedThread:
         req.orderType = 1 if order.order_type.value == "MARKET" else 2  # MARKET=1, LIMIT=2
         req.tradeSide = 1 if order.direction == Direction.LONG else 2
         req.volume = volume
+        # Le label transporte le nom de l'einher : il revient avec la position
+        # (tradeData.label) et permet la sortie sur duree de tenue.
+        req.label = str(getattr(order, "einher_name", "") or "")[:100]
         if order.sl_price is not None:
             req.stopLoss = order.sl_price
         if order.tp_price is not None:
@@ -423,13 +431,13 @@ class _CTraderTwistedThread:
         # ProtoOAExecutionEvent contient le fill
         position = getattr(res, "position", None)
         fill_qty = getattr(position, "volume", 0) / 100.0 if position else order.quantity
-        # Prix d'execution reel : `res.price` (ProtoOAExecutionEvent), sinon
-        # position.tradeData.price, sinon le prix theorique de l'ordre. L'ancien
-        # code faisait getattr(position, "tradeData.price") : un attribut qui
-        # n'existe pas, il retombait donc toujours sur order.entry_price.
+        # Prix d'execution : ProtoOAExecutionEvent ne porte pas de champ `price` ;
+        # le prix reel du fill est celui de la position ouverte (ProtoOAPosition.price),
+        # a defaut le prix theorique de l'ordre.
         trade_data = getattr(position, "tradeData", None)
         fill_price = (
-            getattr(res, "price", None)
+            getattr(position, "price", None)
+            or getattr(res, "price", None)
             or getattr(trade_data, "price", None)
             or order.entry_price
             or 0.0
@@ -446,10 +454,15 @@ class _CTraderTwistedThread:
         )
 
     def get_positions_sync(self) -> list[Position]:
-        """Retourne les positions ouvertes."""
-        req = ProtoOAGetPositionListReq()
+        """Retourne les positions ouvertes (ProtoOAReconcileRes).
+
+        Champs reels : `tradeData` porte symbolId/volume/tradeSide/openTimestamp/
+        label, et le prix d'entree est `ProtoOAPosition.price` (il n'existe pas de
+        `tradeData.price`).
+        """
+        req = ProtoOAReconcileReq()
         req.ctidTraderAccountId = self.account_id
-        future = self._send_request(req, ProtoOAGetPositionListRes)
+        future = self._send_request(req, ProtoOAReconcileRes)
         try:
             res = future.result(timeout=10.0)
         except Exception as exc:
@@ -457,47 +470,76 @@ class _CTraderTwistedThread:
 
         positions = []
         for p in getattr(res, "position", []):
-            symbol_id = int(getattr(getattr(p, "tradeData", None), "symbolId", 0))
+            trade = getattr(p, "tradeData", None)
+            symbol_id = int(getattr(trade, "symbolId", 0))
             broker_symbol = self._symbol_meta.get(symbol_id, {}).get("name", str(symbol_id))
             asset = denormalize_symbol(broker_symbol, self.broker_name)
+            ouvert_ms = int(getattr(trade, "openTimestamp", 0) or 0)
             positions.append(
                 Position(
                     position_id=str(getattr(p, "positionId", 0)),
                     asset=asset,
-                    direction=Direction.LONG if getattr(p, "tradeSide", 1) == 1 else Direction.SHORT,
-                    quantity=getattr(p, "volume", 0) / 100.0,
-                    avg_entry_price=float(getattr(getattr(p, "tradeData", None), "price", 0)),
-                    opened_at=datetime.now(UTC),
-                    asset_class=AssetClass.CRYPTO,
+                    direction=(
+                        Direction.LONG if int(getattr(trade, "tradeSide", 1)) == 1 else Direction.SHORT
+                    ),
+                    quantity=float(getattr(trade, "volume", 0)) / 100.0,
+                    avg_entry_price=float(getattr(p, "price", 0)),
+                    tp_price=float(getattr(p, "takeProfit", 0)) or None,
+                    sl_price=float(getattr(p, "stopLoss", 0)) or None,
+                    # Le label porte le nom de l'einher emetteur (pose a l'ouverture) :
+                    # la gestion des sorties peut ainsi appliquer la duree de tenue.
+                    einher_name=str(getattr(trade, "label", "") or ""),
+                    opened_at=(
+                        datetime.fromtimestamp(ouvert_ms / 1000, tz=UTC)
+                        if ouvert_ms
+                        else datetime.now(UTC)
+                    ),
+                    asset_class=ASSET_CLASS_MAP.get(asset, AssetClass.INDICES),
                 )
             )
         return positions
 
     def get_account_sync(self) -> AccountState:
-        """Retourne l'etat du compte."""
-        req = ProtoOAGetAccountListReq()
+        """Retourne l'etat du compte cTrader.
+
+        L'API n'expose pas d'equity : `ProtoOATrader` fournit le solde (entier mis
+        a l'echelle par `moneyDigits`) et `leverageInCents` ; la marge utilisee est
+        la somme des `usedMargin` des positions ouvertes. Le P&L latent exigerait
+        un abonnement aux cotations (ProtoOASpotEvent) : sans lui, l'equity vaut le
+        solde — on n'invente pas de P&L.
+        """
+        req = ProtoOATraderReq()
         req.ctidTraderAccountId = self.account_id
-        future = self._send_request(req, ProtoOAGetAccountListRes)
+        future = self._send_request(req, ProtoOATraderRes)
         try:
             res = future.result(timeout=10.0)
         except Exception as exc:
             raise CTraderError(f"get_account timeout/error : {exc}") from exc
 
-        # La reponse contient une liste de comptes ; on prend le premier correspondant
-        account = None
-        for acc in getattr(res, "tradingAccount", []):
-            if getattr(acc, "ctidTraderAccountId", 0) == self.account_id:
-                account = acc
-                break
-        if account is None:
-            raise CTraderError("Compte introuvable dans la reponse")
+        trader = getattr(res, "trader", None)
+        if trader is None:
+            raise CTraderError("Reponse ProtoOATraderRes sans trader")
+
+        echelle = float(10 ** int(getattr(trader, "moneyDigits", 0) or 0))
+        solde = float(getattr(trader, "balance", 0)) / echelle
+        leverage = int(getattr(trader, "leverageInCents", 100) or 100) / 100.0
+
+        marge = 0.0
+        try:
+            req_pos = ProtoOAReconcileReq()
+            req_pos.ctidTraderAccountId = self.account_id
+            res_pos = self._send_request(req_pos, ProtoOAReconcileRes).result(timeout=10.0)
+            for p in getattr(res_pos, "position", []):
+                marge += float(getattr(p, "usedMargin", 0)) / echelle
+        except Exception as exc:  # noqa: BLE001 - la marge n'est pas bloquante
+            logger.warning("cTrader: marge indisponible (%s)", exc)
 
         return AccountState(
-            cash=float(getattr(account, "balance", 0)),
-            equity=float(getattr(account, "equity", 0)),
-            margin_used=float(getattr(account, "marginUsed", 0)),
-            margin_available=float(getattr(account, "margin", 0)),
-            leverage=int(getattr(account, "leverage", 1)),
+            cash=solde,
+            equity=solde,
+            margin_used=marge,
+            margin_available=max(0.0, solde - marge),
+            leverage=int(leverage) or 1,
         )
 
     def close_position_sync(self, position_id: int) -> bool:
