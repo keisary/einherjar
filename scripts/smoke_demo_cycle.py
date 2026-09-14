@@ -20,7 +20,9 @@ import logging
 import sys
 import tempfile
 import time
+from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -67,13 +69,41 @@ async def run(asset: str, timeframe: str, lookback: int) -> int:
         print(f"fenetre live : {fenetre.height} bougies | colonnes {fenetre.columns}")
         assert fenetre.height >= 200, "amorcage insuffisant pour des features a fenetre"
 
+        t0 = time.time()
+        durees = await loop.warmup_features()
+        print(f"echauffement JIT : {durees} en {time.time()-t0:.1f}s")
+
         bougie = await loop._fetch_last_candle(asset, timeframe)
         print(f"derniere bougie : {bougie}")
+        # Le broker de demo renvoie la derniere bougie REELLE, deja presente dans le
+        # store apres amorcage : on decale son horodatage d'un pas de temps pour
+        # simuler la cloture suivante et declencher effectivement le cycle.
+        pas = {
+            "5m": timedelta(minutes=5), "15m": timedelta(minutes=15),
+            "1h": timedelta(hours=1), "4h": timedelta(hours=4), "1d": timedelta(days=1),
+        }[timeframe]
+        bougie = {**bougie, "timestamp": bougie["timestamp"] + pas}
+
+        async def _fetch_simulee(_asset: str, _tf: str, *_: Any, **__: Any) -> dict[str, Any]:
+            return bougie
+
+        loop._fetch_last_candle = _fetch_simulee  # type: ignore[method-assign]
 
         t0 = time.time()
         result = await loop._process_asset_tf(asset, timeframe)
-        print(f"cycle : {time.time()-t0:.1f}s -> signals={result['signals_count']} "
+        premier = time.time() - t0
+        print(f"cycle 1 (a froid, JIT inclus) : {premier:.1f}s -> signals={result['signals_count']} "
               f"forming={result['forming_count']} error={result['error']}")
+
+        # Second cycle : mesure le cout REEL par bougie une fois le JIT chaud
+        # (c'est ce chiffre qui determine la tenue des fenetres 5m/15m/1h).
+        bougie = {**bougie, "timestamp": bougie["timestamp"] + pas}
+        t0 = time.time()
+        result2 = await loop._process_asset_tf(asset, timeframe)
+        chaud = time.time() - t0
+        print(f"cycle 2 (JIT chaud) : {chaud:.1f}s -> signals={result2['signals_count']} "
+              f"forming={result2['forming_count']} error={result2['error']}")
+        print(f"etapes sautees (calcul cible) : {loop.feature_engine.last_report.get('etapes_sautees')}")
         for sig in result["signals"][:5]:
             print(f"  SIGNAL {sig.einher_name} [{sig.direction.value}] entry={sig.entry_price:.4f} "
                   f"tp={sig.tp_price:.4f} sl={sig.sl_price:.4f} conf={sig.confidence}")

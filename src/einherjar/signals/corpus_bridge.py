@@ -348,3 +348,24 @@ def universe_index(path: str | Path) -> dict[tuple[str, str], list[str]]:
         key = (str(universe.get("asset")), str(universe.get("timeframe")))
         index.setdefault(key, []).append(str(entry.get("id")))
     return index
+
+
+def required_features_by_universe(path: str | Path) -> dict[tuple[str, str], set[str]]:
+    """Features reellement necessaires par couple (asset, timeframe).
+
+    Sert au calcul cible en live : evaluer les einhers d'un couple n'exige que
+    l'union de leurs `feature_ref`, pas les 246 colonnes du schema compile.
+
+    Args:
+        path: Chemin du corpus.
+
+    Returns:
+        Dict {(asset, timeframe): {feature_ref, ...}}.
+    """
+    besoin: dict[tuple[str, str], set[str]] = {}
+    for entry in load_entries(path):
+        universe = entry.get("universe") or {}
+        key = (str(universe.get("asset")), str(universe.get("timeframe")))
+        refs = set(feature_refs(entry.get("condition_tree"), []))
+        besoin.setdefault(key, set()).update(refs)
+    return besoin

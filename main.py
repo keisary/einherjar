@@ -407,9 +407,28 @@ async def start_inference_loop(checker: StatusChecker, use_mock: bool = False) -
     live_store = LiveDataStore(window_size=feature_engine.max_lookback)
     data_store = DataStore(db_path=DB_PATH)
 
-    assets = list(ASSET_CLASS_MAP.keys())
+    # Couples (asset, timeframe) A EVALUER : ceux couverts par le corpus.
+    # Prendre le produit cartesien complet (29 actifs x 5 TF = 145 couples) ferait
+    # tourner des couples sans aucun einher et ne tiendrait pas les fenetres
+    # (le calcul de features coute ~90 s par couple).
+    from einherjar.signals.corpus_bridge import universe_index
+
     timeframes = list(system_config.timeframes)
-    assets_timeframes = [(a, tf) for a in assets for tf in timeframes]
+    assets_timeframes = [
+        (asset, tf)
+        for asset, tf in universe_index(CORPUS_PATH).keys()
+        if tf in timeframes
+    ]
+    if not assets_timeframes:
+        assets = list(ASSET_CLASS_MAP.keys())
+        assets_timeframes = [(a, tf) for a in assets for tf in timeframes]
+        logger.warning("Corpus sans couple exploitable : repli sur le produit complet")
+    else:
+        logger.info(
+            "Couples (asset, tf) issus du corpus : %d (au lieu de %d possibles)",
+            len(assets_timeframes),
+            len(ASSET_CLASS_MAP) * len(timeframes),
+        )
 
     if use_mock or checker.demo_mode or checker.ctrader_adapter is None:
         broker = _MockBrokerAdapter()

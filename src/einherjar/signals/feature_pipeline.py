@@ -43,6 +43,11 @@ class FeaturePipelineError(Exception):
     """Erreur bloquante du pipeline de features (dependance ou etape indisponible)."""
 
 
+# Colonnes toujours produites meme en calcul cible : EinherEngine s'en sert pour
+# dimensionner le TP/SL (`signals/einher_engine.py:_build_signal`).
+ALWAYS_REQUIRED = ("atr_14",)
+
+
 class FeaturePipeline:
     """Calcule le schema de features complet sur un OHLCV mono-actif.
 
@@ -207,6 +212,7 @@ class FeaturePipeline:
         asset: str = "ASSET",
         timeframe: str = "1h",
         with_factors: bool = True,
+        needed: set[str] | None = None,
     ) -> pl.DataFrame:
         """Calcule toutes les features du schema MIDAS sur un OHLCV mono-actif.
 
@@ -215,6 +221,9 @@ class FeaturePipeline:
             asset: Symbole de l'actif (injecte pour les enrichisseurs MIDAS).
             timeframe: Timeframe de la frame.
             with_factors: Calcule aussi les `Factor_*` et signaux derives.
+            needed: Calcul cible — seules ces colonnes (plus `ALWAYS_REQUIRED`) sont
+                produites, et les etapes inutiles (patterns, quant, facteurs) sont
+                sautees. `None` = schema complet, comme dans la chaine de recherche.
 
         Returns:
             DataFrame polars avec les colonnes OHLCV + features (noms du schema compile).
@@ -228,20 +237,42 @@ class FeaturePipeline:
         if missing_ohlcv:
             raise FeaturePipelineError(f"OHLCV incomplet, colonnes manquantes : {missing_ohlcv}")
 
-        report: dict[str, Any] = {"lignes": df.height}
+        besoin = set(needed) | set(ALWAYS_REQUIRED) if needed else None
+        report: dict[str, Any] = {"lignes": df.height, "calcul_cible": besoin is not None}
+
         frame = self.compute_technical(df, asset, timeframe)
         report["colonnes_techniques"] = frame.width
 
-        frame = self.compute_quantitative(frame, asset, timeframe)
+        quant_requis = besoin is None or any(c.startswith("quant_") for c in besoin)
+        if quant_requis:
+            frame = self.compute_quantitative(frame, asset, timeframe)
         report["colonnes_apres_quant"] = frame.width
 
-        frame = self.compute_patterns(frame)
+        patterns_requis = besoin is None or any(
+            c.startswith(PATTERN_COLUMN_PREFIX) for c in besoin
+        )
+        if patterns_requis:
+            frame = self.compute_patterns(frame)
         report["colonnes_apres_patterns"] = frame.width
 
-        if with_factors:
+        facteurs_requis = besoin is None or any(
+            c.startswith("Factor_") or c.endswith(("_signal", "_norm"))
+            or c in ("skewness_risk", "kurtosis_risk")
+            for c in besoin
+        )
+        if with_factors and facteurs_requis:
             before = set(frame.columns)
             frame = self.compute_factors(frame)
             report["colonnes_facteurs"] = len(set(frame.columns) - before)
+        report["etapes_sautees"] = [
+            nom for nom, fait in (("quant", quant_requis), ("patterns", patterns_requis),
+                                  ("facteurs", facteurs_requis))
+            if not fait
+        ]
+
+        if besoin is not None:
+            garder = [c for c in frame.columns if c in set(OHLCV_COLUMNS) | {"asset", "timeframe"} | besoin]
+            frame = frame.select(garder)
 
         self.last_report = report
         return frame
@@ -256,6 +287,7 @@ class FeaturePipeline:
         new_candle: dict[str, Any],
         asset: str = "ASSET",
         timeframe: str = "1h",
+        needed: set[str] | None = None,
     ) -> pl.DataFrame:
         """Recalcule les features apres cloture d'une bougie (interface InferenceLoop).
 
@@ -264,6 +296,7 @@ class FeaturePipeline:
             new_candle: Derniere bougie cloturee.
             asset: Symbole (transmis aux enrichisseurs MIDAS).
             timeframe: Timeframe de la frame.
+            needed: Calcul cible (voir `compute`).
 
         Returns:
             DataFrame enrichi (colonnes du schema MIDAS) tronque a `max_lookback`.
@@ -271,14 +304,15 @@ class FeaturePipeline:
         # Construire la bougie AVEC le schema de l'historique : un dict Python
         # (candle du broker) donnerait sinon `timestamp` en object et le concat
         # echouerait faute de supertype datetime[us]/object.
-        schema = {c: df_history[c].dtype for c in df_history.columns if c in new_candle}
-        if not schema:
-            raise FeaturePipelineError("Bougie sans colonne commune avec l'historique")
+        colonnes = [c for c in OHLCV_COLUMNS if c in df_history.columns and c in new_candle]
+        if not colonnes:
+            raise FeaturePipelineError("Bougie sans colonne OHLCV commune avec l'historique")
+        schema = {c: df_history[c].dtype for c in colonnes}
         new_row = pl.DataFrame({c: [new_candle[c]] for c in schema}, schema=schema)
-        df = pl.concat([df_history, new_row], how="vertical_relaxed")
+        df = pl.concat([df_history.select(colonnes), new_row], how="vertical_relaxed")
         if len(df) > self.max_lookback:
             df = df.tail(self.max_lookback)
-        return self.compute(df, asset=asset, timeframe=timeframe)
+        return self.compute(df, asset=asset, timeframe=timeframe, needed=needed)
 
     def get_required_lookback(self, feature_name: str) -> int:
         """Retourne la fenetre de recalcul pour une feature (defaut : max_lookback).

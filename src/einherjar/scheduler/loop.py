@@ -22,7 +22,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from einherjar.brokers.adapter import BrokerAdapter
@@ -151,6 +153,16 @@ class InferenceLoop:
         self.calendar = MarketCalendar()
         self.running = False
         self._tasks: set[asyncio.Task] = set()
+        # Features reellement requises par couple (calcul cible) : sans cela chaque
+        # cycle paierait les 107 patterns et les 76 colonnes de facteurs dont
+        # l'evaluation des einhers n'a pas besoin.
+        self._needed: dict[tuple[str, str], set[str]] = {}
+        corpus_path = Path(__file__).resolve().parents[3] / "outputs" / "corpus.jsonl"
+        if corpus_path.exists():
+            from einherjar.signals.corpus_bridge import required_features_by_universe
+
+            self._needed = required_features_by_universe(corpus_path)
+            logger.info("Calcul cible : %d couples avec besoin de features connu", len(self._needed))
 
     async def _fetch_last_candle(
         self, asset: str, timeframe: str
@@ -196,7 +208,11 @@ class InferenceLoop:
             self.live_store.append(asset, timeframe, candle)
 
             df_enriched = self.feature_engine.compute_incremental(
-                df_history, candle, asset=asset, timeframe=timeframe
+                df_history,
+                candle,
+                asset=asset,
+                timeframe=timeframe,
+                needed=self._needed.get((asset, timeframe)),
             )
             # Le store live ne contient QUE l'OHLCV (une seule bougie ajoutee plus
             # haut) : y ecrire la ligne enrichie melangerait 271 colonnes de features
@@ -357,6 +373,66 @@ class InferenceLoop:
         logger.info("Amorcage historique : %d couples, %d bougies chargees", len(ajouts), total)
         return ajouts
 
+    async def warmup_features(self, rows: int = 250) -> dict[str, float]:
+        """Compile le code Numba a l'avance (un profil de besoin a la fois).
+
+        Mesure : un cycle a froid coute ~85 s (compilation JIT des enrichisseurs)
+        alors qu'un cycle a chaud coute ~0,5 s. On paie donc le JIT explicitement au
+        demarrage, une fois par profil de features, au lieu de le payer au milieu
+        d'une fenetre de marche.
+
+        Args:
+            rows: Taille de la frame d'echauffement (le cout est la compilation,
+                pas le nombre de lignes).
+
+        Returns:
+            Dict {profil: duree_s}.
+        """
+        import numpy as np
+
+        profils: dict[str, set[str]] = {}
+        for refs in (self._needed.values() or [set()]):
+            cle = f"patterns={any(r.startswith('pattern_') for r in refs)}|" \
+                  f"quant={any(r.startswith('quant_') for r in refs)}|" \
+                  f"facteurs={any(r.startswith('Factor_') or r.endswith(('_signal', '_norm')) for r in refs)}"
+            profils.setdefault(cle, set()).update(refs)
+        if not profils:
+            profils["complet"] = set()
+
+        # Frame d'echauffement : OHLCV reel si disponible, sinon synthetique
+        frame = None
+        for asset, timeframe in self.assets_timeframes:
+            fenetre = self.live_store.get_window(asset, timeframe)
+            if fenetre.height >= 50:
+                frame = fenetre.tail(rows).select(["timestamp", "open", "high", "low", "close", "volume"])
+                break
+        if frame is None:
+            rng = np.random.default_rng(0)
+            close = np.cumsum(rng.normal(0, 1, rows)) + 100.0
+            frame = pl.DataFrame({
+                "timestamp": pl.datetime_range(
+                    datetime(2024, 1, 1), datetime(2025, 1, 1), interval="1h", eager=True
+                ).head(rows),
+                "open": close, "high": close + 1.0, "low": close - 1.0, "close": close,
+                "volume": np.full(rows, 1000.0),
+            })
+
+        durees: dict[str, float] = {}
+        for cle, refs in profils.items():
+            debut = time.perf_counter()
+            try:
+                self.feature_engine.compute(
+                    frame, asset="WARMUP", timeframe="1h",
+                    needed=(refs or None),
+                )
+            except Exception as exc:
+                logger.warning("Echauffement %s echoue : %s", cle, exc)
+                durees[cle] = -1.0
+                continue
+            durees[cle] = round(time.perf_counter() - debut, 2)
+        logger.info("Echauffement features (JIT) : %s", durees)
+        return durees
+
     async def run(self) -> None:
         """Boucle principale d'inference."""
         self.running = True
@@ -365,6 +441,10 @@ class InferenceLoop:
             await self.bootstrap_history()
         except Exception as exc:  # l'amorcage ne doit jamais empecher la boucle de tourner
             logger.exception("Amorcage historique echoue : %s", exc)
+        try:
+            await self.warmup_features()
+        except Exception as exc:
+            logger.exception("Echauffement des features echoue : %s", exc)
 
         while self.running:
             try:
