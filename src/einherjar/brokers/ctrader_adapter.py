@@ -59,6 +59,8 @@ try:
         ProtoOAGetPositionListReq,
         ProtoOAGetPositionListRes,
         ProtoOANewOrderReq,
+        ProtoOASymbolByIdReq,
+        ProtoOASymbolByIdRes,
         ProtoOASymbolsListReq,
         ProtoOASymbolsListRes,
         ProtoOATrendbarReq,
@@ -79,6 +81,63 @@ class CTraderError(RuntimeError):
     """Erreur specifique cTrader."""
 
     pass
+
+
+# ---------------------------------------------------------------------------
+# Conversion des trendbars (fonction pure, testable sans API)
+# ---------------------------------------------------------------------------
+def trendbars_to_ohlcv(bars: list[Any], digits: int, limit: int | None = None) -> pl.DataFrame:
+    """Convertit des `ProtoOATrendbar` en OHLCV exploitable.
+
+    Format cTrader Open API : pour une trendbar, seuls `low`, `deltaOpen`,
+    `deltaClose`, `deltaHigh` (et `volume`) sont transmis. Ces valeurs sont des
+    ENTIERS en POINTS, exprimes par rapport au close de la bougie PRECEDENTE, et
+    doivent etre divises par `10 ** digits` pour obtenir des prix :
+
+        open  = close_precedent + deltaOpen  / 10**digits
+        close = close_precedent + deltaClose / 10**digits
+        high  = low                        + deltaHigh  / 10**digits
+        low   = low                        / 10**digits
+
+    La PREMIERE bougie servie ne peut donc pas etre reconstruite (pas de close
+    precedent) : elle est ecartee. L'appelant demande `limit + 1` bougies.
+
+    Args:
+        bars: Trendbars brutes de l'API (objets protobuf ou equivalents).
+        digits: Nombre de decimales du symbole (`ProtoOASymbol.digits`).
+        limit: Ne garder que les `limit` dernieres bougies.
+
+    Returns:
+        DataFrame polars [timestamp, open, high, low, close, volume].
+
+    Raises:
+        CTraderError: si `digits` est invalide (prix non interpretables).
+    """
+    if digits is None or int(digits) < 0:
+        raise CTraderError(
+            "digits du symbole inconnu : les prix des trendbars ne sont pas "
+            "interpretables (appeler ProtoOASymbolByIdReq avant get_ohlcv)"
+        )
+    echelle = float(10 ** int(digits))
+    rows: list[list[float]] = []
+    close_precedent: float | None = None
+    for bar in bars:
+        low = float(getattr(bar, "low", 0.0)) / echelle
+        delta_open = float(getattr(bar, "deltaOpen", 0.0)) / echelle
+        delta_close = float(getattr(bar, "deltaClose", 0.0)) / echelle
+        delta_high = float(getattr(bar, "deltaHigh", 0.0)) / echelle
+        ts = int(getattr(bar, "utcTimestampInMinutes", 0)) * 60_000
+        if close_precedent is None:
+            # Pas de reference : bougie de chauffe, ecartee (open = low + deltaOpen
+            # serait une approximation, on ne la publie pas).
+            close_precedent = low + delta_close
+            continue
+        open_p = close_precedent + delta_open
+        close = close_precedent + delta_close
+        high = low + delta_high
+        rows.append([ts, open_p, high, low, close, float(getattr(bar, "volume", 0.0))])
+        close_precedent = close
+    return ohlcv_to_polars(rows[-limit:] if limit else rows)
 
 
 # ---------------------------------------------------------------------------
@@ -280,32 +339,76 @@ class _CTraderTwistedThread:
         if not bars:
             return ohlcv_to_polars([])
 
-        rows = []
-        # Les trendbars cTrader encodent les prix en ticks ;
-        # la conversion exacte necessite le digit du symbole.
-        # On suppose ici que les champs deltaHigh/deltaLow/deltaOpen/volume sont dispo.
-        for bar in bars:
-            ts = getattr(bar, "utcTimestampInMinutes", 0) * 60_000
-            # Prix en points — approximation : on prend close comme reference
-            close = getattr(bar, "close", 0)
-            # Si les deltas existent :
-            high = close + getattr(bar, "deltaHigh", 0)
-            low = close - getattr(bar, "deltaLow", 0)
-            open_p = close - getattr(bar, "deltaOpen", 0)
-            vol = getattr(bar, "volume", 0)
-            rows.append([ts, open_p, high, low, close, vol])
+        # `trendbars_to_ohlcv` ecarte la premiere bougie (elle n'a pas de close de
+        # reference) : la fenetre demandee ci-dessus est volontairement large.
+        digits = self._digits_for_symbol(symbol_id)
+        return trendbars_to_ohlcv(bars, digits, limit=limit)
 
-        return ohlcv_to_polars(rows[-limit:])
+    def _digits_for_symbol(self, symbol_id: int) -> int:
+        """Retourne le nombre de decimales du symbole (requete SymbolById si besoin).
+
+        Les prix des trendbars sont des entiers en points : sans `digits` ils ne
+        sont pas interpretables, donc on refuse de continuer plutot que de
+        retourner des prix faux.
+        """
+        digits = self._symbol_meta.get(symbol_id, {}).get("digits")
+        if digits is None:
+            digits = self._load_symbol_details_sync(symbol_id)
+        if digits is None:
+            raise CTraderError(
+                f"digits indisponible pour symbolId={symbol_id} : impossible de "
+                "convertir les trendbars en prix"
+            )
+        return int(digits)
+
+    def _load_symbol_details_sync(self, symbol_id: int) -> int | None:
+        """Charge les details d'un symbole (digits, volumes, lot) via SymbolByIdReq.
+
+        Returns:
+            Le nombre de decimales du symbole, ou None si l'API ne le fournit pas.
+        """
+        req = ProtoOASymbolByIdReq()
+        req.ctidTraderAccountId = self.account_id
+        req.symbolId.append(symbol_id)
+        try:
+            future = self._send_request(req, ProtoOASymbolByIdRes)
+            res = future.result(timeout=10.0)
+        except Exception as exc:  # noqa: BLE001 - remonte tel quel a l'appelant
+            raise CTraderError(f"ProtoOASymbolByIdReq echoue pour {symbol_id}: {exc}") from exc
+
+        symbol = next(iter(getattr(res, "symbol", []) or []), None)
+        if symbol is None:
+            return None
+        meta = self._symbol_meta.setdefault(symbol_id, {})
+        meta.setdefault("name", str(getattr(symbol, "symbolName", symbol_id)))
+        for champ in ("digits", "pipPosition", "minVolume", "stepVolume", "maxVolume", "lotSize"):
+            valeur = getattr(symbol, champ, None)
+            if valeur is not None:
+                meta[champ] = valeur
+        logger.info("cTrader: details symbole %s -> %s", symbol_id, meta)
+        return meta.get("digits")
 
     def place_order_sync(self, order: Order) -> Fill:
-        """Passe un ordre de marche sur cTrader."""
+        """Passe un ordre de marche sur cTrader (TP/SL transmis au broker)."""
         symbol_id = self._resolve_symbol_sync(order.asset)
+        meta = self._symbol_meta.get(symbol_id, {})
+        # cTrader compte le volume en 0,01 unite de l'actif de base.
+        volume = int(round(order.quantity * 100))
+        min_volume = meta.get("minVolume")
+        step_volume = meta.get("stepVolume")
+        if step_volume:
+            volume = max(int(step_volume), (volume // int(step_volume)) * int(step_volume))
+        if min_volume and volume < int(min_volume):
+            raise CTraderError(
+                f"volume {volume} (centiemes) sous le minimum broker {min_volume} pour "
+                f"{order.asset} : ordre refuse cote client"
+            )
         req = ProtoOANewOrderReq()
         req.ctidTraderAccountId = self.account_id
         req.symbolId = symbol_id
         req.orderType = 1 if order.order_type.value == "MARKET" else 2  # MARKET=1, LIMIT=2
         req.tradeSide = 1 if order.direction == Direction.LONG else 2
-        req.volume = int(order.quantity * 100)  # cTrader utilise parfois des centi-lots
+        req.volume = volume
         if order.sl_price is not None:
             req.stopLoss = order.sl_price
         if order.tp_price is not None:
@@ -320,7 +423,17 @@ class _CTraderTwistedThread:
         # ProtoOAExecutionEvent contient le fill
         position = getattr(res, "position", None)
         fill_qty = getattr(position, "volume", 0) / 100.0 if position else order.quantity
-        fill_price = getattr(position, "tradeData.price", order.entry_price or 0)
+        # Prix d'execution reel : `res.price` (ProtoOAExecutionEvent), sinon
+        # position.tradeData.price, sinon le prix theorique de l'ordre. L'ancien
+        # code faisait getattr(position, "tradeData.price") : un attribut qui
+        # n'existe pas, il retombait donc toujours sur order.entry_price.
+        trade_data = getattr(position, "tradeData", None)
+        fill_price = (
+            getattr(res, "price", None)
+            or getattr(trade_data, "price", None)
+            or order.entry_price
+            or 0.0
+        )
 
         return Fill(
             fill_id=f"FIL_{uuid.uuid4().hex}",

@@ -7,10 +7,15 @@ Einher, Signal, Order, Position, Fill, AccountState.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from einherjar.core.enums import AssetClass, Direction, EinherState, OrderType, TimeFrame
+
+
+def _utcnow() -> datetime:
+    """Horodatage UTC conscient du fuseau (remplace `datetime.utcnow`, deprecie 3.12+)."""
+    return datetime.now(UTC)
 
 
 @dataclass
@@ -99,7 +104,7 @@ class Signal:
     tp_price: float
     sl_price: float
     confidence: float = 0.0
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utcnow)
     context: dict[str, Any] = field(default_factory=dict)
 
 
@@ -120,7 +125,7 @@ class ConfluenceCluster:
     confidence: float
     contributing_einhers: list[str]
     score: float
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utcnow)
     context: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -171,7 +176,7 @@ class Order:
     tp_price: float | None = None
     sl_price: float | None = None
     einher_name: str = ""
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utcnow)
     status: str = "pending"
 
 
@@ -195,7 +200,7 @@ class Fill:
     filled_qty: float
     filled_price: float
     fee: float = 0.0
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utcnow)
 
 
 @dataclass
@@ -225,7 +230,7 @@ class Position:
     sl_price: float | None = None
     unrealized_pnl: float = 0.0
     einher_name: str = ""
-    opened_at: datetime = field(default_factory=datetime.utcnow)
+    opened_at: datetime = field(default_factory=_utcnow)
     asset_class: AssetClass = AssetClass.CRYPTO
 
 
@@ -247,7 +252,7 @@ class AccountState:
     margin_used: float = 0.0
     margin_available: float = 0.0
     leverage: int = 1
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utcnow)
 
 
 @dataclass
@@ -262,4 +267,4 @@ class Rejection:
 
     signal: Signal
     reason: str
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utcnow)
