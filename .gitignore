@@ -35,3 +35,7 @@ outputs/diagnostics_*.json
 # Artefacts de verification features (gros parquet, regenerables)
 outputs/_verify_live_*.parquet
 outputs/_ref_midas_*.parquet
+
+# Donnees runtime du store live (regenerables a lamorcage)
+src/data/live/
+data/live/

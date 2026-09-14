@@ -17,7 +17,7 @@ from typing import Any
 
 import polars as pl
 
-LIVE_DIR = Path(__file__).resolve().parents[2] / "data" / "live"
+LIVE_DIR = Path(__file__).resolve().parents[3] / "data" / "live"
 
 
 class LiveDataStore:

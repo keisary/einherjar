@@ -77,7 +77,10 @@ class StatusChecker:
     def __init__(self) -> None:
         self.results: dict[str, dict[str, str]] = {}
         self.ctrader_adapter: Any | None = None
-        self.demo_mode = False
+        # environment = compte cTrader utilise ('demo' ou 'live') ; broker_ready =
+        # connexion effective. Sans broker connecte, main() refuse de demarrer.
+        self.environment = "demo"
+        self.broker_ready = False
 
     def check_all(self) -> bool:
         """Verifie tous les composants et retourne True si OK."""
@@ -167,10 +170,13 @@ class StatusChecker:
         return all_ok
 
     def _check_ctrader(self) -> None:
-        """Tente de connecter cTrader si credentials disponibles."""
+        """Verifie les credentials cTrader et tente la connexion (demo ou live)."""
         if not CREDENTIALS_PATH.exists():
-            self.results["CTRADER"] = {"status": "NO CREDENTIALS (demo mode)", "path": str(CREDENTIALS_PATH)}
-            self.demo_mode = True
+            self.results["CTRADER"] = {
+                "status": "ABSENT : renseigner config/credentials.json",
+                "path": str(CREDENTIALS_PATH),
+            }
+            self.broker_ready = False
             return
 
         try:
@@ -179,8 +185,29 @@ class StatusChecker:
             if not isinstance(creds, dict):
                 raise ValueError("credentials.json must contain a JSON object")
         except (json.JSONDecodeError, ValueError) as exc:
-            self.results["CTRADER"] = {"status": f"INVALID CREDENTIALS: {exc}", "path": str(CREDENTIALS_PATH)}
-            self.demo_mode = True
+            self.results["CTRADER"] = {
+                "status": f"INVALID CREDENTIALS: {exc}",
+                "path": str(CREDENTIALS_PATH),
+            }
+            self.broker_ready = False
+            return
+
+        # ENVIRONNEMENT : 'demo' (compte demo cTrader) ou 'live'. Le host et le
+        # compte diffèrent, le code et le point d'entree des donnees sont identiques.
+        env = str(creds.get("environment") or "").strip().lower()
+        if env not in ("demo", "live"):
+            env = "live" if "live" in str(creds.get("host", "")).lower() else "demo"
+        self.environment = env
+        host = str(creds.get("host") or ("live.ctraderapi.com" if env == "live"
+                                        else "demo.ctraderapi.com"))
+        manquants = [k for k in ("client_id", "client_secret", "access_token") if not creds.get(k)]
+        if manquants or not int(creds.get("account_id", 0)):
+            self.results["CTRADER"] = {
+                "status": f"INCOMPLET [{env}] : {', '.join(manquants)}"
+                          + ("" if int(creds.get("account_id", 0)) else ", account_id"),
+                "path": str(CREDENTIALS_PATH),
+            }
+            self.broker_ready = False
             return
 
         try:
@@ -190,7 +217,7 @@ class StatusChecker:
                 client_secret=creds.get("client_secret", ""),
                 access_token=creds.get("access_token", ""),
                 account_id=int(creds.get("account_id", 0)),
-                host=creds.get("host", "demo.ctraderapi.com"),
+                host=host,
                 port=int(creds.get("port", 5035)),
                 broker_name=creds.get("broker_name", "ic_markets"),
             )
@@ -198,15 +225,19 @@ class StatusChecker:
             if connected:
                 acc = asyncio.run(self.ctrader_adapter.get_account())
                 self.results["CTRADER"] = {
-                    "status": f"OK | Equity=${acc.equity:,.2f} | Leverage={acc.leverage}x",
+                    "status": f"OK [{env}] | Equity=${acc.equity:,.2f} | Leverage={acc.leverage}x",
                     "host": self.ctrader_adapter.host,
                 }
+                self.broker_ready = True
             else:
-                self.results["CTRADER"] = {"status": "FAIL (connexion refused)", "host": self.ctrader_adapter.host}
-                self.demo_mode = True
+                self.results["CTRADER"] = {
+                    "status": f"FAIL [{env}] (connexion refusee)",
+                    "host": self.ctrader_adapter.host,
+                }
+                self.broker_ready = False
         except Exception as exc:
-            self.results["CTRADER"] = {"status": f"ERROR: {exc}"}
-            self.demo_mode = True
+            self.results["CTRADER"] = {"status": f"ERROR [{env}]: {exc}"}
+            self.broker_ready = False
 
     def print_banner(self) -> None:
         """Affiche la banniere de statut."""
@@ -224,146 +255,14 @@ class StatusChecker:
                 icon = " WARN "
             print(f"  [{icon}] {name:20s} | {status}")
         print("=" * 60)
-        if self.demo_mode:
-            print("\n  [MODE DEMO] Aucun compte cTrader connecte.")
-            print("  Creez config/credentials.json pour activer le trading live.")
-
-
-# ---------------------------------------------------------------------------
-# Mock broker pour mode demo (permet de tester l'inference loop sans compte)
-# ---------------------------------------------------------------------------
-
-class _MockBrokerAdapter:
-    """Broker factice pour tests/demo. Retourne des bougies synthetiques."""
-
-    name = "mock"
-
-    def __init__(self) -> None:
-        self._prices: dict[str, float] = {}
-        self._seed_prices()
-
-    def _seed_prices(self) -> None:
-        from einherjar.brokers.broker_utils import ASSET_CLASS_MAP
-        defaults = {
-            "EURUSD": 1.0850, "GBPUSD": 1.2650, "USDJPY": 149.50,
-            "AUDUSD": 0.6520, "USDCAD": 1.3520, "USDCHF": 0.8820,
-            "EURGBP": 0.8570, "NZDUSD": 0.6120,
-            "BTCUSD": 67500.0, "ETHUSD": 3520.0, "ADAUSD": 0.48,
-            "BCHUSD": 230.0, "LTCUSD": 72.0,
-            "AAPL": 185.0, "MSFT": 420.0, "NVDA": 880.0,
-            "AMZN": 180.0, "GOOGL": 175.0, "TSLA": 175.0,
-            "JPM": 195.0, "XOM": 105.0,
-            "SP500": 5200.0, "NASDAQ100": 18500.0,
-            "DOWJONES": 39000.0, "DAX40": 18200.0,
-            "XAUUSD": 2320.0, "WTIUSD": 78.5,
-            "BRENT": 82.0, "COPPER": 4.35,
-        }
-        for asset in ASSET_CLASS_MAP.keys():
-            self._prices[asset] = defaults.get(asset, 100.0)
-
-    async def get_ohlcv(self, asset: str, timeframe: str, since: int | None = None, limit: int = 500) -> pl.DataFrame:
-        # Requete d'historique OU derniere bougie : on sert les prix reels locaux si
-        # l'actif en a (demo = prix reels, execution simulee). Les bougies
-        # synthetiques ne sont qu'un repli pour les actifs absents du disque.
-        reel = self._load_real_history(asset, timeframe, max(limit, 2))
-        if reel is not None:
-            return reel
-        import random
-        base = self._prices.get(asset, 100.0)
-        # Genere 2 bougies synthetiques
-        rows = []
-        now = datetime.now(timezone.utc)
-        for i in range(2):
-            ts = int((now.timestamp() - (1 - i) * 300) * 1000)
-            noise = (random.random() - 0.5) * base * 0.002
-            close = base + noise
-            open_p = close - (random.random() - 0.5) * base * 0.001
-            high = max(open_p, close) + random.random() * base * 0.001
-            low = min(open_p, close) - random.random() * base * 0.001
-            rows.append([ts, open_p, high, low, close, 1000.0])
-        return pl.DataFrame({
-            "timestamp": [r[0] for r in rows],
-            "open": [r[1] for r in rows],
-            "high": [r[2] for r in rows],
-            "low": [r[3] for r in rows],
-            "close": [r[4] for r in rows],
-            "volume": [r[5] for r in rows],
-        })
-
-    def _load_real_history(self, asset: str, timeframe: str, limit: int) -> pl.DataFrame | None:
-        """Charge l'historique OHLCV reel local pour l'amorcage (mode demo).
-
-        Les CSV bruts sont ranges par classe large (`crypto`, `forex`, `stocks`,
-        `indices`, `commodities`) alors que le corpus distingue `stocks_tech`,
-        `stocks_value`, `stocks_growth` : on ramene la classe a sa racine.
-
-        Args:
-            asset: Symbole.
-            timeframe: Timeframe.
-            limit: Nombre de bougies souhaitees.
-
-        Returns:
-            DataFrame OHLCV ou None si les donnees locales sont indisponibles.
-        """
-        try:
-            from einherjar.brokers.broker_utils import ASSET_CLASS_MAP
-            from einherjar.research.data.ohlcv import OhlcvProvider
-
-            classe = ASSET_CLASS_MAP.get(asset)
-            nom = getattr(classe, "value", None) or str(classe) if classe else None
-            candidats: list[str] = []
-            if nom:
-                candidats.append("stocks" if nom.startswith("stocks") else nom)
-            # Actifs du corpus absents de ASSET_CLASS_MAP (ex. NVDA, XOM) : on essaie
-            # les classes larges du disque avant de renoncer.
-            candidats += [c for c in ("crypto", "forex", "stocks", "indices", "commodities")
-                          if c not in candidats]
-            provider = OhlcvProvider()
-            for candidat in candidats:
-                try:
-                    frame = provider.load(asset, timeframe, "v1", asset_class=candidat)
-                except Exception:
-                    continue
-                return frame.df.tail(limit)
-            return None
-        except Exception as exc:
-            logger.debug("Historique reel indisponible %s %s : %s", asset, timeframe, exc)
-            return None
-
-    async def subscribe_live(self, assets: list[str], callback: callable) -> None:
-        pass
-
-    async def place_order(self, order: Any) -> Any:
-        from einherjar.core.models import Fill
-        return Fill(
-            fill_id="MOCK_FILL",
-            order_id=order.order_id,
-            asset=order.asset,
-            filled_qty=order.quantity,
-            filled_price=order.entry_price or 100.0,
-            fee=0.0,
-        )
-
-    async def cancel_order(self, order_id: str) -> bool:
-        return True
-
-    async def get_positions(self) -> list[Any]:
-        return []
-
-    async def get_account(self) -> Any:
-        from einherjar.core.models import AccountState
-        return AccountState(
-            cash=100000.0,
-            equity=100000.0,
-            margin_used=0.0,
-            margin_available=100000.0,
-            leverage=100,
-        )
-
-    def get_fees(self, asset: str) -> dict[str, Any]:
-        return {"spread_pct": 0.0001, "commission_per_lot": 0.0, "swap_long": 0.0, "swap_short": 0.0}
-
-
+        if not self.broker_ready:
+            print(f"\n  [COMPTE {self.environment.upper()}] Aucun broker cTrader connecte.")
+            print("  Renseignez config/credentials.json :")
+            print('    environment   : "demo" (compte demo cTrader) ou "live"')
+            print('    host          : demo.ctraderapi.com  |  live.ctraderapi.com')
+            print("    account_id, client_id, client_secret, access_token")
+            print("  Le systeme NE demarre PAS sans broker : il n'existe aucun mode de")
+            print("  rejeu local en production (donnees et execution = cTrader uniquement).")
 # ---------------------------------------------------------------------------
 # Lancement async des services
 # ---------------------------------------------------------------------------
@@ -384,8 +283,8 @@ async def start_api_server() -> None:
     await server.serve()
 
 
-async def start_inference_loop(checker: StatusChecker, use_mock: bool = False) -> None:
-    """Lance la boucle d'inference live."""
+async def start_inference_loop(checker: StatusChecker) -> None:
+    """Lance la boucle d'inference sur le compte cTrader connecte (demo ou live)."""
     from einherjar.scheduler.loop import InferenceLoop
     from einherjar.signals.feature_pipeline import FeaturePipeline
     from einherjar.signals.einher_engine import EinherEngine
@@ -430,12 +329,16 @@ async def start_inference_loop(checker: StatusChecker, use_mock: bool = False) -
             len(ASSET_CLASS_MAP) * len(timeframes),
         )
 
-    if use_mock or checker.demo_mode or checker.ctrader_adapter is None:
-        broker = _MockBrokerAdapter()
-        logger.info("InferenceLoop en mode DEMO (broker factice)")
-    else:
-        broker = checker.ctrader_adapter
-        logger.info("InferenceLoop en mode LIVE (cTrader)")
+    # POINT D'ENTREE DE DONNEES UNIQUE : le compte cTrader (demo ou live selon
+    # `environment`). Aucun mode "demo local" : sans broker connecte, le systeme
+    # ne demarre pas (voir `main()`), au lieu de rejouer des donnees locales.
+    if checker.ctrader_adapter is None or not checker.broker_ready:
+        raise RuntimeError(
+            "Broker cTrader non connecte : renseignez config/credentials.json "
+            "(environment, host, account_id, client_id, client_secret, access_token)."
+        )
+    broker = checker.ctrader_adapter
+    logger.info("InferenceLoop sur compte %s (%s)", checker.environment.upper(), broker.host)
 
     loop = InferenceLoop(
         broker=broker,
@@ -465,6 +368,14 @@ def main() -> int:
         print("\n[ERROR] Certains composants sont manquants ou defectueux.")
         print("        Corrigez les erreurs avant de continuer.\n")
         return 1
+
+    # POINT D'ENTREE UNIQUE (donnees + execution = le compte cTrader). Sans broker
+    # connecte on s'arrete ici : aucun mode de rejeu local n'existe en production.
+    if not checker.broker_ready:
+        print(f"\n[ARRET] Compte cTrader {checker.environment.upper()} non connecte.")
+        print("        Renseignez config/credentials.json puis relancez.")
+        print("        (donnees ET execution viennent de cTrader : pas de mode local)\n")
+        return 2
 
     print("\n[SUCCES] Tous les composants sont operationnels.")
     print("\n" + "-" * 60)

@@ -50,6 +50,9 @@ async def lifespan(app: FastAPI):
     app.state.ctrader = None
     credentials = _load_credentials()
     if credentials:
+        # L'environnement (demo|live) est expose par /api/health pour que le
+        # dashboard affiche le compte reellement utilise, sans logique locale.
+        app.state.environment = str(credentials.get("environment", "demo")).lower()
         try:
             from einherjar.brokers import CTraderAdapter
 
@@ -96,6 +99,7 @@ async def health() -> dict[str, Any]:
     return {
         "status": "paused" if app.state.store.kill_switch_enabled() else "ok",
         "timestamp": datetime.now(UTC).isoformat(),
+        "environment": getattr(app.state, "environment", None),
         "components": {
             "database": "ok",
             "config": "ok" if CONFIG_PATH.exists() else "missing",

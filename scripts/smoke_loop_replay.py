@@ -1,15 +1,15 @@
 #!/usr/bin/env python
-"""Smoke test du cycle de demo (chemin live complet, ordres simules).
+"""Test de la boucle d'inference avec la DOUBLURE de rejeu local (hors broker reel).
 
-Reproduit ce que fait `main.py` en mode demo sur un seul couple (asset, timeframe) :
-    broker (mock, prix reels locaux) -> amortage LiveDataStore -> bougie -> features
-    -> EinherEngine -> confluence -> RiskManager -> ordre simule
-
-Verifie que l'amorcage fonctionne (sans lui, les features a fenetre sont NaN) et
-rapporte signaux / ordres / rejets.
+Ce script n'est PAS la demo : en production, donnees et execution passent
+exclusivement par `CTraderAdapter` (compte demo ou live selon `environment` dans
+config/credentials.json). Ici on remplace le broker par `LocalReplayBroker`
+(rejeu des CSV locaux + compte papier) pour tester l'orchestration :
+    amortage LiveDataStore -> bougie -> features -> EinherEngine -> confluence
+    -> RiskManager -> ordre simule
 
 Usage :
-    python scripts/smoke_demo_cycle.py --asset BTCUSD --timeframe 1h
+    python scripts/smoke_loop_replay.py --asset BTCUSD --timeframe 1h
 """
 
 from __future__ import annotations
@@ -28,7 +28,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-import main as app  # noqa: E402  (mock broker + chemins de reference)
+import main as app  # noqa: E402  (chemins de reference : CONFIG_PATH, CORPUS_PATH)
+from einherjar.brokers.local_replay import LocalReplayBroker  # noqa: E402
 from einherjar.core.config import load_settings  # noqa: E402
 from einherjar.core.enums import TimeFrame  # noqa: E402
 from einherjar.data.live_store import LiveDataStore  # noqa: E402
@@ -49,7 +50,7 @@ async def run(asset: str, timeframe: str, lookback: int) -> int:
         store = DataStore(db_path=Path(tmp) / "einherjar.db")
         live_store = LiveDataStore(base_dir=Path(tmp) / "live", window_size=lookback)
         loop = InferenceLoop(
-            broker=app._MockBrokerAdapter(),
+            broker=LocalReplayBroker(),
             assets_timeframes=[(asset, timeframe)],
             feature_engine=FeaturePipeline(max_lookback=lookback),
             einher_engine=EinherEngine(),
