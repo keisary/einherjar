@@ -22,6 +22,9 @@ export default {
         positive: '#5C8D6F',
         negative: '#8B4A4A',
         warning: '#8B7A3D',
+        // `danger` etait utilise dans 8 endroits du code sans etre defini ici :
+        // les classes text-danger/bg-danger ne produisaient aucun CSS.
+        danger: '#8B4A4A',
       },
       fontFamily: {
         cinzel: ['Cinzel', 'Times New Roman', 'serif'],

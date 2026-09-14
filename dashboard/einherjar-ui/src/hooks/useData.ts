@@ -114,6 +114,29 @@ export function useLiveClock(): string {
   return time
 }
 
+export interface EnvironmentState {
+  environment: 'demo' | 'live' | null
+  brokerConnected: boolean
+}
+
+/**
+ * Environnement reel du serveur, source unique de verite pour le badge DEMO/LIVE.
+ * Vient de /api/health (`environment` = compte cTrader utilise, `components.ctrader.connected`).
+ * Aucun etat local ne doit affirmer un mode de trading.
+ */
+export function useEnvironment(): EnvironmentState {
+  return usePolling(
+    () => fetchJson<{ environment: string | null; components: { ctrader: { connected: boolean } } }>('/health')
+      .then(data => ({
+        environment: (data.environment === 'live' || data.environment === 'demo')
+          ? (data.environment as 'demo' | 'live')
+          : null,
+        brokerConnected: Boolean(data.components?.ctrader?.connected),
+      })),
+    { environment: null, brokerConnected: false },
+  )
+}
+
 function getUTCTime(): string {
   return new Date().toISOString().slice(11, 19) + ' UTC'
 }

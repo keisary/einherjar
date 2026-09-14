@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { useLiveClock, useAccount, useApiFreshness, useKillSwitch } from '@/hooks/useData'
+import { useLiveClock, useAccount, useApiFreshness, useEnvironment, useKillSwitch } from '@/hooks/useData'
 import { useSettings } from '@/contexts/SettingsContext'
 import { RuneDivider } from './RuneDivider'
 import { Link } from 'react-router-dom'
@@ -7,12 +7,28 @@ import { Settings } from 'lucide-react'
 
 export function Header() {
   const time = useLiveClock()
-  const { mode, activeDemoAccount } = useSettings()
+  const { activeDemoAccount } = useSettings()
   const account = useAccount()
   const freshness = useApiFreshness()
+  const env = useEnvironment()
   const [killSwitchEnabled, toggleKillSwitch] = useKillSwitch()
 
-  const isLive = mode === 'live'
+  // Le badge reflete l'ETAT DU SERVEUR (compte cTrader connecte), jamais un
+  // reglage local : pas d'API -> STALE, broker non connecte -> HORS LIGNE,
+  // sinon DEMO/LIVE selon `environment`.
+  const isLive = env.brokerConnected && env.environment === 'live'
+  const badge = freshness === 'stale'
+    ? 'STALE'
+    : !env.brokerConnected
+      ? 'HORS LIGNE'
+      : (env.environment ?? 'demo').toUpperCase()
+  const badgeColor = freshness === 'stale' || !env.brokerConnected
+    ? 'text-textMuted'
+    : isLive ? 'text-danger' : 'text-frost'
+  // Classes ecrites en clair : Tailwind ne genere que les classes litterales.
+  const dotColor = freshness === 'stale' || !env.brokerConnected
+    ? 'bg-textMuted'
+    : isLive ? 'bg-danger' : 'bg-frost'
 
   return (
     <motion.header
@@ -30,22 +46,16 @@ export function Header() {
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span
-                  className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                    isLive ? 'bg-danger' : 'bg-frost'
-                  }`}
+                  className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${dotColor}`}
                 />
                 <span
-                  className={`relative inline-flex rounded-full h-2 w-2 ${
-                    isLive ? 'bg-danger' : 'bg-frost'
-                  }`}
+                  className={`relative inline-flex rounded-full h-2 w-2 ${dotColor}`}
                 />
               </span>
               <span
-                className={`text-[10px] font-mono uppercase tracking-wider ${
-                  isLive ? 'text-danger' : 'text-frost'
-                }`}
+                className={`text-[10px] font-mono uppercase tracking-wider ${badgeColor}`}
               >
-                {freshness === 'stale' ? 'STALE' : isLive ? 'LIVE' : 'DEMO'}
+                {badge}
               </span>
             </div>
           </div>
