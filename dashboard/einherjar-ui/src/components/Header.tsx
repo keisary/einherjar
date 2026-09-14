@@ -1,13 +1,11 @@
 import { motion } from 'framer-motion'
 import { useLiveClock, useAccount, useApiFreshness, useEnvironment, useKillSwitch } from '@/hooks/useData'
-import { useSettings } from '@/contexts/SettingsContext'
 import { RuneDivider } from './RuneDivider'
 import { Link } from 'react-router-dom'
 import { Settings } from 'lucide-react'
 
 export function Header() {
   const time = useLiveClock()
-  const { activeDemoAccount } = useSettings()
   const account = useAccount()
   const freshness = useApiFreshness()
   const env = useEnvironment()
@@ -83,14 +81,6 @@ export function Header() {
                   <span className="text-frostDark">ᛚ</span>
                   <span>{account.leverage}x</span>
                 </div>
-              </div>
-            )}
-            {!isLive && activeDemoAccount && (
-              <div className="flex items-center gap-2">
-                <span className="text-frostDark">ᚦ</span>
-                <span>
-                  {activeDemoAccount.name} : {activeDemoAccount.balance.toLocaleString()} {activeDemoAccount.currency}
-                </span>
               </div>
             )}
             <button

@@ -1,9 +1,27 @@
-import { useEffect, useState } from 'react'
-import type { Account, BrokerStatus, Einher, EquityPoint, ExposureData, JournalEntry, Metric, Position, Signal } from '@/types'
+import { useCallback, useEffect, useState } from 'react'
+import type { Account, BrokerStatus, EinherPage, EquityPoint, ExposureData, JournalEntry, Metric, Position, Signal } from '@/types'
 
 const API_BASE = 'http://localhost:8000/api'
 const POLL_MS = 5_000
 const STALE_MS = 30_000
+
+/** Etat initial : aucun einher connu tant que le serveur n'a pas repondu. */
+const EMPTY_EINHER_PAGE: EinherPage = {
+  total: 0,
+  returned: 0,
+  einhers: [],
+  universes: [],
+  classes: {},
+  summary: {
+    sharpeMedian: null,
+    winRateMedian: null,
+    avgReturnMedian: null,
+    totalReturnMedian: null,
+    alphaMedian: null,
+    pValueMedian: null,
+    tradesTotal: 0,
+  },
+}
 
 async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`)
@@ -72,8 +90,19 @@ export function useSignals(): Signal[] {
   return usePolling(() => fetchJson<Signal[]>('/forming'), [])
 }
 
-export function useEinhers(): Einher[] {
-  return usePolling(() => fetchJson<{ einhers: Einher[] }>('/performance').then(data => data.einhers), [])
+export function useEinhers(params: { asset?: string; timeframe?: string; limit?: number } = {}): EinherPage {
+  const { asset, timeframe, limit } = params
+  const load = useCallback(() => {
+    const query = new URLSearchParams()
+    if (asset) query.set('asset', asset)
+    if (timeframe) query.set('timeframe', timeframe)
+    if (limit) query.set('limit', String(limit))
+    const suffix = query.toString() ? `?${query.toString()}` : ''
+    // Le corpus (recherche) est la source des einhers ; le serveur y fusionne les
+    // statistiques live quand elles existent.
+    return fetchJson<EinherPage>(`/performance${suffix}`)
+  }, [asset, timeframe, limit])
+  return usePolling(load, EMPTY_EINHER_PAGE)
 }
 
 export function useJournal(): JournalEntry[] {
@@ -117,6 +146,10 @@ export function useLiveClock(): string {
 export interface EnvironmentState {
   environment: 'demo' | 'live' | null
   brokerConnected: boolean
+  host: string | null
+  circuitState: string | null
+  corpusEinhers: number
+  corpusUnivers: number
 }
 
 /**
@@ -126,14 +159,26 @@ export interface EnvironmentState {
  */
 export function useEnvironment(): EnvironmentState {
   return usePolling(
-    () => fetchJson<{ environment: string | null; components: { ctrader: { connected: boolean } } }>('/health')
-      .then(data => ({
-        environment: (data.environment === 'live' || data.environment === 'demo')
-          ? (data.environment as 'demo' | 'live')
-          : null,
+    () =>
+      fetchJson<{
+        environment: string | null
+        components: {
+          ctrader: { connected: boolean; host: string | null; circuitState: string | null }
+          corpusEinhers?: number
+          corpusUnivers?: number
+        }
+      }>('/health').then(data => ({
+        environment:
+          data.environment === 'live' || data.environment === 'demo'
+            ? (data.environment as 'demo' | 'live')
+            : null,
         brokerConnected: Boolean(data.components?.ctrader?.connected),
+        host: data.components?.ctrader?.host ?? null,
+        circuitState: data.components?.ctrader?.circuitState ?? null,
+        corpusEinhers: data.components?.corpusEinhers ?? 0,
+        corpusUnivers: data.components?.corpusUnivers ?? 0,
       })),
-    { environment: null, brokerConnected: false },
+    { environment: null, brokerConnected: false, host: null, circuitState: null, corpusEinhers: 0, corpusUnivers: 0 },
   )
 }
 

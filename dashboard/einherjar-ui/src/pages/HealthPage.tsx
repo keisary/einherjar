@@ -3,14 +3,13 @@ import { MetricCard } from '@/components/MetricCard'
 import { HealthIndicator } from '@/components/HealthIndicator'
 import { RuneDivider } from '@/components/RuneDivider'
 import { FrostGlow } from '@/components/FrostGlow'
-import { useBrokers, useAccount } from '@/hooks/useData'
-import { useSettings } from '@/contexts/SettingsContext'
+import { useBrokers, useAccount, useEnvironment } from '@/hooks/useData'
 import { RuneCrumble } from '@/components/RuneCrumble'
 
 export function HealthPage() {
   const brokers = useBrokers()
   const account = useAccount()
-  const { mode } = useSettings()
+  const env = useEnvironment()
 
   const healthyCount = brokers.filter((b) => b.status === 'healthy').length
   const warningCount = brokers.filter((b) => b.status === 'warning').length
@@ -64,9 +63,17 @@ export function HealthPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between py-2 border-b border-border">
               <span className="text-[11px] text-textMuted uppercase tracking-wider">Mode</span>
-              <span className={`font-mono text-[12px] ${mode === 'live' ? 'text-danger' : 'text-frost'}`}>
-                {mode.toUpperCase()}
+              <span className={`font-mono text-[12px] ${env.environment === 'live' ? 'text-danger' : 'text-frost'}`}>
+                {(env.environment ?? 'inconnu').toUpperCase()}
               </span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-border">
+              <span className="text-[11px] text-textMuted uppercase tracking-wider">Einhers suivis</span>
+              <span className="font-mono text-[12px] text-textPrimary">{env.corpusEinhers}</span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-border">
+              <span className="text-[11px] text-textMuted uppercase tracking-wider">Couples surveilles</span>
+              <span className="font-mono text-[12px] text-textPrimary">{env.corpusUnivers}</span>
             </div>
             <div className="flex items-center justify-between py-2 border-b border-border">
               <span className="text-[11px] text-textMuted uppercase tracking-wider">cTrader Connected</span>

@@ -31,13 +31,60 @@ export interface Signal {
 export interface Einher {
   id: string;
   name: string;
+  /** Condition lisible (issue de l'arbre de conditions du corpus). */
   description: string;
-  status: 'ACTIVE' | 'PROBATION' | 'DISABLED';
-  winRate: number;
-  totalTrades: number;
-  avgReturn: number;
-  sharpe: number;
-  lastSignal: string;
+  /** null = einher jamais evalue en live : afficher "—", jamais un etat invente. */
+  status: 'ACTIVE' | 'PROBATION' | 'DISABLED' | null;
+  winRate: number | null;
+  totalTrades: number | null;
+  avgReturn: number | null;
+  sharpe: number | null;
+  lastSignal: string | null;
+  // --- Champs de recherche issus du corpus (source de verite des einhers) ---
+  asset: string | null;
+  assetClass: string | null;
+  timeframe: string | null;
+  horizon: string | null;
+  direction: 'BUY' | 'SELL' | null;
+  amplitudeBars: number | null;
+  tpPct: number | null;
+  slPct: number | null;
+  totalReturn: number | null;
+  maxDrawdown: number | null;
+  profitFactor: number | null;
+  avgHoldingBars: number | null;
+  tpHitRate: number | null;
+  alpha: number | null;
+  pValue: number | null;
+  model: string | null;
+}
+
+/** Un couple (actif, timeframe) et le nombre d'einhers du corpus qui le surveillent. */
+export interface UniverseCount {
+  asset: string;
+  timeframe: string;
+  assetClass: string;
+  einhers: number;
+}
+
+/** Agregats reels calcules par le serveur sur la selection courante. */
+export interface EinherSummary {
+  sharpeMedian: number | null;
+  winRateMedian: number | null;
+  avgReturnMedian: number | null;
+  totalReturnMedian: number | null;
+  alphaMedian: number | null;
+  pValueMedian: number | null;
+  tradesTotal: number;
+}
+
+export interface EinherPage {
+  total: number;
+  returned: number;
+  einhers: Einher[];
+  summary: EinherSummary;
+  universes: UniverseCount[];
+  classes: Record<string, number>;
 }
 
 export interface JournalEntry {

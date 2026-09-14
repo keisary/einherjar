@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import statistics
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -27,6 +28,38 @@ DASHBOARD_BUILD = PROJECT_ROOT / "dashboard" / "einherjar-ui" / "dist"
 CORPUS_PATH = PROJECT_ROOT / "outputs" / "corpus.jsonl"
 
 
+def _load_corpus() -> dict[str, Any]:
+    """Charge le corpus de recherche (837 einhers) en memoire.
+
+    C'est la source de verite des einhers que le systeme surveille : le corpus
+    est fige par la recherche, l'etat runtime (ACTIVE/PROBATION) vient de la base
+    DuckDB quand l'einher y a ete enregistre.
+
+    Returns:
+        Dict avec `entries` (liste brute), `univers` (comptes par couple) et
+        `classes` (comptes par classe d'actif). Vide si le corpus est absent.
+    """
+    vide: dict[str, Any] = {"entries": [], "univers": {}, "classes": {}}
+    if not CORPUS_PATH.exists():
+        return vide
+    try:
+        from einherjar.signals.corpus_bridge import load_entries
+
+        entries = load_entries(CORPUS_PATH)
+    except Exception as exc:  # noqa: BLE001 - l'API doit demarrer sans corpus
+        logger.warning("Corpus illisible (%s) : %s", CORPUS_PATH, exc)
+        return vide
+
+    univers: dict[tuple[str, str, str], int] = {}
+    classes: dict[str, int] = {}
+    for entry in entries:
+        uni = entry.get("universe") or {}
+        cle = (str(uni.get("asset", "?")), str(uni.get("timeframe", "?")), str(uni.get("asset_class", "?")))
+        univers[cle] = univers.get(cle, 0) + 1
+        classes[cle[2]] = classes.get(cle[2], 0) + 1
+    return {"entries": entries, "univers": univers, "classes": classes}
+
+
 def _load_credentials() -> dict[str, Any] | None:
     """Charge les identifiants seulement lorsqu'ils sont valides."""
     if not CREDENTIALS_PATH.exists():
@@ -48,6 +81,8 @@ async def lifespan(app: FastAPI):
     """Initialise le store reel et, optionnellement, le broker."""
     app.state.store = DataStore(DB_PATH)
     app.state.ctrader = None
+    app.state.corpus = _load_corpus()
+    logger.info("Corpus: %d einhers charges", len(app.state.corpus["entries"]))
     credentials = _load_credentials()
     if credentials:
         # L'environnement (demo|live) est expose par /api/health pour que le
@@ -104,6 +139,8 @@ async def health() -> dict[str, Any]:
             "database": "ok",
             "config": "ok" if CONFIG_PATH.exists() else "missing",
             "corpus": "ok" if CORPUS_PATH.exists() else "missing",
+            "corpusEinhers": len(getattr(app.state, "corpus", {}).get("entries", [])),
+            "corpusUnivers": len(getattr(app.state, "corpus", {}).get("univers", {})),
             "ctrader": broker,
         },
     }
@@ -149,6 +186,8 @@ async def overview() -> dict[str, Any]:
             {"label": "EQUITY", "value": latest, "format": "currency"},
             {"label": "RETURN", "value": change, "format": "percent"},
             {"label": "OPEN POSITIONS", "value": len(positions), "format": "number"},
+            # Echelle reellement surveillee (corpus de recherche) — la 4e carte du bandeau.
+            {"label": "EINHERS SUIVIS", "value": len(app.state.corpus["entries"]), "format": "number"},
         ],
         "equity": [{"time": _format_datetime(row["snapshot_at"]), "value": row["equity"]} for row in curve],
         "exposure": [{"class": asset_class, "value": value} for asset_class, value in sorted(exposure.items())],
@@ -206,24 +245,122 @@ async def forming() -> list[dict[str, Any]]:
     ]
 
 
+def _mediane(valeurs: list[float]) -> float | None:
+    """Mediane d'une serie en ignorant les valeurs absentes."""
+    propres = [float(v) for v in valeurs if isinstance(v, (int, float))]
+    return round(statistics.median(propres), 6) if propres else None
+
+
 @app.get("/api/performance")
-async def performance() -> dict[str, Any]:
-    """Retourne seulement les statistiques ecrites par le calibrateur."""
-    return {
-        "einhers": [
+async def performance(
+    asset: str | None = None,
+    timeframe: str | None = None,
+    asset_class: str | None = None,
+    direction: str | None = None,
+    sort: str = "sharpe",
+    limit: int = 250,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Einhers du corpus, enrichis des statistiques runtime quand elles existent.
+
+    Le corpus de recherche est la source de verite des einhers surveilles ; la
+    table `einher_stats` (calibrateur) ne fournit que les einhers reellement
+    evalues en live. Un einher jamais evalue a donc `status: None` — l'API
+    n'invente aucun etat ni aucune performance.
+    """
+    from einherjar.signals.corpus_bridge import tree_to_expr
+
+    corpus = app.state.corpus
+    runtime = {row["einher_name"]: row for row in app.state.store.get_einher_stats()}
+
+    def _match(entry: dict[str, Any]) -> bool:
+        uni = entry.get("universe") or {}
+        if asset and str(uni.get("asset", "")).upper() != asset.upper():
+            return False
+        if timeframe and str(uni.get("timeframe", "")).lower() != timeframe.lower():
+            return False
+        if asset_class and str(uni.get("asset_class", "")).lower() != asset_class.lower():
+            return False
+        if direction and str(entry.get("direction", "")).upper() != direction.upper():
+            return False
+        return True
+
+    einhers: list[dict[str, Any]] = []
+    for entry in corpus["entries"]:
+        if not _match(entry):
+            continue
+        uni = entry.get("universe") or {}
+        metrics = entry.get("metrics") or {}
+        live = runtime.get(str(entry.get("id", "")))
+        einhers.append(
             {
-                "id": row["einher_name"],
-                "name": row["einher_name"],
-                "description": "",
-                "status": row["status"],
-                "winRate": row["win_rate"],
-                "totalTrades": row["trade_count"],
-                "avgReturn": row["avg_profit"],
-                "sharpe": row["sharpe"],
-                "lastSignal": _format_datetime(row["window_end"]),
+                # Contrat consomme par le dashboard (useEinhers -> /api/performance)
+                "id": entry.get("id"),
+                "name": entry.get("id"),
+                "description": tree_to_expr(entry.get("condition_tree")),
+                "status": live["status"] if live else None,
+                "winRate": metrics.get("win_rate"),
+                "totalTrades": metrics.get("n_trades"),
+                "avgReturn": metrics.get("avg_net_return"),
+                "sharpe": metrics.get("sharpe_ratio"),
+                "lastSignal": _format_datetime(live["window_end"]) if live else None,
+                # Champs reels supplementaires (recherche)
+                "asset": uni.get("asset"),
+                "assetClass": uni.get("asset_class"),
+                "timeframe": uni.get("timeframe"),
+                "horizon": uni.get("horizon"),
+                "direction": entry.get("direction"),
+                "amplitudeBars": entry.get("amplitude_bars"),
+                "tpPct": entry.get("tp_pct"),
+                "slPct": entry.get("sl_pct"),
+                "totalReturn": metrics.get("total_return"),
+                "maxDrawdown": metrics.get("max_drawdown"),
+                "profitFactor": metrics.get("profit_factor"),
+                "avgHoldingBars": metrics.get("avg_holding_bars"),
+                "tpHitRate": metrics.get("tp_hit_rate"),
+                "alpha": metrics.get("alpha"),
+                "pValue": metrics.get("p_value"),
+                "buyHoldReturn": metrics.get("buy_hold_return"),
+                "model": (entry.get("source") or {}).get("model"),
+                "createdAt": entry.get("created_at"),
             }
-            for row in app.state.store.get_einher_stats()
-        ]
+        )
+
+    champs = {
+        "sharpe": "sharpe",
+        "winRate": "winRate",
+        "trades": "totalTrades",
+        "avgReturn": "avgReturn",
+        "totalReturn": "totalReturn",
+        "alpha": "alpha",
+        "id": "id",
+    }
+    cle = champs.get(sort, "sharpe")
+    einhers.sort(key=lambda e: (e[cle] is None, -(e[cle] or 0) if cle != "id" else 0, str(e[cle])))
+
+    total = len(einhers)
+    page = einhers[offset : offset + max(1, limit)]
+    return {
+        "total": total,
+        "returned": len(page),
+        "einhers": page,
+        "summary": {
+            "sharpeMedian": _mediane([e["sharpe"] for e in einhers]),
+            "winRateMedian": _mediane([e["winRate"] for e in einhers]),
+            "avgReturnMedian": _mediane([e["avgReturn"] for e in einhers]),
+            "totalReturnMedian": _mediane([e["totalReturn"] for e in einhers]),
+            "alphaMedian": _mediane([e["alpha"] for e in einhers]),
+            "pValueMedian": _mediane([e["pValue"] for e in einhers]),
+            "tradesTotal": sum(int(e["totalTrades"] or 0) for e in einhers),
+        },
+        "universes": sorted(
+            (
+                {"asset": a, "timeframe": tf, "assetClass": cls, "einhers": n}
+                for (a, tf, cls), n in corpus["univers"].items()
+            ),
+            key=lambda u: (-u["einhers"], u["asset"], u["timeframe"]),
+        ),
+        "classes": corpus["classes"],
     }
 
 
