@@ -25,7 +25,13 @@ from einherjar.research.xgb_einhers.types import (
 
 
 def _make_einher(features: list[str], direction: str = "BUY") -> Einher:
-    """Construit un Einher minimal avec une liste de features en AND."""
+    """Construit un Einher minimal avec une liste de features en AND.
+
+    Les metriques respectent les seuils d'admission courants
+    (`AdmissionConfig.min_sharpe=2.0`, `min_win_rate=0.65`, FIX 2026-08-27) :
+    sans cela, un einher mono-famille serait rejete pour cause de Sharpe et non
+    pour cause de diversite, et le test de diversite ne testerait rien.
+    """
     if not features:
         raise ValueError("Au moins une feature")
     if len(features) == 1:
@@ -41,8 +47,8 @@ def _make_einher(features: list[str], direction: str = "BUY") -> Einher:
             )
     metrics = EinherMetrics(
         n_trades=100, n_tp=60, n_sl=30, n_timeout=10,
-        win_rate=0.6, avg_net_return=0.01, total_return=0.5,
-        sharpe_ratio=1.5, max_drawdown=-0.1, profit_factor=2.0,
+        win_rate=0.70, avg_net_return=0.01, total_return=0.5,
+        sharpe_ratio=2.5, max_drawdown=-0.1, profit_factor=2.0,
         avg_holding_bars=5.0, buy_hold_return=0.3, alpha=0.2,
     )
     return Einher(

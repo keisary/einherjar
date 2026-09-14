@@ -4,6 +4,7 @@ Vérifie que le data_loader lit correctement les features : X[:, i] doit
 correspondre à feature_names[i]. Aucune colonne ne doit être décalée ou
 swappée.
 """
+import gc
 import json
 import tempfile
 import unittest
@@ -182,6 +183,12 @@ class TestSyntheticDataSwap(unittest.TestCase):
                 loaded.X[:, 2], X[:, 7],  # fake_feature_3
                 "X[:, 2] doit correspondre à fake_feature_3 (original index 7)"
             )
+
+            # Windows : load_xy ouvre les .npy en mmap ; le fichier reste verrouille
+            # tant que le mapping vit, et TemporaryDirectory echouerait au nettoyage
+            # (PermissionError WinError 32). On libere explicitement avant de sortir.
+            del loaded
+            gc.collect()
 
 
 if __name__ == "__main__":
