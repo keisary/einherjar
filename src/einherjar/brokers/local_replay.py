@@ -181,6 +181,19 @@ doit jamais etre selectionne par `main.py`.
     async def cancel_order(self, order_id: str) -> bool:
         return True
 
+    async def close_position(self, position_id: Any) -> bool:
+        """Ferme une position simulee et realise son P&L dans le cash.
+
+        Accepte l'identifiant de position (`POS_<order_id>`) ou celui de l'ordre.
+        """
+        cle = str(position_id)
+        for identifiant, position in list(self._positions.items()):
+            if identifiant == cle or str(getattr(position, "position_id", "")) == cle:
+                self._cash += self._pnl(position)
+                del self._positions[identifiant]
+                return True
+        return False
+
     async def get_positions(self) -> list[Any]:
         """Positions ouvertes par la demo, P&L actualise au dernier prix connu."""
         for position in self._positions.values():

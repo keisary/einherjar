@@ -35,6 +35,7 @@ from einherjar.core.enums import AssetClass
 from einherjar.core.models import Order
 from einherjar.data.live_store import LiveDataStore
 from einherjar.data.store import DataStore
+from einherjar.risk.exits import doit_fermer
 from einherjar.signals.einher_engine import EinherEngine
 from einherjar.signals.feature_engine import FeatureEngine
 
@@ -289,12 +290,16 @@ class InferenceLoop:
                     self.data_store.append_rejection(order_or_rejection)
                     logger.info("REJECT %s: %s", signal.asset, order_or_rejection.reason)
         errors = sum(1 for r in results if isinstance(r, Exception))
+        # Sorties : le broker gere les TP/SL (transmis a l'ouverture), EINHERJAR
+        # ferme les positions dont la duree de tenue maximale est depassee.
+        closed = await self._gerer_sorties(now)
         logger.info(
-            "Cycle %s | assets=%d | signals=%d | orders=%d | errors=%d",
+            "Cycle %s | assets=%d | signals=%d | orders=%d | closed=%d | errors=%d",
             now.isoformat(),
             len(tasks),
             total_signals,
             total_orders,
+            closed,
             errors,
         )
 
@@ -461,9 +466,69 @@ class InferenceLoop:
 
         logger.info("InferenceLoop arrete")
 
+    async def _gerer_sorties(self, maintenant: datetime | None = None) -> int:
+        """Ferme les positions dont la duree de tenue maximale est depassee.
+
+        Les TP/SL sont transmis au broker a l'ouverture (il gere les sorties de
+        prix) ; cette passe applique la regle de duree du corpus
+        (`Einher.max_holding`, issue de `amplitude_bars`), sans laquelle une
+        position qui n'atteint ni TP ni SL resterait ouverte indefiniment.
+
+        Args:
+            maintenant: Instant de reference (defaut : maintenant UTC).
+
+        Returns:
+            Nombre de positions fermees.
+        """
+        try:
+            positions = await self.broker.get_positions()
+        except Exception as exc:  # noqa: BLE001 - une lecture ratee ne tue pas le cycle
+            logger.warning("Sorties: positions illisibles (%s)", exc)
+            return 0
+        if not positions:
+            return 0
+
+        index = {einher.name: einher for einher in self.einher_engine.einhers}
+        fermees = 0
+        for position in positions:
+            nom = getattr(position, "einher_name", None) or ""
+            motif = doit_fermer(position, index.get(nom), maintenant)
+            if motif is None:
+                continue
+
+            identifiant: str | int | None = getattr(position, "position_id", None)
+            if isinstance(identifiant, str) and identifiant.isdigit():
+                identifiant = int(identifiant)  # cTrader attend un positionId entier
+            if identifiant is None:
+                continue
+            try:
+                if await self.broker.close_position(identifiant):
+                    fermees += 1
+                    self.data_store.remove_position(str(getattr(position, "position_id", "")))
+                    logger.info(
+                        "CLOSE %s %s (%s, einher=%s)",
+                        getattr(position, "asset", "?"),
+                        identifiant,
+                        motif,
+                        nom,
+                    )
+                else:
+                    logger.warning("CLOSE refuse par le broker : %s", identifiant)
+            except Exception as exc:  # noqa: BLE001 - une fermeture ratee ne tue pas le cycle
+                logger.error("CLOSE echoue %s: %s", identifiant, exc)
+        return fermees
+
     def stop(self) -> None:
-        """Demande l'arret de la boucle."""
+        """Demande l'arret de la boucle et force l'ecriture des donnees en attente."""
         self.running = False
         for task in self._tasks:
             task.cancel()
         self._tasks.clear()
+        # Les ecritures disque sont throttlees : on vide le tampon a l'arret pour
+        # ne pas perdre les bougies accumulees depuis la derniere sauvegarde.
+        try:
+            ecrits = self.live_store.flush()
+            if ecrits:
+                logger.info("LiveStore: %d fichiers ecrits a l'arret", ecrits)
+        except Exception as exc:  # noqa: BLE001 - l'arret ne doit jamais lever
+            logger.warning("LiveStore: flush a l'arret echoue (%s)", exc)
