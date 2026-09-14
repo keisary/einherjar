@@ -340,6 +340,41 @@ async def start_inference_loop(checker: StatusChecker) -> None:
     broker = checker.ctrader_adapter
     logger.info("InferenceLoop sur compte %s (%s)", checker.environment.upper(), broker.host)
 
+    # Ne garder que les couples que le broker sert REELLEMENT : un actif absent
+    # echouerait a chaque cycle (aucune feature, aucun signal) et polluerait les
+    # erreurs. Detail verifiable hors ligne : scripts/ctrader_verifier_univers.py.
+    try:
+        from einherjar.brokers.broker_utils import normalize_symbol
+
+        symboles_broker = await broker.get_symboles_disponibles()
+        if symboles_broker:
+            broker_name = str(getattr(broker, "broker_name", "ic_markets"))
+            indisponibles = sorted(
+                {
+                    asset
+                    for asset, _ in assets_timeframes
+                    if normalize_symbol(asset, broker_name).upper() not in symboles_broker
+                }
+            )
+            if indisponibles:
+                avant = len(assets_timeframes)
+                assets_timeframes = [(a, tf) for a, tf in assets_timeframes if a not in indisponibles]
+                logger.warning(
+                    "Actifs absents chez le broker : %s -> %d couple(s) ecarte(s) (%d restants)",
+                    ", ".join(indisponibles),
+                    avant - len(assets_timeframes),
+                    len(assets_timeframes),
+                )
+            else:
+                logger.info(
+                    "Univers broker verifie : %d symboles, tous les actifs du corpus sont disponibles",
+                    len(symboles_broker),
+                )
+        else:
+            logger.warning("Liste de symboles broker vide : univers non filtre")
+    except Exception as exc:  # noqa: BLE001 - le filtrage ne doit pas bloquer le demarrage
+        logger.warning("Verification de l'univers broker impossible (%s)", exc)
+
     loop = InferenceLoop(
         broker=broker,
         assets_timeframes=assets_timeframes,

@@ -696,6 +696,56 @@ class CTraderAdapter:
         """Etat du compte (balance, equity, margin, leverage)."""
         return await self._safe_call("get_account")
 
+    async def get_comptes_autorises(self) -> list[dict[str, Any]]:
+        """Comptes cTrader autorises par ce token d'acces.
+
+        Indispensable pour renseigner `account_id` : le `ctidTraderAccountId` de
+        l'Open API ne correspond PAS au numero de compte affiche par le broker.
+
+        Returns:
+            Liste de {account_id, is_live, login}.
+        """
+        return await asyncio.to_thread(self._comptes_autorises_sync)
+
+    def _comptes_autorises_sync(self) -> list[dict[str, Any]]:
+        req = ProtoOAGetAccountListByAccessTokenReq()
+        req.accessToken = str(getattr(self, "access_token", "") or "")
+        future = self._send_request(req, ProtoOAGetAccountListByAccessTokenRes)
+        try:
+            res = future.result(timeout=15.0)
+        except Exception as exc:
+            raise CTraderError(f"get_comptes_autorises timeout/error : {exc}") from exc
+        comptes: list[dict[str, Any]] = []
+        for compte in getattr(res, "ctidTraderAccount", []):
+            comptes.append(
+                {
+                    "account_id": int(getattr(compte, "ctidTraderAccountId", 0)),
+                    "is_live": bool(getattr(compte, "isLive", False)),
+                    "login": int(getattr(compte, "traderLogin", 0) or 0),
+                }
+            )
+        return comptes
+
+    async def get_symboles_disponibles(self, attente_s: float = 10.0) -> dict[str, int]:
+        """Symboles reellement disponibles chez le broker -> symbolId.
+
+        Sert a verifier que l'univers du corpus est negociable avant de trader. Le
+        cache est rempli par la reponse ASYNCHRONE a ProtoOASymbolsListReq : on
+        declenche le chargement puis on attend son arrivee (bornee).
+
+        Args:
+            attente_s: Delai maximal d'attente du chargement des symboles.
+
+        Returns:
+            Table nom de symbole (majuscules) -> symbolId.
+        """
+        if not self._symbol_cache:
+            await asyncio.to_thread(self._preload_symbols)
+            limite = time.monotonic() + attente_s
+            while not self._symbol_cache and time.monotonic() < limite:
+                await asyncio.sleep(0.2)
+        return dict(self._symbol_cache)
+
     def get_fees(self, asset: str) -> dict[str, Any]:
         """Frais pour un actif."""
         symbol = normalize_symbol(asset, self.broker_name)
