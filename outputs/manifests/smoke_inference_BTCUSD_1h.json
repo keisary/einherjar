@@ -1,0 +1,23 @@
+{
+  "asset": "BTCUSD",
+  "timeframe": "1h",
+  "bougies": 1600,
+  "colonnes_features": 271,
+  "duree_pipeline_s": 97.08,
+  "einhers_couple": 8,
+  "feature_refs_requises": [
+    "Factor_Candlestick_Bearish_Score",
+    "Factor_Momentum_Score",
+    "Factor_Risk_TailEvent_Score",
+    "Factor_Volume_Score",
+    "bb_percent",
+    "pattern_bear_flag",
+    "quant_dynamic_cvar",
+    "quant_max_drawdown",
+    "quant_realized_vol_20",
+    "skewness_risk"
+  ],
+  "feature_refs_manquantes": [],
+  "signaux": 0,
+  "en_formation": 0
+}

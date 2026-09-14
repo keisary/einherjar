@@ -59,12 +59,22 @@ class FeaturePipeline:
         chunk_size: int = 50000,
         max_memory_gb: float = 8.0,
         n_jobs: int = 1,
+        max_lookback: int = 1500,
     ) -> None:
-        """Initialise le pipeline (les enrichisseurs sont construits a la demande)."""
+        """Initialise le pipeline (les enrichisseurs sont construits a la demande).
+
+        Args:
+            mode: Mode MIDAS des indicateurs techniques ('fast' | 'balanced' | 'full').
+            chunk_size: Taille de chunk des enrichisseurs.
+            max_memory_gb: Plafond memoire des enrichisseurs.
+            n_jobs: Parallelisme interne du calcul technique (1 = sequence).
+            max_lookback: Fenetre historique recalculee a chaque bougie (inference live).
+        """
         self.mode = mode
         self.chunk_size = chunk_size
         self.max_memory_gb = max_memory_gb
         self.n_jobs = n_jobs
+        self.max_lookback = max_lookback
         self._technical: Any | None = None
         self._quantitative: Any | None = None
         self._factors: Any | None = None
@@ -237,9 +247,49 @@ class FeaturePipeline:
         return frame
 
     # ------------------------------------------------------------------
-    # Verification / couverture
+    # Inference live
     # ------------------------------------------------------------------
 
+    def compute_incremental(
+        self,
+        df_history: pl.DataFrame,
+        new_candle: dict[str, Any],
+        asset: str = "ASSET",
+        timeframe: str = "1h",
+    ) -> pl.DataFrame:
+        """Recalcule les features apres cloture d'une bougie (interface InferenceLoop).
+
+        Args:
+            df_history: Historique OHLCV connu.
+            new_candle: Derniere bougie cloturee.
+            asset: Symbole (transmis aux enrichisseurs MIDAS).
+            timeframe: Timeframe de la frame.
+
+        Returns:
+            DataFrame enrichi (colonnes du schema MIDAS) tronque a `max_lookback`.
+        """
+        new_row = pl.DataFrame([new_candle])
+        df = pl.concat([df_history, new_row], how="vertical_relaxed")
+        if len(df) > self.max_lookback:
+            df = df.tail(self.max_lookback)
+        return self.compute(df, asset=asset, timeframe=timeframe)
+
+    def get_required_lookback(self, feature_name: str) -> int:
+        """Retourne la fenetre de recalcul pour une feature (defaut : max_lookback).
+
+        Les fenetres par feature sont definies dans `signals.feature_engine.LOOKBACK_WINDOWS`
+        (source unique) ; les colonnes du schema MIDAS y sont referencees par leur nom.
+        """
+        from einherjar.signals.feature_engine import LOOKBACK_WINDOWS
+
+        ref = feature_name[len(PATTERN_COLUMN_PREFIX):] if feature_name.startswith(
+            PATTERN_COLUMN_PREFIX
+        ) else feature_name
+        return LOOKBACK_WINDOWS.get(feature_name, LOOKBACK_WINDOWS.get(ref, self.max_lookback))
+
+    # ------------------------------------------------------------------
+    # Verification / couverture
+    # ------------------------------------------------------------------
     @staticmethod
     def coverage(df: pl.DataFrame, refs: list[str], min_valid_ratio: float = 0.5) -> dict[str, Any]:
         """Verifie la presence et la qualite des features demandees.

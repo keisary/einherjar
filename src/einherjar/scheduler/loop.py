@@ -195,7 +195,9 @@ class InferenceLoop:
             df_history = self.live_store.get_window(asset, timeframe, n=self.feature_engine.max_lookback)
             self.live_store.append(asset, timeframe, candle)
 
-            df_enriched = self.feature_engine.compute_incremental(df_history, candle)
+            df_enriched = self.feature_engine.compute_incremental(
+                df_history, candle, asset=asset, timeframe=timeframe
+            )
             if "feature_placeholder" not in df_enriched.columns or len(df_enriched.columns) > 6:
                 last_row = df_enriched.to_dicts()[-1]
                 self.live_store.append(asset, timeframe, last_row)

@@ -110,11 +110,16 @@ class StatusChecker:
             self.results["DATABASE"] = {"status": f"ERROR: {exc}", "path": str(DB_PATH)}
             all_ok = False
 
-        # 4. Feature Engine
+        # 4. Pipeline de features (schema MIDAS = noms du corpus)
         try:
-            from einherjar.signals.feature_engine import FeatureEngine
-            fe = FeatureEngine()
-            self.results["FEATURE_ENGINE"] = {"status": "OK", "version": getattr(fe, "version", "1.0")}
+            from einherjar.signals.feature_pipeline import FeaturePipeline
+
+            fp = FeaturePipeline()
+            self.results["FEATURE_ENGINE"] = {
+                "status": "OK",
+                "version": "pipeline-schema-midas",
+                "lookback": fp.max_lookback,
+            }
         except Exception as exc:
             self.results["FEATURE_ENGINE"] = {"status": f"ERROR: {exc}"}
             all_ok = False
@@ -336,7 +341,7 @@ async def start_api_server() -> None:
 async def start_inference_loop(checker: StatusChecker, use_mock: bool = False) -> None:
     """Lance la boucle d'inference live."""
     from einherjar.scheduler.loop import InferenceLoop
-    from einherjar.signals.feature_engine import FeatureEngine
+    from einherjar.signals.feature_pipeline import FeaturePipeline
     from einherjar.signals.einher_engine import EinherEngine
     from einherjar.risk.manager import RiskManager
     from einherjar.data.live_store import LiveDataStore
@@ -345,7 +350,9 @@ async def start_inference_loop(checker: StatusChecker, use_mock: bool = False) -
     from einherjar.brokers.broker_utils import ASSET_CLASS_MAP
 
     system_config = load_settings(CONFIG_PATH)
-    feature_engine = FeatureEngine()
+    # Pipeline de features = schema MIDAS complet (noms `feature_ref` du corpus) :
+    # les conditions du corpus ne sont evaluables qu'avec ces colonnes.
+    feature_engine = FeaturePipeline(max_lookback=1500)
     einher_engine = EinherEngine()
     einher_engine.load_corpus(str(CORPUS_PATH))
     risk_manager = RiskManager(system_config)
