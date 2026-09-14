@@ -55,11 +55,12 @@ def test_compute_incremental_tronque_et_forwarde(monkeypatch):
     pipe = FeaturePipeline(max_lookback=20)
     captured: dict[str, object] = {}
 
-    def fake_compute(df, *, asset="ASSET", timeframe="1h", with_factors=True):
+    def fake_compute(df, *, asset="ASSET", timeframe="1h", with_factors=True, needed=None):
         captured["height"] = df.height
         captured["last_close"] = float(df["close"][-1])
         captured["asset"] = asset
         captured["timeframe"] = timeframe
+        captured["needed"] = needed
         return df
 
     monkeypatch.setattr(pipe, "compute", fake_compute)
@@ -70,12 +71,15 @@ def test_compute_incremental_tronque_et_forwarde(monkeypatch):
         "timestamp": historique["timestamp"][-1] + dt.timedelta(hours=1),
         "open": 200.0, "high": 201.0, "low": 199.0, "close": 200.5, "volume": 10.0,
     }
-    out = pipe.compute_incremental(historique, candle, asset="BTCUSD", timeframe="15m")
+    out = pipe.compute_incremental(
+        historique, candle, asset="BTCUSD", timeframe="15m", needed={"rsi_14"}
+    )
 
     assert captured["height"] == 20, "la fenetre doit etre tronquee a max_lookback"
     assert captured["last_close"] == pytest.approx(200.5), "la nouvelle bougie doit etre en dernier"
     assert captured["asset"] == "BTCUSD"
     assert captured["timeframe"] == "15m"
+    assert captured["needed"] == {"rsi_14"}, "le calcul cible doit etre transmis a compute"
     assert out.height == 20
 
 
