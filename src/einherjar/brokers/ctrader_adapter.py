@@ -90,58 +90,70 @@ class CTraderError(RuntimeError):
 # ---------------------------------------------------------------------------
 # Conversion des trendbars (fonction pure, testable sans API)
 # ---------------------------------------------------------------------------
-def trendbars_to_ohlcv(bars: list[Any], digits: int, limit: int | None = None) -> pl.DataFrame:
+# Conversion des trendbars (fonction pure, testable sans API)
+# ---------------------------------------------------------------------------
+
+# 1 point = 1/100000 d'unite de prix (doc officielle cTrader : `low`,
+# `deltaOpen`/`deltaClose`/`deltaHigh` sont des entiers en POINTS, pas en
+# 10**digits du symbole). Mesure confirmee sur le compte demo reel (2026-09-19) :
+# EURUSD low=114858 -> 1.14858 ; APPLE low=33508000 -> 335.08 ;
+# US 500 low=764500000 -> 7645.00 ; BTCUSD low=8086545000 -> 80865.45.
+CTRADER_POINT_SCALE = 100_000
+
+
+def trendbars_to_ohlcv(bars: list[Any], limit: int | None = None) -> pl.DataFrame:
     """Convertit des `ProtoOATrendbar` en OHLCV exploitable.
 
-    Format cTrader Open API : pour une trendbar, seuls `low`, `deltaOpen`,
-    `deltaClose`, `deltaHigh` (et `volume`) sont transmis. Ces valeurs sont des
-    ENTIERS en POINTS, exprimes par rapport au close de la bougie PRECEDENTE, et
-    doivent etre divises par `10 ** digits` pour obtenir des prix :
+    Encodage cTrader Open API (`ProtoOATrendbar`, doc du proto officiel) :
 
-        open  = close_precedent + deltaOpen  / 10**digits
-        close = close_precedent + deltaClose / 10**digits
-        high  = low                        + deltaHigh  / 10**digits
-        low   = low                        / 10**digits
+      - `low` est le SEUL prix ABSOLU de la bougie, en points (1 point = 1/100000) ;
+      - `deltaOpen`, `deltaClose` et `deltaHigh` sont des ECARTS signes par rapport
+        au `low` de LA MEME bougie ::
 
-    La PREMIERE bougie servie ne peut donc pas etre reconstruite (pas de close
-    precedent) : elle est ecartee. L'appelant demande `limit + 1` bougies.
+            open  = low + deltaOpen
+            close = low + deltaClose
+            high  = low + deltaHigh
+
+    Les deltas ne se CHAINENT PAS d'une bougie a l'autre. Les enchainer fait
+    deriver les prix proportionnellement au nombre de bougies — mesure sur le
+    compte reel : EURUSD 1h finissait a 1.2445 au lieu de 1.1488 sur 200 bougies,
+    BTCUSD a 116910 au lieu de 80865. Chaque bougie se reconstruit donc seule, et
+    aucune n'a besoin d'etre ecartee.
 
     Args:
         bars: Trendbars brutes de l'API (objets protobuf ou equivalents).
-        digits: Nombre de decimales du symbole (`ProtoOASymbol.digits`).
         limit: Ne garder que les `limit` dernieres bougies.
 
     Returns:
         DataFrame polars [timestamp, open, high, low, close, volume].
-
-    Raises:
-        CTraderError: si `digits` est invalide (prix non interpretables).
     """
-    if digits is None or int(digits) < 0:
-        raise CTraderError(
-            "digits du symbole inconnu : les prix des trendbars ne sont pas "
-            "interpretables (appeler ProtoOASymbolByIdReq avant get_ohlcv)"
-        )
-    echelle = float(10 ** int(digits))
     rows: list[list[float]] = []
-    close_precedent: float | None = None
     for bar in bars:
-        low = float(getattr(bar, "low", 0.0)) / echelle
-        delta_open = float(getattr(bar, "deltaOpen", 0.0)) / echelle
-        delta_close = float(getattr(bar, "deltaClose", 0.0)) / echelle
-        delta_high = float(getattr(bar, "deltaHigh", 0.0)) / echelle
-        ts = int(getattr(bar, "utcTimestampInMinutes", 0)) * 60_000
-        if close_precedent is None:
-            # Pas de reference : bougie de chauffe, ecartee (open = low + deltaOpen
-            # serait une approximation, on ne la publie pas).
-            close_precedent = low + delta_close
-            continue
-        open_p = close_precedent + delta_open
-        close = close_precedent + delta_close
-        high = low + delta_high
-        rows.append([ts, open_p, high, low, close, float(getattr(bar, "volume", 0.0))])
-        close_precedent = close
+        low = float(getattr(bar, "low", 0)) / CTRADER_POINT_SCALE
+        rows.append(
+            [
+                int(getattr(bar, "utcTimestampInMinutes", 0)) * 60_000,
+                low + float(getattr(bar, "deltaOpen", 0)) / CTRADER_POINT_SCALE,
+                low + float(getattr(bar, "deltaHigh", 0)) / CTRADER_POINT_SCALE,
+                low,
+                low + float(getattr(bar, "deltaClose", 0)) / CTRADER_POINT_SCALE,
+                float(getattr(bar, "volume", 0.0)),
+            ]
+        )
     return ohlcv_to_polars(rows[-limit:] if limit else rows)
+
+
+def _extraire_message(message: Any) -> Any:
+    """Extrait le message protobuf type de l'enveloppe `ProtoMessage`.
+
+    Les callbacks de `Client.send` recoivent l'enveloppe de la librairie, pas le
+    message : sans cet extrait, tout `isinstance` echoue et aucun champ n'est
+    lisible. Les messages deja extraits sont rendus tels quels.
+    """
+    try:
+        return Protobuf.extract(message)
+    except Exception:  # noqa: BLE001 - deja extrait ou message non protobuf
+        return message
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +189,9 @@ class _CTraderTwistedThread:
         self._reactor: Any | None = None
         self._thread: threading.Thread | None = None
         self._connected_event = threading.Event()
-        self._pending: dict[str, tuple[type, ConcurrentFuture]] = {}
+        self._auth_error: str | None = None
+        # Vrai seulement si CE thread a demarre le reactor (singleton par process).
+        self._owns_reactor = False
         self._symbol_cache: dict[str, int] = {}
         self._symbol_meta: dict[int, dict[str, Any]] = {}
         self._shutdown = False
@@ -185,25 +199,83 @@ class _CTraderTwistedThread:
     # -- Cycle de vie -------------------------------------------------------
 
     def start(self, timeout: float = 15.0) -> None:
-        """Demarre le reactor Twisted dans un thread daemon."""
+        """Demarre le reactor Twisted et attend l'authentification effective.
+
+        Le thread qui demarre ne prouve rien : ce qui compte est que l'auth
+        application PUIS l'auth compte aient ete ACCEPTEES. Un demarrage de socket
+        reussi sur un compte refuse doit lever, pas rendre la main en silence.
+
+        Raises:
+            CTraderError: paquet absent, autorisation refusee, ou delai depasse.
+        """
         if not CTRADER_AVAILABLE:
             raise CTraderError(f"ctrader-open-api manquant : {CTRADER_IMPORT_ERROR}")
+        self._auth_error = None
         self._thread = threading.Thread(target=self._run, daemon=True, name="CTraderTwisted")
         self._thread.start()
+        echeance = time.monotonic() + timeout
+        while time.monotonic() < echeance:
+            if self._connected_event.is_set():
+                logger.info("CTraderTwistedThread connecte (account_id=%s)", self.account_id)
+                return
+            if self._auth_error is not None:
+                self.stop()
+                raise CTraderError(self._auth_error)
+            time.sleep(0.05)
+        self.stop()
+        raise CTraderError(f"Timeout connexion cTrader ({timeout}s)")
+
+    def est_connecte(self) -> bool:
+        """Vrai si l'auth application ET compte sont en place sur ce socket."""
+        return self._connected_event.is_set()
+
+    def reconnect(self, timeout: float = 15.0) -> None:
+        """Relance la connexion sur le reactor DEJA en cours.
+
+        Creer un second `_CTraderTwistedThread` est impossible (reactor Twisted
+        singleton par process) : une reconnexion doit passer par le reactor
+        existant, sinon elle echoue — et l'ancienne version, en croyant
+        reconnecter, laissait la boucle live sans aucune donnee.
+
+        Raises:
+            CTraderError: aucun reactor reutilisable, ou auth refusee/timeout.
+        """
+        if not self._owns_reactor or self._reactor is None or self._client is None:
+            raise CTraderError(
+                "Reconnexion cTrader impossible : aucun reactor Twisted reutilisable "
+                "dans ce process (partager l'adaptateur au lieu d'en creer un autre)"
+            )
+        self._auth_error = None
+        self._connected_event.clear()
+        logger.info("cTrader: relance de la connexion sur le reactor en cours")
+
+        def _relancer() -> None:
+            # `stopService` ferme le transport ; on ne relance qu'une fois termine,
+            # sinon le nouveau socket demarre sur une connexion encore fermee.
+            self._client.stopService().addBoth(  # pyright: ignore[reportOptionalMemberAccess]
+                lambda _resultat: self._client.startService()  # pyright: ignore[reportOptionalMemberAccess]
+            )
+
+        self._reactor.callFromThread(_relancer)
         if not self._connected_event.wait(timeout=timeout):
-            raise CTraderError(f"Timeout connexion cTrader ({timeout}s)")
-        logger.info("CTraderTwistedThread connecte (account_id=%s)", self.account_id)
+            raise CTraderError(self._auth_error or f"Timeout reconnexion cTrader ({timeout}s)")
 
     def stop(self) -> None:
-        """Arrete proprement le reactor."""
+        """Arrete la connexion et le reactor — seulement s'il est a nous.
+
+        Le reactor Twisted est partage par tout le process : l'arreter depuis un
+        adaptateur qui ne l'a pas demarre coupe les connexions des autres.
+        """
         self._shutdown = True
         self._connected_event.clear()
-        if self._reactor is not None:
+        if self._owns_reactor and self._reactor is not None:
             self._reactor.callFromThread(self._reactor.stop)
+            self._owns_reactor = False
         if self._thread is not None:
             self._thread.join(timeout=5.0)
 
     def _run(self) -> None:
+        from twisted.internet import error as twisted_error
         from twisted.internet import reactor
 
         self._reactor = reactor
@@ -212,7 +284,20 @@ class _CTraderTwistedThread:
         self._client.setDisconnectedCallback(self._on_disconnected)
         self._client.setMessageReceivedCallback(self._on_message)
         self._client.startService()
-        reactor.run(installSignalHandlers=0)
+        self._owns_reactor = True
+        try:
+            reactor.run(installSignalHandlers=0)
+        except twisted_error.ReactorAlreadyRunning:
+            # Le reactor Twisted est un singleton par process : un second
+            # adaptateur ne peut pas ouvrir de connexion. Ne PAS marquer le reactor
+            # comme le notre, sinon le `stop()` de l'appelant couperait la
+            # connexion du premier adaptateur (panne constatee : tout le live).
+            self._owns_reactor = False
+            self._auth_error = (
+                "reactor Twisted deja en cours dans ce process : un seul CTraderAdapter "
+                "peut etre connecte (partager l'instance, ne pas en creer une seconde)"
+            )
+            logger.error("cTrader %s", self._auth_error)
 
     # -- Callbacks Twisted --------------------------------------------------
 
@@ -229,7 +314,11 @@ class _CTraderTwistedThread:
         logger.warning("CTrader deconnecte : %s", reason)
         self._connected_event.clear()
 
-    def _on_app_auth_ok(self, _msg: Any) -> None:
+    def _on_app_auth_ok(self, message: Any) -> None:
+        reponse = _extraire_message(message)
+        if not isinstance(reponse, ProtoOAApplicationAuthRes):
+            self._auth_refusee("authentification application", reponse)
+            return
         req = ProtoOAAccountAuthReq()
         req.ctidTraderAccountId = self.account_id
         req.accessToken = self.access_token
@@ -237,36 +326,101 @@ class _CTraderTwistedThread:
         d.addCallback(self._on_account_auth_ok)
         d.addErrback(self._on_error)
 
-    def _on_account_auth_ok(self, _msg: Any) -> None:
+    def _on_account_auth_ok(self, message: Any) -> None:
+        reponse = _extraire_message(message)
+        if not isinstance(reponse, ProtoOAAccountAuthRes):
+            # Cause la plus frequente : `account_id` est le `traderLogin` affiche par
+            # le broker et non le `ctidTraderAccountId` (voir ProtoOAGetAccountListByAccessTokenReq).
+            self._auth_refusee(f"authentification du compte {self.account_id}", reponse)
+            return
         logger.info("CTrader authentification account OK")
         self._connected_event.set()
         # Pre-charger la liste des symboles pour resoudre les IDs
         self._preload_symbols()
 
+    def _auth_refusee(self, etape: str, reponse: Any) -> None:
+        """Enregistre un refus d'autorisation pour que `start()` le remonte."""
+        if isinstance(reponse, ProtoOAErrorRes):
+            detail = f"{reponse.errorCode} - {reponse.description}"
+        else:
+            detail = f"reponse inattendue ({type(reponse).__name__})"
+        self._auth_error = f"{etape} refusee : {detail}"
+        self._connected_event.clear()
+        logger.error("cTrader %s", self._auth_error)
+
     def _on_error(self, failure: Any) -> None:
         logger.error("CTrader erreur Twisted : %s", failure)
 
     def _on_message(self, _client: Any, msg_wrapper: Any) -> None:
-        msg = Protobuf.extract(msg_wrapper)
-        req_id = getattr(msg, "clientMsgId", None)
-        if req_id and req_id in self._pending:
-            _expected_type, future = self._pending.pop(req_id)
-            future.set_result(msg)
-            return
-        # Messages spontanes (market data, execution events) — ignore pour l'instant
+        # La correlation requete/reponse est faite par la librairie (Deferred de
+        # `Client.send`) : ici ne passent que les messages SPONTANES du broker
+        # (execution events, market data) — non exploites dans cette version.
+        msg = _extraire_message(msg_wrapper)
         logger.debug("CTrader message spontane type=%s", type(msg).__name__)
 
     # -- Internes -----------------------------------------------------------
 
     def _send_request(self, request: Any, response_type: type) -> ConcurrentFuture:
-        """Envoie une requete protobuf et retourne un Future bloquant."""
+        """Envoie une requete et rend un Future resolvant la REPONSE TYPEE.
+
+        La correlation requete/reponse est faite par la librairie, via le Deferred
+        rendu par `Client.send` : elle pose elle-meme l'enveloppe `ProtoMessage`.
+        Les messages `ProtoOA*Req` n'ont PAS de champ `clientMsgId` (ce champ
+        n'existe que sur l'enveloppe) — l'ecrire levait
+        `AttributeError: ... has no "clientMsgId" field` sur toutes les requetes.
+
+        Une reponse `ProtoOAErrorRes` resout le Future en `CTraderError` : un refus
+        de l'API ne doit jamais remonter comme une reponse valide.
+
+        Returns:
+            `concurrent.futures.Future` a attendre par `future.result(timeout)`.
+        """
         if not self._connected_event.is_set():
             raise CTraderError("Non connecte")
         future: ConcurrentFuture = ConcurrentFuture()
-        req_id = str(uuid.uuid4())
-        request.clientMsgId = req_id
-        self._pending[req_id] = (response_type, future)
-        self._reactor.callFromThread(self._client.send, request)  # pyright: ignore[reportOptionalMemberAccess]
+
+        def _resoudre(reponse: Any) -> None:
+            if isinstance(reponse, ProtoOAErrorRes):
+                if not future.done():
+                    future.set_exception(
+                        CTraderError(
+                            f"{response_type.__name__} refuse par l'API : "
+                            f"{reponse.errorCode} - {reponse.description}"
+                        )
+                    )
+                return
+            if not isinstance(reponse, response_type):
+                if not future.done():
+                    future.set_exception(
+                        CTraderError(
+                            f"reponse inattendue ({type(reponse).__name__}) au lieu de "
+                            f"{response_type.__name__}"
+                        )
+                    )
+                return
+            if not future.done():
+                future.set_result(reponse)
+
+        def _annuler(failure: Any) -> None:
+            if not future.done():
+                future.set_exception(
+                    CTraderError(f"envoi {response_type.__name__} echoue : {failure}")
+                )
+
+        def _envoyer() -> None:
+            # `Client.send` doit partir du thread du reactor (les transports Twisted
+            # ne sont pas thread-safe) : on y delegue l'envoi et l'enregistrement.
+            try:
+                self._client.send(request).addCallbacks(  # pyright: ignore[reportOptionalMemberAccess]
+                    lambda message: _resoudre(_extraire_message(message)), _annuler
+                )
+            except Exception as exc:  # noqa: BLE001 - remonte a l'appelant bloque
+                if not future.done():
+                    future.set_exception(
+                        CTraderError(f"envoi {response_type.__name__} impossible : {exc}")
+                    )
+
+        self._reactor.callFromThread(_envoyer)  # pyright: ignore[reportOptionalMemberAccess]
         return future
 
     def _preload_symbols(self) -> None:
@@ -282,10 +436,7 @@ class _CTraderTwistedThread:
 
     def _cache_symbols(self, message: Any) -> None:
         """Construit le cache symbole cTrader vers ID reel."""
-        try:
-            response = Protobuf.extract(message)
-        except Exception:
-            response = message
+        response = _extraire_message(message)
         if not isinstance(response, ProtoOASymbolsListRes):
             logger.warning("Reponse symboles inattendue: %s", type(response).__name__)
             return
@@ -298,10 +449,25 @@ class _CTraderTwistedThread:
             self._symbol_meta[symbol_id] = {"name": symbol_name}
         logger.info("cTrader: %d symboles reels charges", len(self._symbol_meta))
 
-    def _resolve_symbol_sync(self, asset: str) -> int:
-        """Retourne le symbolId cTrader pour un asset MIDAS (avec cache)."""
+    def _resolve_symbol_sync(self, asset: str, attente_s: float = 10.0) -> int:
+        """Retourne le symbolId cTrader pour un asset MIDAS (avec cache).
+
+        Le cache est rempli de facon ASYNCHRONE a la connexion (reponse a
+        `ProtoOASymbolsListReq`) : une requete envoyee juste apres `connect()` ne
+        doit pas echouer parce que la reponse n'est pas encore arrivee.
+
+        Args:
+            asset: Symbole MIDAS (ex. "BTCUSD").
+            attente_s: Delai maximal d'attente du chargement des symboles.
+
+        Raises:
+            CTraderError: si le symbole n'est pas servi par le broker.
+        """
         if asset in self._symbol_cache:
             return self._symbol_cache[asset]
+        echeance = time.monotonic() + attente_s
+        while not self._symbol_cache and time.monotonic() < echeance:
+            time.sleep(0.1)
         symbol_name = normalize_symbol(asset, self.broker_name)
         # Resolution par le cache alimente par ProtoOASymbolsListRes (symbolName ->
         # symbolId) : on refuse de deviner un symbolId, un ordre sur le mauvais
@@ -337,6 +503,8 @@ class _CTraderTwistedThread:
         future = self._send_request(req, ProtoOAGetTrendbarsRes)
         try:
             res = future.result(timeout=10.0)
+        except CTraderError:
+            raise
         except Exception as exc:
             raise CTraderError(f"get_ohlcv timeout/error : {exc}") from exc
 
@@ -344,33 +512,20 @@ class _CTraderTwistedThread:
         if not bars:
             return ohlcv_to_polars([])
 
-        # `trendbars_to_ohlcv` ecarte la premiere bougie (elle n'a pas de close de
-        # reference) : la fenetre demandee ci-dessus est volontairement large.
-        digits = self._digits_for_symbol(symbol_id)
-        return trendbars_to_ohlcv(bars, digits, limit=limit)
-
-    def _digits_for_symbol(self, symbol_id: int) -> int:
-        """Retourne le nombre de decimales du symbole (requete SymbolById si besoin).
-
-        Les prix des trendbars sont des entiers en points : sans `digits` ils ne
-        sont pas interpretables, donc on refuse de continuer plutot que de
-        retourner des prix faux.
-        """
-        digits = self._symbol_meta.get(symbol_id, {}).get("digits")
-        if digits is None:
-            digits = self._load_symbol_details_sync(symbol_id)
-        if digits is None:
-            raise CTraderError(
-                f"digits indisponible pour symbolId={symbol_id} : impossible de "
-                "convertir les trendbars en prix"
-            )
-        return int(digits)
+        # Chaque bougie se reconstruit seule (`low + delta`) : aucune n'est ecartee,
+        # `count` est demande large (limit + 1) pour absorber la derniere bougie
+        # encore ouverte que le broker peut omettre.
+        return trendbars_to_ohlcv(bars, limit=limit)
 
     def _load_symbol_details_sync(self, symbol_id: int) -> int | None:
-        """Charge les details d'un symbole (digits, volumes, lot) via SymbolByIdReq.
+        """Charge les details d'un symbole (digits, min/step volume, lot).
+
+        Necessaire avant de passer un ordre : le volume cTrader se donne en 0,01
+        unite et doit rester dans les bornes du broker.
 
         Returns:
-            Le nombre de decimales du symbole, ou None si l'API ne le fournit pas.
+            Le nombre de decimales du symbole, ou None si l'API ne le fournit pas
+            (les autres champs restent dans `self._symbol_meta`).
         """
         req = ProtoOASymbolByIdReq()
         req.ctidTraderAccountId = self.account_id
@@ -378,6 +533,8 @@ class _CTraderTwistedThread:
         try:
             future = self._send_request(req, ProtoOASymbolByIdRes)
             res = future.result(timeout=10.0)
+        except CTraderError:
+            raise
         except Exception as exc:  # noqa: BLE001 - remonte tel quel a l'appelant
             raise CTraderError(f"ProtoOASymbolByIdReq echoue pour {symbol_id}: {exc}") from exc
 
@@ -396,7 +553,13 @@ class _CTraderTwistedThread:
     def place_order_sync(self, order: Order) -> Fill:
         """Passe un ordre de marche sur cTrader (TP/SL transmis au broker)."""
         symbol_id = self._resolve_symbol_sync(order.asset)
-        meta = self._symbol_meta.get(symbol_id, {})
+        # Sans les metadonnees du symbole, `minVolume`/`stepVolume` sont absents et
+        # l'ordre partirait avec un volume que le broker refusera : on les charge
+        # avant de calculer (SymbolByIdReq, leve si l'API ne repond pas).
+        meta = self._symbol_meta.get(symbol_id) or {}
+        if "stepVolume" not in meta:
+            self._load_symbol_details_sync(symbol_id)
+            meta = self._symbol_meta.get(symbol_id, {})
         # cTrader compte le volume en 0,01 unite de l'actif de base.
         volume = int(round(order.quantity * 100))
         min_volume = meta.get("minVolume")
@@ -425,6 +588,8 @@ class _CTraderTwistedThread:
         future = self._send_request(req, ProtoOAExecutionEvent)
         try:
             res = future.result(timeout=10.0)
+        except CTraderError:
+            raise
         except Exception as exc:
             raise CTraderError(f"place_order timeout/error : {exc}") from exc
 
@@ -465,6 +630,8 @@ class _CTraderTwistedThread:
         future = self._send_request(req, ProtoOAReconcileRes)
         try:
             res = future.result(timeout=10.0)
+        except CTraderError:
+            raise
         except Exception as exc:
             raise CTraderError(f"get_positions timeout/error : {exc}") from exc
 
@@ -513,6 +680,8 @@ class _CTraderTwistedThread:
         future = self._send_request(req, ProtoOATraderRes)
         try:
             res = future.result(timeout=10.0)
+        except CTraderError:
+            raise
         except Exception as exc:
             raise CTraderError(f"get_account timeout/error : {exc}") from exc
 
@@ -542,6 +711,47 @@ class _CTraderTwistedThread:
             leverage=int(leverage) or 1,
         )
 
+    def get_comptes_autorises_sync(self) -> list[dict[str, Any]]:
+        """Comptes autorises par le token -> {account_id, is_live, login}.
+
+        `account_id` est le `ctidTraderAccountId` attendu dans credentials.json ;
+        `login` est le numero de compte affiche chez le broker. Les deux sont
+        exposes : les confondre fait refuser toutes les requetes suivantes.
+        """
+        req = ProtoOAGetAccountListByAccessTokenReq()
+        req.accessToken = self.access_token
+        try:
+            res = self._send_request(req, ProtoOAGetAccountListByAccessTokenRes).result(
+                timeout=15.0
+            )
+        except CTraderError:
+            raise
+        except Exception as exc:
+            raise CTraderError(f"get_comptes_autorises timeout/error : {exc}") from exc
+
+        return [
+            {
+                "account_id": int(getattr(compte, "ctidTraderAccountId", 0)),
+                "is_live": bool(getattr(compte, "isLive", False)),
+                "login": int(getattr(compte, "traderLogin", 0) or 0),
+            }
+            for compte in getattr(res, "ctidTraderAccount", [])
+        ]
+
+    def get_symboles_disponibles_sync(self, attente_s: float = 10.0) -> dict[str, int]:
+        """Symboles reellement servis par le broker -> symbolId.
+
+        Le cache est rempli de facon ASYNCHRONE a la connexion (reponse a
+        `ProtoOASymbolsListReq`) : on attend son arrivee, bornee par `attente_s`.
+
+        Returns:
+            Table nom de symbole (majuscules) -> symbolId ; vide si indisponible.
+        """
+        echeance = time.monotonic() + attente_s
+        while not self._symbol_cache and time.monotonic() < echeance:
+            time.sleep(0.1)
+        return dict(self._symbol_cache)
+
     def close_position_sync(self, position_id: int) -> bool:
         """Ferme une position par son ID."""
         req = ProtoOAClosePositionReq()
@@ -551,6 +761,9 @@ class _CTraderTwistedThread:
         try:
             future.result(timeout=10.0)
             return True
+        except CTraderError as exc:
+            logger.error("close_position echoue : %s", exc)
+            return False
         except Exception as exc:
             logger.error("close_position echoue : %s", exc)
             return False
@@ -603,6 +816,7 @@ class CTraderAdapter:
         self.rate_limiter = RateLimiter()
         self._connected = False
         self._last_ping = 0.0
+        self.last_error: str | None = None
 
         self._fees = load_fees("ctrader")
 
@@ -611,7 +825,10 @@ class CTraderAdapter:
     async def connect(self) -> bool:
         """Etablit la connexion gRPC + auth."""
         if not CTRADER_AVAILABLE:
-            logger.error("ctrader-open-api n'est pas installe. Executez : pip install ctrader-open-api")
+            self.last_error = (
+                "ctrader-open-api non installe : pip install ctrader-open-api"
+            )
+            logger.error("%s", self.last_error)
             return False
         try:
             self._twisted = _CTraderTwistedThread(
@@ -622,9 +839,11 @@ class CTraderAdapter:
             )
             await asyncio.to_thread(self._twisted.start)
             self._connected = True
+            self.last_error = None
             self._last_ping = time.time()
             return True
         except Exception as exc:
+            self.last_error = str(exc)
             logger.error("Connexion cTrader echoue : %s", exc)
             self._connected = False
             return False
@@ -636,11 +855,34 @@ class CTraderAdapter:
         self._connected = False
 
     async def ensure_connected(self) -> bool:
-        """Verifie / restaure la connexion si necessaire."""
-        if self._connected and (time.time() - self._last_ping) < 30:
+        """Verifie / restaure la connexion si necessaire.
+
+        La fraicheur du dernier appel n'est PAS un critere : une connexion cTrader
+        reste ouverte sans trafic (echauffement JIT de 95 s, marche ferme...).
+        Seul l'etat reel du socket compte ; si la connexion est tombee, on la relance
+        sur le reactor existant au lieu d'en creer un second (impossible : le
+        reactor Twisted est un singleton par process).
+
+        Returns:
+            True si la connexion est (re)etablie.
+        """
+        if self._twisted is not None and self._connected and self._twisted.est_connecte():
+            self._last_ping = time.time()
             return True
+        if self._twisted is None:
+            return await self.connect()
         logger.info("Reconnexion cTrader necessaire...")
-        return await self.connect()
+        try:
+            await asyncio.to_thread(self._twisted.reconnect)
+        except Exception as exc:
+            self.last_error = str(exc)
+            self._connected = False
+            logger.error("Reconnexion cTrader echouee : %s", exc)
+            return False
+        self._connected = True
+        self.last_error = None
+        self._last_ping = time.time()
+        return True
 
     # -- Resilience wrapper -------------------------------------------------
 
@@ -649,7 +891,7 @@ class CTraderAdapter:
         if not self.circuit.can_execute():
             raise RuntimeError("Circuit breaker ouvert pour cTrader")
         await self.rate_limiter.acquire()
-        if not self._connected or (time.time() - self._last_ping) > 30:
+        if not self._connected or self._twisted is None or not self._twisted.est_connecte():
             ok = await self.ensure_connected()
             if not ok:
                 raise RuntimeError("Impossible de reconnecter cTrader")
@@ -705,33 +947,12 @@ class CTraderAdapter:
         Returns:
             Liste de {account_id, is_live, login}.
         """
-        return await asyncio.to_thread(self._comptes_autorises_sync)
-
-    def _comptes_autorises_sync(self) -> list[dict[str, Any]]:
-        req = ProtoOAGetAccountListByAccessTokenReq()
-        req.accessToken = str(getattr(self, "access_token", "") or "")
-        future = self._send_request(req, ProtoOAGetAccountListByAccessTokenRes)
-        try:
-            res = future.result(timeout=15.0)
-        except Exception as exc:
-            raise CTraderError(f"get_comptes_autorises timeout/error : {exc}") from exc
-        comptes: list[dict[str, Any]] = []
-        for compte in getattr(res, "ctidTraderAccount", []):
-            comptes.append(
-                {
-                    "account_id": int(getattr(compte, "ctidTraderAccountId", 0)),
-                    "is_live": bool(getattr(compte, "isLive", False)),
-                    "login": int(getattr(compte, "traderLogin", 0) or 0),
-                }
-            )
-        return comptes
+        return await self._safe_call("get_comptes_autorises")
 
     async def get_symboles_disponibles(self, attente_s: float = 10.0) -> dict[str, int]:
         """Symboles reellement disponibles chez le broker -> symbolId.
 
-        Sert a verifier que l'univers du corpus est negociable avant de trader. Le
-        cache est rempli par la reponse ASYNCHRONE a ProtoOASymbolsListReq : on
-        declenche le chargement puis on attend son arrivee (bornee).
+        Sert a verifier que l'univers du corpus est negociable avant de trader.
 
         Args:
             attente_s: Delai maximal d'attente du chargement des symboles.
@@ -739,12 +960,7 @@ class CTraderAdapter:
         Returns:
             Table nom de symbole (majuscules) -> symbolId.
         """
-        if not self._symbol_cache:
-            await asyncio.to_thread(self._preload_symbols)
-            limite = time.monotonic() + attente_s
-            while not self._symbol_cache and time.monotonic() < limite:
-                await asyncio.sleep(0.2)
-        return dict(self._symbol_cache)
+        return await self._safe_call("get_symboles_disponibles", attente_s)
 
     def get_fees(self, asset: str) -> dict[str, Any]:
         """Frais pour un actif."""
@@ -763,6 +979,7 @@ class CTraderAdapter:
             "circuit_failures": self.circuit.failures,
             "rate_second_calls": len(self.rate_limiter.second_calls),
             "rate_minute_calls": len(self.rate_limiter.minute_calls),
+            "last_error": self.last_error,
         }
 
     # -- Methodes supplementaires -------------------------------------------

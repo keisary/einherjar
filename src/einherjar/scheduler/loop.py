@@ -394,6 +394,7 @@ class InferenceLoop:
             Dict {profil: duree_s}.
         """
         import numpy as np
+        import polars as pl
 
         profils: dict[str, set[str]] = {}
         for refs in (self._needed.values() or [set()]):

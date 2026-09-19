@@ -267,10 +267,20 @@ class StatusChecker:
 # Lancement async des services
 # ---------------------------------------------------------------------------
 
-async def start_api_server() -> None:
-    """Lance le serveur FastAPI via uvicorn de maniere asynchrone."""
+async def start_api_server(adapter: Any | None = None) -> None:
+    """Lance le serveur FastAPI via uvicorn de maniere asynchrone.
+
+    Args:
+        adapter: Adaptateur cTrader deja connecte. Le passer evite une SECONDE
+            connexion : le reactor Twisted est un singleton par process, deux
+            adaptateurs ne peuvent pas coexister (le second fait tomber le premier).
+    """
     import uvicorn
-    from einherjar.api.server import app
+    from einherjar.api import server as api_server
+
+    if adapter is not None:
+        api_server.utiliser_adapter(adapter)
+    app = api_server.app
 
     config = uvicorn.Config(
         app,
@@ -423,7 +433,9 @@ def main() -> int:
     print("-" * 60 + "\n")
 
     async def _run_services() -> None:
-        api_task = asyncio.create_task(start_api_server(), name="api")
+        api_task = asyncio.create_task(
+            start_api_server(checker.ctrader_adapter), name="api"
+        )
         loop_task = asyncio.create_task(start_inference_loop(checker), name="inference")
         try:
             await asyncio.gather(api_task, loop_task)

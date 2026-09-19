@@ -75,21 +75,41 @@ async def _main() -> int:
     print(f"\n{len(comptes)} compte(s) autorise(s) :\n")
     print(f"  {'account_id':>14s}  {'type':6s}  {'login':>12s}")
     print(f"  {'-' * 14}  {'-' * 6}  {'-' * 12}")
-    attendu = [c for c in comptes if (not c["is_live"]) == (environnement == "demo")]
+    actuel = int(credentials.get("account_id", 0) or 0)
     for compte in comptes:
-        marque = " <-- a utiliser" if attendu and compte is attendu[0] else ""
+        marque = " <-- account_id actuel" if compte["account_id"] == actuel else ""
         print(
             f"  {compte['account_id']:>14d}  {'live' if compte['is_live'] else 'demo':6s}"
             f"  {compte['login']:>12d}{marque}"
         )
 
+    # Piege verifie : mettre le numero de compte du broker (`traderLogin`) a la place
+    # du `ctidTraderAccountId` ne fait PAS echouer la connexion, mais l'API refuse
+    # ensuite TOUTE requete ("Trading account is not authorized"). On nomme le compte
+    # a utiliser, jamais "le premier de la liste".
+    par_login = {c["login"]: c for c in comptes}
+    if actuel and actuel not in {c["account_id"] for c in comptes}:
+        if actuel in par_login:
+            vrai = par_login[actuel]
+            print(
+                f"\n[ATTENTION] {actuel} est un `traderLogin` (numero de compte broker), "
+                "pas un `ctidTraderAccountId`."
+            )
+            print(f"            -> ce compte s'ecrit account_id: {vrai['account_id']}")
+        else:
+            print(f"\n[ATTENTION] account_id {actuel} n'est dans aucun compte autorise.")
+
+    attendu = [c for c in comptes if (not c["is_live"]) == (environnement == "demo")]
     if not attendu:
         print(f"\n[ATTENTION] Aucun compte {environnement} dans la liste :")
         print("            creer le compte demo chez le broker puis relancer l'autorisation.")
         return 1
 
+    choisi = next(
+        (c for c in attendu if c["account_id"] == actuel), None
+    ) or (par_login.get(actuel) if actuel in par_login else None) or attendu[0]
     print(f"\n-> Recopier ceci dans {CREDENTIALS.name} :")
-    print(f'   "account_id": {attendu[0]["account_id"]},')
+    print(f'   "account_id": {choisi["account_id"]},')
     print(f'   "environment": "{environnement}",')
     return 0
 

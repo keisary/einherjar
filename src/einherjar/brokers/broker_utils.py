@@ -78,6 +78,51 @@ MIDAS_TO_CTRADER_PEPPERSTONE: dict[str, str] = {
     "XOM": "US.XOM",
 }
 
+# Compte demo Spotware (constate le 2026-09-19, `ProtoOATrader.brokerName = "Spotware"`,
+# 830 symboles) : les actions ET les indices sont servis sous leur NOM COMPLET, pas
+# sous le ticker. Un ticker envoye tel quel est absent du broker -> aucun prix.
+# Mesure : 10/28 actifs du corpus avec le mapping par defaut, 24/28 avec celui-ci.
+MIDAS_TO_CTRADER_SPOTWARE: dict[str, str] = {
+    # Actions (nom complet)
+    "AAPL": "APPLE",
+    "MSFT": "MICROSOFT",
+    "NVDA": "NVIDIA",
+    "AMZN": "AMAZON",
+    "GOOGL": "ALPHABET",
+    "TSLA": "TESLA MOTORS",
+    "JPM": "JPMORGAN",
+    "XOM": "EXXON",
+    # Indices (noms cTrader de ce fournisseur)
+    "SP500": "US 500",
+    "NASDAQ100": "US TECH 100",
+    "DOWJONES": "US 30",
+    "DAX40": "GERMANY 40",
+    # Energies (WTI = XTIUSD, Brent = XBRUSD ; USOUSD/UKOUSD n'existent pas ici)
+    "WTIUSD": "XTIUSD",
+    "BRENT": "XBRUSD",
+}
+
+# Mapping par broker. La cle est comparee en minuscules : "ic_markets", "pepperstone",
+# "spotware". Un broker inconnu retombe sur le mapping par defaut.
+MAPS_PAR_BROKER: dict[str, dict[str, str]] = {
+    "ic_markets": MIDAS_TO_CTRADER_IC_MARKETS,
+    "pepperstone": MIDAS_TO_CTRADER_PEPPERSTONE,
+    "spotware": MIDAS_TO_CTRADER_SPOTWARE,
+}
+
+
+def _mapping_pour_broker(broker: str) -> dict[str, str]:
+    """Retourne le mapping MIDAS -> cTrader d'un broker (defaut inclus).
+
+    Args:
+        broker: Nom du broker ("ic_markets", "pepperstone", "spotware", ...).
+
+    Returns:
+        Le mapping complet (defaut + overrides du broker).
+    """
+    overrides = MAPS_PAR_BROKER.get(str(broker or "").strip().lower(), {})
+    return {**MIDAS_TO_CTRADER_DEFAULT, **overrides}
+
 # ---------------------------------------------------------------------------
 # Asset class mapping (centralise ici pour eviter la duplication)
 # ---------------------------------------------------------------------------
@@ -129,14 +174,7 @@ def normalize_symbol(asset: str, broker: str = "ic_markets") -> str:
     Returns:
         Symbole normalise pour cTrader.
     """
-    mapping: dict[str, str]
-    if broker == "pepperstone":
-        mapping = {**MIDAS_TO_CTRADER_DEFAULT, **MIDAS_TO_CTRADER_PEPPERSTONE}
-    elif broker == "ic_markets":
-        mapping = {**MIDAS_TO_CTRADER_DEFAULT, **MIDAS_TO_CTRADER_IC_MARKETS}
-    else:
-        mapping = MIDAS_TO_CTRADER_DEFAULT
-    return mapping.get(asset, asset)
+    return _mapping_pour_broker(broker).get(asset, asset)
 
 
 def denormalize_symbol(broker_symbol: str, broker: str = "ic_markets") -> str:
@@ -149,58 +187,55 @@ def denormalize_symbol(broker_symbol: str, broker: str = "ic_markets") -> str:
     Returns:
         Symbole MIDAS.
     """
-    mapping: dict[str, str]
-    if broker == "pepperstone":
-        mapping = {**MIDAS_TO_CTRADER_DEFAULT, **MIDAS_TO_CTRADER_PEPPERSTONE}
-    elif broker == "ic_markets":
-        mapping = {**MIDAS_TO_CTRADER_DEFAULT, **MIDAS_TO_CTRADER_IC_MARKETS}
-    else:
-        mapping = MIDAS_TO_CTRADER_DEFAULT
+    mapping = _mapping_pour_broker(broker)
     reverse = {v: k for k, v in mapping.items()}
     return reverse.get(broker_symbol, broker_symbol)
 
 
+# `ProtoOATrendbarPeriod` (paquet ctrader-open-api) n'est PAS une duree en minutes :
+# c'est une enumeration ordinale ou M5=5, M10=6, M15=7, M30=8, H1=9, H4=10, H12=11,
+# D1=12. Envoyer des minutes ne tombe juste que pour 5m (M5=5) et leve
+# `ValueError: invalid enumerator` pour 15m (15), 1h (60), 4h (240) et 1d (1440).
+# Verifie le 2026-09-19 contre le paquet installe : les 5 valeurs ci-dessous sont
+# acceptees et `ProtoOAGetTrendbarsRes.period` renvoie exactement la valeur demandee.
+TF_TO_CTRADER_PERIOD: dict[str, int] = {
+    "5m": 5,  # ProtoOATrendbarPeriod.M5
+    "15m": 7,  # ProtoOATrendbarPeriod.M15
+    "1h": 9,  # ProtoOATrendbarPeriod.H1
+    "4h": 10,  # ProtoOATrendbarPeriod.H4
+    "1d": 12,  # ProtoOATrendbarPeriod.D1
+}
+
+
 def timeframe_to_ctrader_period(tf: str) -> int:
-    """Convertit un timeframe EINHERJAR en period cTrader (minutes).
+    """Convertit un timeframe EINHERJAR en `ProtoOATrendbarPeriod` cTrader.
 
     Args:
         tf: Timeframe ("5m", "15m", "1h", "4h", "1d").
 
     Returns:
-        Periode cTrader en minutes (5, 15, 60, 240, 1440).
+        Valeur de l'enumeration `ProtoOATrendbarPeriod` (5, 7, 9, 10, 12) —
+        PAS des minutes.
 
     Raises:
         ValueError: Si le timeframe n'est pas supporte.
     """
-    mapping = {
-        "5m": 5,
-        "15m": 15,
-        "1h": 60,
-        "4h": 240,
-        "1d": 1440,
-    }
-    if tf not in mapping:
+    if tf not in TF_TO_CTRADER_PERIOD:
         raise ValueError(f"Timeframe cTrader non supporte: {tf}")
-    return mapping[tf]
+    return TF_TO_CTRADER_PERIOD[tf]
 
 
 def ctrader_period_to_timeframe(period: int) -> str:
-    """Convertit une periode cTrader en timeframe EINHERJAR.
+    """Convertit une `ProtoOATrendbarPeriod` en timeframe EINHERJAR.
 
     Args:
-        period: Periode en minutes.
+        period: Valeur de l'enumeration `ProtoOATrendbarPeriod`.
 
     Returns:
-        Timeframe EINHERJAR.
+        Timeframe EINHERJAR, ou `period_<n>` si la valeur est hors du corpus.
     """
-    mapping = {
-        5: "5m",
-        15: "15m",
-        60: "1h",
-        240: "4h",
-        1440: "1d",
-    }
-    return mapping.get(period, f"{period}m")
+    inverse = {v: k for k, v in TF_TO_CTRADER_PERIOD.items()}
+    return inverse.get(int(period), f"period_{int(period)}")
 
 
 # ---------------------------------------------------------------------------

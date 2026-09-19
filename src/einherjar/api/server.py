@@ -76,6 +76,24 @@ def _format_datetime(value: Any) -> str:
     return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
 
+# Adaptateur cTrader DEJA connecte, impose par l'appelant (main.py). Le reactor
+# Twisted est un singleton PAR PROCESS : lancer une deuxieme connexion fait lever
+# `ReactorAlreadyRunning` dans le nouveau thread, et l'arret de ce thread coupait
+# le reactor du premier — donc une connexion valide. Un seul adaptateur par process.
+_adapter_impose: Any | None = None
+
+
+def utiliser_adapter(adapter: Any) -> None:
+    """Impose a l'API l'adaptateur cTrader deja connecte (un seul par process).
+
+    Args:
+        adapter: Instance `CTraderAdapter` connectee, ou None pour revenir au
+            comportement par defaut (connexion depuis les credentials).
+    """
+    global _adapter_impose
+    _adapter_impose = adapter
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialise le store reel et, optionnellement, le broker."""
@@ -88,6 +106,13 @@ async def lifespan(app: FastAPI):
         # L'environnement (demo|live) est expose par /api/health pour que le
         # dashboard affiche le compte reellement utilise, sans logique locale.
         app.state.environment = str(credentials.get("environment", "demo")).lower()
+    if _adapter_impose is not None:
+        app.state.ctrader = _adapter_impose
+        logger.info(
+            "Broker cTrader fourni par l'appelant (account_id=%s)",
+            getattr(_adapter_impose, "account_id", "?"),
+        )
+    elif credentials:
         try:
             from einherjar.brokers import CTraderAdapter
 
@@ -130,6 +155,9 @@ async def health() -> dict[str, Any]:
             "connected": status["connected"],
             "host": status["host"],
             "circuitState": status["circuit_state"],
+            # Cause exacte du dernier echec de connexion (None si connecte) : sans
+            # elle, un compte non autorise ressemble a un compte simplement "off".
+            "lastError": status.get("last_error"),
         }
     return {
         "status": "paused" if app.state.store.kill_switch_enabled() else "ok",
