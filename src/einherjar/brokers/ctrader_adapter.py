@@ -26,6 +26,7 @@ from typing import Any
 import polars as pl
 
 from einherjar.brokers.broker_utils import (  # noqa: F401
+    ASSET_CLASS_MAP,
     denormalize_symbol,
     load_fees,
     normalize_symbol,
@@ -34,7 +35,7 @@ from einherjar.brokers.broker_utils import (  # noqa: F401
     timeframe_to_ctrader_period,
 )
 from einherjar.brokers.resilience import CircuitBreaker, RateLimiter
-from einherjar.core.enums import AssetClass, Direction
+from einherjar.core.enums import AssetClass, Direction, OrderType
 from einherjar.core.models import AccountState, Fill, Order, Position
 
 logger = logging.getLogger("einherjar.ctrader")
@@ -60,6 +61,7 @@ try:
         ProtoOAGetTrendbarsReq,
         ProtoOAGetTrendbarsRes,
         ProtoOANewOrderReq,
+        ProtoOAOrderErrorEvent,
         ProtoOAReconcileReq,
         ProtoOAReconcileRes,
         ProtoOASymbolByIdReq,
@@ -92,6 +94,15 @@ class CTraderError(RuntimeError):
 # ---------------------------------------------------------------------------
 # Conversion des trendbars (fonction pure, testable sans API)
 # ---------------------------------------------------------------------------
+
+# Types d'ordre cTrader (`ProtoOAOrderType` : MARKET=1, LIMIT=2, STOP=3).
+# `OrderType.MARKET.value` vaut "market" (minuscules) : comparer a "MARKET" faisait
+# partir TOUT ordre marche en LIMIT sans prix limite, donc rejete par le broker.
+CTRADER_ORDER_TYPES: dict[OrderType, int] = {
+    OrderType.MARKET: 1,
+    OrderType.LIMIT: 2,
+    OrderType.STOP_MARKET: 3,
+}
 
 # 1 point = 1/100000 d'unite de prix (doc officielle cTrader : `low`,
 # `deltaOpen`/`deltaClose`/`deltaHigh` sont des entiers en POINTS, pas en
@@ -360,7 +371,9 @@ class _CTraderTwistedThread:
 
     # -- Internes -----------------------------------------------------------
 
-    def _send_request(self, request: Any, response_type: type) -> ConcurrentFuture:
+    def _send_request(
+        self, request: Any, response_type: type, timeout_s: float = 15.0
+    ) -> ConcurrentFuture:
         """Envoie une requete et rend un Future resolvant la REPONSE TYPEE.
 
         La correlation requete/reponse est faite par la librairie, via le Deferred
@@ -372,6 +385,14 @@ class _CTraderTwistedThread:
         Une reponse `ProtoOAErrorRes` resout le Future en `CTraderError` : un refus
         de l'API ne doit jamais remonter comme une reponse valide.
 
+        Args:
+            request: Message `ProtoOA*Req` a envoyer.
+            response_type: Classe du message de reponse attendu.
+            timeout_s: Delai de reponse cote librairie. Le defaut de `Client.send`
+                est de 5 s, trop court des qu'une rafale de requetes part (l'amorcage
+                de l'historique en envoie des dizaines) : un depassement se traduit
+                par un `TimeoutError` du Deferred, donc par une mesure manquante.
+
         Returns:
             `concurrent.futures.Future` a attendre par `future.result(timeout)`.
         """
@@ -380,6 +401,18 @@ class _CTraderTwistedThread:
         future: ConcurrentFuture = ConcurrentFuture()
 
         def _resoudre(reponse: Any) -> None:
+            # Un ordre refuse (marche ferme, volume invalide, marge...) ne revient pas
+            # en ProtoOAErrorRes mais en ProtoOAOrderErrorEvent : sans ce cas, la
+            # raison exacte serait perdue ("reponse inattendue").
+            if isinstance(reponse, ProtoOAOrderErrorEvent):
+                if not future.done():
+                    future.set_exception(
+                        CTraderError(
+                            f"ordre refuse par cTrader : {reponse.errorCode} - "
+                            f"{reponse.description}"
+                        )
+                    )
+                return
             if isinstance(reponse, ProtoOAErrorRes):
                 if not future.done():
                     future.set_exception(
@@ -411,7 +444,16 @@ class _CTraderTwistedThread:
             # `Client.send` doit partir du thread du reactor (les transports Twisted
             # ne sont pas thread-safe) : on y delegue l'envoi et l'enregistrement.
             try:
-                self._client.send(request).addCallbacks(  # pyright: ignore[reportOptionalMemberAccess]
+                # `clientMsgId` explicite : le defaut de la librairie est
+                # `str(id(responseDeferred))`, un identifiant RECYCLE par Python des que
+                # le Deferred precedent est libere. Une reponse tardive peut alors etre
+                # remise a la NOUVELLE requete (constate : un ProtoOAExecutionEvent
+                # rendu en reponse a un Reconcile).
+                self._client.send(  # pyright: ignore[reportOptionalMemberAccess]
+                    request,
+                    clientMsgId=f"EINHERJAR-{uuid.uuid4().hex}",
+                    responseTimeoutInSeconds=timeout_s,
+                ).addCallbacks(
                     lambda message: _resoudre(_extraire_message(message)), _annuler
                 )
             except Exception as exc:  # noqa: BLE001 - remonte a l'appelant bloque
@@ -497,12 +539,13 @@ class _CTraderTwistedThread:
         req.period = period
         req.fromTimestamp = from_ms
         req.toTimestamp = now_ms
-        # Une bougie de plus : la premiere est ecartee (pas de close de reference).
+        # Une bougie de plus : la derniere bougie peut ne pas etre encore close
+        # cote broker, on demande donc large puis on garde les `limit` dernieres.
         req.count = limit + 1
 
         future = self._send_request(req, ProtoOAGetTrendbarsRes)
         try:
-            res = future.result(timeout=10.0)
+            res = future.result(timeout=20.0)
         except CTraderError:
             raise
         except Exception as exc:
@@ -532,7 +575,7 @@ class _CTraderTwistedThread:
         req.symbolId.append(symbol_id)
         try:
             future = self._send_request(req, ProtoOASymbolByIdRes)
-            res = future.result(timeout=10.0)
+            res = future.result(timeout=20.0)
         except CTraderError:
             raise
         except Exception as exc:  # noqa: BLE001 - remonte tel quel a l'appelant
@@ -551,7 +594,22 @@ class _CTraderTwistedThread:
         return meta.get("digits")
 
     def place_order_sync(self, order: Order) -> Fill:
-        """Passe un ordre de marche sur cTrader (TP/SL transmis au broker)."""
+        """Passe un ordre sur cTrader (TP/SL transmis au broker).
+
+        `ProtoOANewOrderReq.stopLoss` et `takeProfit` sont des PRIX ABSOLUS en
+        `double` (pas des points en 1/100000, contrairement a `relativeStopLoss` /
+        `relativeTakeProfit` qui sont des int64) : le prix de l'ordre est transmis
+        tel quel.
+
+        Raises:
+            CTraderError: type d'ordre non supporte, volume hors bornes broker,
+                ou refus de l'API (remonte par `_send_request`).
+        """
+        if order.order_type not in CTRADER_ORDER_TYPES:
+            raise CTraderError(
+                f"type d'ordre non supporte par cTrader: {order.order_type} "
+                f"(supportes: {', '.join(t.value for t in CTRADER_ORDER_TYPES)})"
+            )
         symbol_id = self._resolve_symbol_sync(order.asset)
         # Sans les metadonnees du symbole, `minVolume`/`stepVolume` sont absents et
         # l'ordre partirait avec un volume que le broker refusera : on les charge
@@ -574,9 +632,18 @@ class _CTraderTwistedThread:
         req = ProtoOANewOrderReq()
         req.ctidTraderAccountId = self.account_id
         req.symbolId = symbol_id
-        req.orderType = 1 if order.order_type.value == "MARKET" else 2  # MARKET=1, LIMIT=2
+        req.orderType = CTRADER_ORDER_TYPES[order.order_type]
         req.tradeSide = 1 if order.direction == Direction.LONG else 2
         req.volume = volume
+        # Les ordres a cours limite/stop EXIGENT leur prix : sans lui l'API refuse.
+        if order.order_type == OrderType.LIMIT:
+            if order.entry_price is None:
+                raise CTraderError(f"ordre LIMIT sans prix d'entree pour {order.asset}")
+            req.limitPrice = float(order.entry_price)
+        elif order.order_type == OrderType.STOP_MARKET:
+            if order.entry_price is None:
+                raise CTraderError(f"ordre STOP sans prix de declenchement pour {order.asset}")
+            req.stopPrice = float(order.entry_price)
         # Le label transporte le nom de l'einher : il revient avec la position
         # (tradeData.label) et permet la sortie sur duree de tenue.
         req.label = str(getattr(order, "einher_name", "") or "")[:100]
@@ -587,23 +654,39 @@ class _CTraderTwistedThread:
 
         future = self._send_request(req, ProtoOAExecutionEvent)
         try:
-            res = future.result(timeout=10.0)
+            res = future.result(timeout=20.0)
         except CTraderError:
             raise
         except Exception as exc:
             raise CTraderError(f"place_order timeout/error : {exc}") from exc
 
-        # ProtoOAExecutionEvent contient le fill
+        # ProtoOAExecutionEvent ne porte pas de champ `price` : le prix du fill est
+        # celui de la position ouverte (ProtoOAPosition.price, un double) et le volume
+        # est sur `position.tradeData.volume` (en 0,01 unite) — `ProtoOAPosition`
+        # n'a PAS de champ `volume` (lire `position.volume` rendait 0).
         position = getattr(res, "position", None)
-        fill_qty = getattr(position, "volume", 0) / 100.0 if position else order.quantity
-        # Prix d'execution : ProtoOAExecutionEvent ne porte pas de champ `price` ;
-        # le prix reel du fill est celui de la position ouverte (ProtoOAPosition.price),
-        # a defaut le prix theorique de l'ordre.
-        trade_data = getattr(position, "tradeData", None)
+        execution_type = int(getattr(res, "executionType", 0) or 0)
+        # 2 = ORDER_ACCEPTED, 3 = ORDER_FILLED, 11 = ORDER_PARTIAL_FILL : sur un marche
+        # l'ordre est d'abord ACCEPTE, donc l'evenement ne porte pas encore le prix ni
+        # le volume d'execution. On relit alors la position que le broker vient d'ouvrir.
+        if execution_type not in (3, 11) and position is not None:
+            position_id = int(getattr(position, "positionId", 0))
+            if position_id:
+                relue = self._position_brute_sync(position_id)
+                if relue is not None:
+                    position = relue
+        trade_data = getattr(position, "tradeData", None) if position is not None else None
+        volume_centiemes = getattr(trade_data, "volume", None) if trade_data is not None else None
+        if not volume_centiemes:
+            volume_centiemes = None
+        fill_qty = (
+            float(volume_centiemes) / 100.0
+            if volume_centiemes is not None
+            else float(order.quantity)
+        )
         fill_price = (
             getattr(position, "price", None)
             or getattr(res, "price", None)
-            or getattr(trade_data, "price", None)
             or order.entry_price
             or 0.0
         )
@@ -618,6 +701,25 @@ class _CTraderTwistedThread:
             timestamp=datetime.now(UTC),
         )
 
+    def _position_brute_sync(self, position_id: int) -> Any | None:
+        """Relit une position ouverte par son id (message brut `ProtoOAPosition`).
+
+        Indispensable juste apres un ordre marche : le premier `ProtoOAExecutionEvent`
+        est un ORDER_ACCEPTED (executionType=2) ou le prix et le volume du fill ne sont
+        pas encore remplis — les lire la donne 0.
+        """
+        req = ProtoOAReconcileReq()
+        req.ctidTraderAccountId = self.account_id
+        try:
+            res = self._send_request(req, ProtoOAReconcileRes).result(timeout=20.0)
+        except Exception as exc:  # noqa: BLE001 - l'appelant retombe sur l'evenement
+            logger.warning("cTrader: relecture de la position %s impossible (%s)", position_id, exc)
+            return None
+        for position in getattr(res, "position", []):
+            if int(getattr(position, "positionId", 0)) == int(position_id):
+                return position
+        return None
+
     def get_positions_sync(self) -> list[Position]:
         """Retourne les positions ouvertes (ProtoOAReconcileRes).
 
@@ -629,7 +731,7 @@ class _CTraderTwistedThread:
         req.ctidTraderAccountId = self.account_id
         future = self._send_request(req, ProtoOAReconcileRes)
         try:
-            res = future.result(timeout=10.0)
+            res = future.result(timeout=20.0)
         except CTraderError:
             raise
         except Exception as exc:
@@ -661,7 +763,9 @@ class _CTraderTwistedThread:
                         if ouvert_ms
                         else datetime.now(UTC)
                     ),
-                    asset_class=ASSET_CLASS_MAP.get(asset, AssetClass.INDICES),
+                    # Defaut volontairement neutre : un actif hors ASSET_CLASS_MAP ne doit pas
+            # empecher la lecture des positions (le broker reste la source de verite).
+            asset_class=ASSET_CLASS_MAP.get(asset, AssetClass.INDEX),
                 )
             )
         return positions
@@ -679,7 +783,7 @@ class _CTraderTwistedThread:
         req.ctidTraderAccountId = self.account_id
         future = self._send_request(req, ProtoOATraderRes)
         try:
-            res = future.result(timeout=10.0)
+            res = future.result(timeout=20.0)
         except CTraderError:
             raise
         except Exception as exc:
@@ -697,7 +801,7 @@ class _CTraderTwistedThread:
         try:
             req_pos = ProtoOAReconcileReq()
             req_pos.ctidTraderAccountId = self.account_id
-            res_pos = self._send_request(req_pos, ProtoOAReconcileRes).result(timeout=10.0)
+            res_pos = self._send_request(req_pos, ProtoOAReconcileRes).result(timeout=20.0)
             for p in getattr(res_pos, "position", []):
                 marge += float(getattr(p, "usedMargin", 0)) / echelle
         except Exception as exc:  # noqa: BLE001 - la marge n'est pas bloquante
@@ -752,14 +856,38 @@ class _CTraderTwistedThread:
             time.sleep(0.1)
         return dict(self._symbol_cache)
 
-    def close_position_sync(self, position_id: int) -> bool:
-        """Ferme une position par son ID."""
+    def close_position_sync(self, position_id: int, volume: int | None = None) -> bool:
+        """Ferme une position par son ID.
+
+        Args:
+            position_id: Identifiant de la position (`ProtoOAPosition.positionId`).
+            volume: Volume a fermer en 0,01 unite. Si absent, il est relu depuis la
+                position ouverte — `ProtoOAClosePositionReq.volume` est un champ
+                OBLIGATOIRE : sans lui la requete ne peut meme pas etre serialisee
+                (`EncodeError: missing required fields: volume`).
+
+        Raises:
+            CTraderError: position introuvable et volume non fourni.
+        """
+        if volume is None:
+            position = self._position_brute_sync(position_id)
+            if position is None:
+                raise CTraderError(
+                    f"close_position: position {position_id} introuvable "
+                    "(volume non fourni et absente du Reconcile)"
+                )
+            volume = int(getattr(getattr(position, "tradeData", None), "volume", 0))
+            if volume <= 0:
+                raise CTraderError(
+                    f"close_position: volume illisible pour la position {position_id}"
+                )
         req = ProtoOAClosePositionReq()
         req.ctidTraderAccountId = self.account_id
         req.positionId = position_id
+        req.volume = volume
         future = self._send_request(req, ProtoOAExecutionEvent)
         try:
-            future.result(timeout=10.0)
+            future.result(timeout=20.0)
             return True
         except CTraderError as exc:
             logger.error("close_position echoue : %s", exc)
@@ -984,6 +1112,11 @@ class CTraderAdapter:
 
     # -- Methodes supplementaires -------------------------------------------
 
-    async def close_position(self, position_id: int) -> bool:
-        """Ferme une position par son ID cTrader."""
-        return await self._safe_call("close_position", position_id)
+    async def close_position(self, position_id: int, volume: int | None = None) -> bool:
+        """Ferme une position par son ID cTrader.
+
+        Args:
+            position_id: Identifiant de la position.
+            volume: Volume en 0,01 unite ; relu depuis le broker si absent.
+        """
+        return await self._safe_call("close_position", position_id, volume)

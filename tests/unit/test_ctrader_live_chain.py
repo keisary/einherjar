@@ -25,6 +25,8 @@ from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage  # 
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (  # noqa: E402
     ProtoOAAccountAuthRes,
     ProtoOAErrorRes,
+    ProtoOAExecutionEvent,
+    ProtoOAReconcileReq,
     ProtoOAReconcileRes,
     ProtoOASymbolsListRes,
     ProtoOATraderReq,
@@ -34,6 +36,9 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (  # noqa: E402
 )
 
 from einherjar.brokers import broker_utils  # noqa: E402
+from einherjar.core.enums import Direction, OrderType  # noqa: E402
+from einherjar.core.models import Order  # noqa: E402
+
 from einherjar.brokers.ctrader_adapter import (  # noqa: E402
     CTRADER_AVAILABLE,
     CTraderError,
@@ -147,12 +152,23 @@ class _Enveloppe:
 
 
 class _FauxClient:
+    """Reproduit la signature reelle de `Client.send` (timeout de reponse inclus).
+
+    Le defaut de la librairie est de 5 s : l'adaptateur doit passer explicitement un
+    delai plus large, sinon une rafale de requetes (amorcage de l'historique) part en
+    `TimeoutError` sans que rien ne le signale.
+    """
+
     def __init__(self, reponse) -> None:
         self.reponse = reponse
         self.envoyes: list[object] = []
+        self.timeouts: list[float] = []
+        self.client_msg_ids: list[str] = []
 
-    def send(self, request):
+    def send(self, request, clientMsgId=None, responseTimeoutInSeconds=5, **params):
         self.envoyes.append(request)
+        self.timeouts.append(responseTimeoutInSeconds)
+        self.client_msg_ids.append(clientMsgId)
         return _Enveloppe(self.reponse)
 
 
@@ -204,6 +220,13 @@ def test_send_request_ne_touche_pas_aux_champs_du_message():
     future = thread._send_request(ProtoOATraderReq(), ProtoOAReconcileRes)
     assert isinstance(future.result(timeout=1.0), ProtoOAReconcileRes)
     assert len(thread._client.envoyes) == 1  # type: ignore[union-attr]
+
+
+def test_send_request_demande_un_delai_de_reponse_large():
+    """Regression : le defaut de 5 s de `Client.send` faisait echouer les rafales."""
+    thread = _thread(_enveloppe(ProtoOAReconcileRes()))
+    thread._send_request(ProtoOATraderReq(), ProtoOAReconcileRes).result(timeout=2.0)
+    assert thread._client.timeouts[0] >= 10.0  # type: ignore[union-attr]
 
 
 def test_send_request_extrait_le_message_type():
@@ -424,3 +447,134 @@ def test_ensure_connected_relance_quand_le_socket_est_tombe():
 
     assert asyncio.run(adapter.ensure_connected()) is True
     assert transport.reconnexions == 1
+
+
+# ---------------------------------------------------------------------------
+# 7. Ordres : volume de fermeture, remplissage du Fill, refus explicite
+# ---------------------------------------------------------------------------
+
+
+class _FauxClientParType:
+    """Rend une reponse differente selon le message envoye."""
+
+    def __init__(self, reponses: dict[type, object]) -> None:
+        self.reponses = reponses
+        self.envoyes: list[object] = []
+        self.client_msg_ids: list[str] = []
+
+    def send(self, request, clientMsgId=None, responseTimeoutInSeconds=5, **params):
+        self.envoyes.append(request)
+        self.client_msg_ids.append(clientMsgId)
+        reponse = self.reponses.get(type(request))
+        if reponse is None:
+            raise AssertionError(f"requete inattendue: {type(request).__name__}")
+        return _Enveloppe(reponse)
+
+
+def _reconcile_avec_position(position_id: int = 291000228, volume_centiemes: int = 1):
+    res = ProtoOAReconcileRes()
+    position = res.position.add()
+    position.positionId = position_id
+    position.price = 85192.52
+    position.tradeData.symbolId = 22395
+    position.tradeData.volume = volume_centiemes
+    position.tradeData.tradeSide = 1
+    position.tradeData.label = "VALIDATION"
+    _remplir_champs_requis(res)
+    return res
+
+
+def _thread_par_type(reponses: dict[type, object]) -> _CTraderTwistedThread:
+    thread = _CTraderTwistedThread("host", 1, "id", "secret", "token", 4242, "spotware")
+    thread._connected_event.set()
+    thread._client = _FauxClientParType(reponses)  # type: ignore[assignment]
+    thread._reactor = _FauxReactor()  # type: ignore[assignment]
+    return thread
+
+
+def test_send_request_utilise_un_client_msg_id_unique():
+    """Regression : le defaut `str(id(deferred))` est recycle par Python.
+
+    Une reponse tardive pouvait alors etre livree a une NOUVELLE requete (observe :
+    un ProtoOAExecutionEvent recu en reponse a un Reconcile).
+    """
+    thread = _thread(_enveloppe(ProtoOAReconcileRes()))
+    for _ in range(2):
+        thread._send_request(ProtoOATraderReq(), ProtoOAReconcileRes).result(timeout=2.0)
+    ids = thread._client.client_msg_ids  # type: ignore[union-attr]
+    assert all(ids) and len(set(ids)) == 2
+
+
+def test_ordre_refuse_par_order_error_event_leve_avec_la_raison():
+    """Un ordre refuse revient en ProtoOAOrderErrorEvent, pas en ProtoOAErrorRes."""
+    from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAOrderErrorEvent
+
+    erreur = ProtoOAOrderErrorEvent()
+    erreur.description = "Market is closed"
+    _remplir_champs_requis(erreur)
+    thread = _thread(_enveloppe(erreur))
+
+    with pytest.raises(CTraderError, match="Market is closed"):
+        thread._send_request(ProtoOATraderReq(), ProtoOAExecutionEvent).result(timeout=2.0)
+
+
+def test_close_position_exige_un_volume():
+    """`ProtoOAClosePositionReq.volume` est OBLIGATOIRE : sans lui la requete ne part pas.
+
+    Regression : la requete n'etait meme pas serialisable
+    (`EncodeError: missing required fields: volume`).
+    """
+    from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAClosePositionReq
+
+    thread = _thread_par_type(
+        {
+            ProtoOAReconcileReq: _reconcile_avec_position(volume_centiemes=7),
+            ProtoOAClosePositionReq: ProtoOAExecutionEvent(),
+        }
+    )
+    assert thread.close_position_sync(291000228) is True
+    requete = next(r for r in thread._client.envoyes if isinstance(r, ProtoOAClosePositionReq))  # type: ignore[union-attr]
+    assert requete.volume == 7
+    assert requete.positionId == 291000228
+
+
+def test_close_position_sans_position_leve():
+    vide = ProtoOAReconcileRes()
+    _remplir_champs_requis(vide)
+    thread = _thread_par_type({ProtoOAReconcileReq: vide})
+    with pytest.raises(CTraderError, match="introuvable"):
+        thread.close_position_sync(999)
+
+
+def test_place_order_relit_la_position_quand_l_evenement_est_un_order_accepted():
+    """Le 1er evenement d'un ordre marche est ORDER_ACCEPTED (prix/volume a 0).
+
+    Regression : le Fill sortait avec qty=0.0 et prix=0.0 ; il faut relire la
+    position ouverte par le broker.
+    """
+    from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOANewOrderReq
+
+    accepte = ProtoOAExecutionEvent()
+    accepte.executionType = 2  # ORDER_ACCEPTED
+    position = accepte.position
+    position.positionId = 291000228
+    _remplir_champs_requis(accepte)
+
+    thread = _thread_par_type(
+        {
+            ProtoOANewOrderReq: accepte,
+            ProtoOAReconcileReq: _reconcile_avec_position(volume_centiemes=1),
+        }
+    )
+    # symboles + bornes de volume deja charges (evite une attente de 10 s sur le cache)
+    thread._symbol_cache["BTCUSD"] = 22395
+    thread._symbol_meta[22395] = {"name": "BTCUSD", "minVolume": 1, "stepVolume": 1, "digits": 3}
+    ordre = Order(
+        order_id="O1", asset="BTCUSD", order_type=OrderType.MARKET,
+        direction=Direction.LONG, quantity=0.01, sl_price=77206.79, tp_price=85333.83,
+        einher_name="TEST",
+    )
+    fill = thread.place_order_sync(ordre)
+
+    assert fill.filled_qty == pytest.approx(0.01)
+    assert fill.filled_price == pytest.approx(85192.52)
