@@ -246,9 +246,24 @@ L'application entière est protégée par une page de connexion. Les identifiant
 
 Session : cookie `HttpOnly`, `SameSite=Lax`, `Secure` dès que la requête arrive en HTTPS, durée 12 h ; comparaison à temps constant et maximum 5 tentatives par adresse IP sur 5 minutes. Seuls `/login`, `/logout`, `/favicon.ico` et la sonde publique `/healthz` échappent à l'authentification.
 
+### Identifiants cTrader
+
+Deux sources possibles, l'**environnement est prioritaire** (un fichier oublié sur le
+disque ne peut donc pas écraser la configuration de production) :
+
+| Variable | Champ équivalent | Rôle |
+|---|---|---|
+| `EINHERJAR_CLIENT_ID` | `client_id` | Application Open API |
+| `EINHERJAR_CLIENT_SECRET` | `client_secret` | Application Open API |
+| `EINHERJAR_ACCESS_TOKEN` | `access_token` | Token OAuth du compte |
+| `EINHERJAR_ACCOUNT_ID` | `account_id` | `ctidTraderAccountId` (voir ci-dessous) |
+| `EINHERJAR_ENVIRONMENT` | `environment` | `demo` (défaut) ou `live` |
+| `EINHERJAR_HOST` / `EINHERJAR_PORT` | `host` / `port` | Déduits de `environment` si absents |
+| `EINHERJAR_BROKER_NAME` | `broker_name` | Mapping des symboles |
+
 ### `config/credentials.json`
 
-Non versionné (voir `.gitignore`). Modèle : `config/credentials.example.json`.
+Non versionné (voir `.gitignore`), utile en local. Modèle : `config/credentials.example.json`.
 
 | Champ | Description |
 |---|---|
@@ -390,22 +405,32 @@ Total : **303 tests** sur la branche courante, dont 30 qui ne s'exécutent qu'av
 
 Un service web Python suffit : FastAPI sert l'API **et** le dashboard construit à partir du même process.
 
-1. **Construire le dashboard avant de déployer** (ou dans la commande de build) : `dashboard/einherjar-ui/dist/` est ignoré par git, il doit exister pour que FastAPI serve l'interface.
+1. **Le dashboard déjà construit est versionné** (`dashboard/einherjar-ui/dist/`) : le déploiement n'a besoin ni de Node ni d'étape `npm`. Pour le régénérer après une modification du front :
    ```bash
    cd dashboard/einherjar-ui && npm ci && npm run build
    ```
 2. **Créer un Web Service** sur Render, relié au dépôt, avec :
-   - **Build Command** : `pip install -e . && pip install ctrader-open-api && (cd dashboard/einherjar-ui && npm ci && npm run build)`
+   - **Build Command** :
+     ```bash
+     pip install -r requirements.txt && pip install --no-deps -e . && pip install --no-deps ctrader-open-api==0.9.2
+     ```
    - **Start Command** : `python main.py`
-3. **Variables d'environnement** : `EINHERJAR_AUTH_USERNAME`, `EINHERJAR_AUTH_PASSWORD`, `EINHERJAR_AUTH_SECRET` — sans mot de passe, l'application en génère un et l'écrit une fois dans les logs.
-4. **Identifiants broker** : `config/credentials.json` n'est pas versionné. Sur Render, montez-le en *Secret File* et copiez-le au démarrage :
+   - **Health Check Path** : `/healthz`
+   - `ctrader-open-api` est installé **sans ses dépendances** : il épingle `protobuf==3.20.1`, dont il n'existe pas de roue pour Python 3.11, alors que ses modules générés fonctionnent avec le protobuf moderne fourni par `requirements.txt`.
+3. **Version de Python** : `.python-version` (3.11.9) est lu par Render ; les roues `numpy 1.26` / `protobuf` utilisées n'existent pas pour 3.13.
+4. **Variables d'environnement de l'application** : `EINHERJAR_AUTH_USERNAME`, `EINHERJAR_AUTH_PASSWORD`, `EINHERJAR_AUTH_SECRET` — sans mot de passe, l'application en génère un et l'écrit une fois dans les logs.
+5. **Identifiants broker** : jamais dans le dépôt. Deux chemins, le second est celui utilisé en production :
    ```bash
-   cp /etc/secrets/credentials.json config/credentials.json && python main.py
+   # a) fichier secret monte par la plateforme
+   cp /etc/secrets/credentials.json config/credentials.json
+
+   # b) variables d'environnement (prioritaires) — voir la section Configuration
+   EINHERJAR_CLIENT_ID / EINHERJAR_CLIENT_SECRET / EINHERJAR_ACCESS_TOKEN / EINHERJAR_ACCOUNT_ID
    ```
 5. **Données** : `data/` (DuckDB + parquet OHLCV live) vit sur le disque local du service. Sans disque persistant, un redéploiement repart d'un historique vide — le `LiveDataStore` se ré-amorce automatiquement depuis le broker (~16 s) mais la base DuckDB (journal, fills, equity) est perdue.
 
-> [!WARNING]
-> `main.py` écoute sur `0.0.0.0:8000` (port codé en dur). Si la plateforme impose son propre port, servez l'API et le dashboard avec `PYTHONPATH=src python -m uvicorn einherjar.api.server:app --host 0.0.0.0 --port $PORT` — mais `main.py` reste le seul point d'entrée qui démarre la boucle d'inférence. Un service = un process = un seul adaptateur cTrader (contrainte du reactor Twisted).
+> [!NOTE]
+> `main.py` écoute sur `0.0.0.0:$PORT` (variable d'environnement, `8000` par défaut) : la plateforme impose donc son port sans configuration. `main.py` reste le seul point d'entrée qui démarre la boucle d'inférence. Un service = un process = un seul adaptateur cTrader (contrainte du reactor Twisted).
 
 ---
 
@@ -414,7 +439,7 @@ Un service web Python suffit : FastAPI sert l'API **et** le dashboard construit 
 **Limites techniques**
 
 - **Un seul adaptateur cTrader par process** : le reactor Twisted est un singleton. Deux adaptateurs dans le même process se font tomber l'un l'autre.
-- **Le dashboard construit appelle l'API sur `http://localhost:8000/api`** : la base est une constante dans `dashboard/einherjar-ui/src/hooks/useData.ts` (pas de variable d'environnement). À modifier avant `npm run build` si l'API n'est pas sur `localhost`.
+- **Base d'API du dashboard** : `dashboard/einherjar-ui/src/hooks/useData.ts` utilise une base **relative** (`/api`), surchargeable par `VITE_API_BASE` à la construction. Le même build fonctionne donc en local comme derrière un domaine, sans recompilation.
 - **`account_id` ≠ numéro de compte du broker** : c'est le `ctidTraderAccountId` de l'Open API. Une valeur erronée donne un compte non autorisé, pas une erreur explicite — d'où `scripts/ctrader_comptes.py`.
 - **Reconstruction des bougies** : dans `ProtoOATrendbar`, seul `low` est un prix absolu (en points, 1 point = 1/100000) ; `open`, `high`, `close` sont des deltas **relatifs au low de la même bougie** et ne se chaînent pas d'une bougie à l'autre.
 - **Prix et protections** : tout ordre part avec un TP et un SL, arrondis aux décimales du symbole, faute de quoi le broker refuse l'ordre ; la taille n'est jamais augmentée par le dimensionnement.

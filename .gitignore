@@ -11,6 +11,8 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+# Exception : le dashboard construit est servi par FastAPI en production.
+!dashboard/einherjar-ui/dist/
 
 # Donnees
 *.db
@@ -21,7 +23,7 @@ data/live/*.parquet
 
 # Node / React
 node_modules/
-dist/
+!dashboard/einherjar-ui/dist/
 *.log
 
 # IDE
