@@ -1,0 +1,33 @@
+# Fichiers exclus de l'image : rien de ce qui suit n'est utile au fonctionnement.
+.git
+.github
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+node_modules
+.pytest_cache
+.ruff_cache
+*.egg-info
+*.local.txt
+.env
+.env.example
+
+# Etat runtime : monte en volume, jamais fige dans l'image.
+data/
+dashboard/einherjar-ui/src
+dashboard/einherjar-ui/node_modules
+
+# Sorties de recherche : seule la source de verite du live (le corpus) est necessaire.
+# Les campagnes et archives pesent des centaines de Mo.
+outputs/*
+!outputs/corpus.jsonl
+
+# Rapports et documents : utiles sur GitHub, inutiles dans l'image.
+audits/
+tests/
+wireframes/
+*.md
+!README.md

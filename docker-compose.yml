@@ -1,0 +1,28 @@
+# EINHERJAR en conteneur — API + boucle d'inference.
+#
+#   cp .env.example .env   # puis y mettre les valeurs (jamais versionnees)
+#   docker compose up -d --build
+#   docker compose logs -f
+#
+# Le volume ./data conserve la base DuckDB (journal, fills, equity), les parquets OHLCV
+# et le cache Numba : les redemarrages sont donc rapides et l'historique n'est pas perdu.
+
+services:
+  einherjar:
+    build: .
+    image: einherjar:local
+    container_name: einherjar
+    restart: unless-stopped          # relance apres un crash ou un reboot
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Un seul replicat : le reactor Twisted de cTrader est un singleton par process,
+    # et deux instances se disputeraient le meme compte et la meme base DuckDB.

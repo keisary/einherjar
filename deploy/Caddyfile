@@ -1,0 +1,25 @@
+# Caddy — HTTPS automatique devant EINHERJAR.
+#
+# Caddy obtient et renouvelle seul le certificat Let's Encrypt : il suffit que le
+# domaine pointe vers la VM et que les ports 80 et 443 soient ouverts.
+#
+# Installation :  sudo cp deploy/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+#
+# Remplace einherjar.exemple.tld par ton domaine (ou un sous-domaine gratuit DuckDNS).
+
+einherjar.exemple.tld {
+	encode zstd gzip
+
+	# L'application porte deja sa propre page de connexion (cookie signe HMAC) :
+	# /healthz reste public pour les sondes, /api/* exige une session.
+	reverse_proxy 127.0.0.1:8000 {
+		# La boucle d'inference et l'API partagent le process : pas de mise en cache
+		# des reponses, l'etat change a chaque cycle.
+		flush_interval -1
+	}
+
+	# Journaux d'acces separes des journaux applicatifs (journalctl -u einherjar).
+	log {
+		output file /var/log/caddy/einherjar-access.log
+	}
+}
