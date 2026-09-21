@@ -16,6 +16,9 @@ numba==0.61.2
 pandas==2.2.2
 dask==2025.7.0
 pyarrow==24.0.0
+# `signals/quantitative_features.py` mesure la memoire disponible (psutil) : sans lui
+# l'etape quantitative echoue et le cycle de la paire est perdu.
+psutil==7.0.0
 
 # Persistance (journal, signaux, ordres, courbe d'equity)
 duckdb==1.4.1
