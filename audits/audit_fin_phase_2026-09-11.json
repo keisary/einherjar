@@ -1,0 +1,3204 @@
+{
+ "corpus": {
+  "path": "D:/midas_v2/einherjar/outputs/corpus.jsonl",
+  "malformed": 1,
+  "analysis": {
+   "file": "corpus",
+   "records": 1092,
+   "distinct_ids": 1092,
+   "records_with_dup_id": 0,
+   "n_dup_id_groups": 0,
+   "exact_structural_sigs": 1029,
+   "records_in_dup_sig_groups": 126,
+   "n_dup_sig_groups": 63,
+   "distinct_feature_sets": 750,
+   "feature_set_reuse_top": [
+    [
+     "Factor_Momentum_Score+chaikin_oscillator+skewness_risk",
+     31
+    ],
+    [
+     "Factor_Momentum_Score+chaikin_oscillator",
+     12
+    ],
+    [
+     "bb_percent+chaikin_oscillator+quant_garch_volatility",
+     11
+    ],
+    [
+     "bb_percent+chaikin_oscillator+di_plus+quant_garch_volatility",
+     10
+    ],
+    [
+     "Factor_Momentum_Score+quant_realized_vol_50+skewness_risk",
+     10
+    ],
+    [
+     "Factor_Momentum_Score+chaikin_oscillator+quant_realized_vol_20",
+     10
+    ],
+    [
+     "Factor_Momentum_Score+aroon_up+chaikin_oscillator+skewness_risk",
+     10
+    ],
+    [
+     "Factor_Momentum_Score+chaikin_oscillator+skewness_risk+supertrend_signal",
+     9
+    ],
+    [
+     "chaikin_oscillator+macd_histogram+quant_rolling_skewness",
+     8
+    ],
+    [
+     "Factor_Momentum_Score+chaikin_oscillator+quant_rolling_skewness",
+     8
+    ],
+    [
+     "Factor_Momentum_Score+aroon_trend_signal+chaikin_oscillator+skewness_risk",
+     8
+    ],
+    [
+     "Factor_Risk_TailEvent_Score+bb_percent+quant_dynamic_cvar",
+     7
+    ]
+   ],
+   "assets": {
+    "multi": 180,
+    "NVDA": 106,
+    "GOOGL": 86,
+    "XOM": 78,
+    "AAPL": 76,
+    "ETHUSD": 60,
+    "COPPER": 53,
+    "WTIUSD": 44,
+    "USDCHF": 36,
+    "JPM": 35,
+    "BTCUSD": 34,
+    "TSLA": 34,
+    "BRENT": 28,
+    "BCHUSD": 28,
+    "EURUSD": 26,
+    "GBPUSD": 24,
+    "MSFT": 24,
+    "NASDAQ100": 22,
+    "LTCUSD": 18,
+    "AMZN": 18,
+    "ADAUSD": 16,
+    "DAX40": 14,
+    "SP500": 10,
+    "DOWJONES": 10,
+    "USDJPY": 10,
+    "AUDUSD": 8,
+    "XAUUSD": 6,
+    "USDCAD": 4,
+    "EURGBP": 4
+   },
+   "n_assets": 29,
+   "asset_classes": {
+    "stocks_tech": 442,
+    "crypto": 187,
+    "commodities": 151,
+    "forex": 137,
+    "stocks_growth": 78,
+    "indices": 62,
+    "stocks_value": 35
+   },
+   "timeframes": {
+    "15m": 532,
+    "1h": 480,
+    "4h": 64,
+    "1d": 16
+   },
+   "horizons": {
+    "4h": 214,
+    "1d": 170,
+    "6h": 166,
+    "2h": 147,
+    "12h": 144,
+    "8h": 88,
+    "1h": 83,
+    "2d": 57,
+    "60d": 11,
+    "10d": 6,
+    "4d": 4,
+    "20d": 2
+   },
+   "directions": {
+    "BUY": 641,
+    "SELL": 451
+   },
+   "models": {
+    "XGBRegressor": 343,
+    "XGBRegressor+veto": 247,
+    "subgroup_discovery": 245,
+    "subgroup_discovery+veto": 243,
+    "or_regimes": 3,
+    "or_regimes+veto": 3,
+    "event_study": 2,
+    "event_study+veto": 2,
+    "XGBRegressor+family:volume_flow": 1,
+    "XGBRegressor+family:volume_flow+veto": 1,
+    "XGBRegressor+cross": 1,
+    "twin_generalized": 1
+   },
+   "scopes": {
+    "asset": 1092
+   },
+   "tf_x_horizon": [
+    {
+     "tf": "15m",
+     "horizon": "4h",
+     "n": 214
+    },
+    {
+     "tf": "1h",
+     "horizon": "6h",
+     "n": 166
+    },
+    {
+     "tf": "15m",
+     "horizon": "2h",
+     "n": 147
+    },
+    {
+     "tf": "1h",
+     "horizon": "12h",
+     "n": 144
+    },
+    {
+     "tf": "1h",
+     "horizon": "1d",
+     "n": 125
+    },
+    {
+     "tf": "15m",
+     "horizon": "8h",
+     "n": 88
+    },
+    {
+     "tf": "15m",
+     "horizon": "1h",
+     "n": 83
+    },
+    {
+     "tf": "4h",
+     "horizon": "1d",
+     "n": 45
+    },
+    {
+     "tf": "1h",
+     "horizon": "2d",
+     "n": 45
+    },
+    {
+     "tf": "4h",
+     "horizon": "2d",
+     "n": 12
+    },
+    {
+     "tf": "1d",
+     "horizon": "60d",
+     "n": 11
+    },
+    {
+     "tf": "4h",
+     "horizon": "4d",
+     "n": 4
+    },
+    {
+     "tf": "4h",
+     "horizon": "10d",
+     "n": 3
+    },
+    {
+     "tf": "1d",
+     "horizon": "10d",
+     "n": 3
+    },
+    {
+     "tf": "1d",
+     "horizon": "20d",
+     "n": 2
+    }
+   ],
+   "n_conditions_hist": {
+    "1": 2,
+    "2": 41,
+    "3": 349,
+    "4": 513,
+    "5": 182,
+    "6": 3,
+    "7": 2
+   },
+   "operators": {
+    ">=": 1345,
+    ">": 1073,
+    "<": 804,
+    "<=": 775,
+    "==": 128
+   },
+   "feature_families": {
+    "indicator": 1247,
+    "other": 943,
+    "quant": 912,
+    "factor": 723,
+    "pattern": 285
+   },
+   "top_features": {
+    "chaikin_oscillator": 497,
+    "Factor_Momentum_Score": 428,
+    "skewness_risk": 378,
+    "quant_rolling_skewness": 213,
+    "Factor_Risk_TailEvent_Score": 190,
+    "bb_percent": 154,
+    "pattern_elliott_wave_1": 138,
+    "quant_dynamic_cvar": 115,
+    "roc_10": 110,
+    "quant_max_drawdown": 104,
+    "supertrend_signal": 97,
+    "aroon_trend_signal": 96,
+    "quant_realized_vol_50": 94,
+    "ema_26_signal": 93,
+    "quant_garch_volatility": 80,
+    "aroon_up": 68,
+    "quant_realized_vol_20": 65,
+    "aroon_down": 56,
+    "kurtosis_risk": 45,
+    "macd_histogram": 45,
+    "williams_r": 42,
+    "pattern_bear_flag": 42,
+    "quant_fractal_dimension": 40,
+    "quant_rolling_kurtosis": 39,
+    "quant_variance_ratio": 34,
+    "pattern_bull_flag": 32,
+    "choppiness_index": 32,
+    "stoch_k": 30,
+    "di_plus": 29,
+    "sma_200": 28
+   },
+   "n_distinct_features": 109,
+   "metrics": {
+    "n_trades": {
+     "n": 1092,
+     "min": 10,
+     "p10": 57,
+     "p25": 108,
+     "med": 224,
+     "p75": 379,
+     "p90": 625,
+     "max": 3545,
+     "mean": 309.0869963369963
+    },
+    "win_rate": {
+     "n": 1092,
+     "min": 0.65,
+     "p10": 0.6643835616438356,
+     "p25": 0.6790123456790124,
+     "med": 0.7049180327868853,
+     "p75": 0.7466216216216216,
+     "p90": 0.8,
+     "max": 0.9333333333333333,
+     "mean": 0.7200997551801209
+    },
+    "sharpe_ratio": {
+     "n": 1092,
+     "min": 2.0086885398410526,
+     "p10": 3.521167745039746,
+     "p25": 4.7154805643049755,
+     "med": 5.8809545147973115,
+     "p75": 7.366770191505349,
+     "p90": 12.390789258600543,
+     "max": 510.2646642415463,
+     "mean": 23.247845752621714
+    },
+    "avg_net_return": {
+     "n": 1092,
+     "min": 0.00048693093748227047,
+     "p10": 0.0020584938972077076,
+     "p25": 0.0031373524425195205,
+     "med": 0.005369160715086521,
+     "p75": 0.009144877390123117,
+     "p90": 0.014594610479763067,
+     "max": 0.17187095392427534,
+     "mean": 0.00866766609293212
+    },
+    "total_return": {
+     "n": 1092,
+     "min": 0.07176234200575027,
+     "p10": 0.600715254434149,
+     "p25": 1.041513971842266,
+     "med": 1.9119985369658603,
+     "p75": 4.939395748758249,
+     "p90": 16.437099335920795,
+     "max": 135572.59935954786,
+     "mean": 232.13403320500205
+    },
+    "alpha": {
+     "n": 1092,
+     "min": -3.006231442446066,
+     "p10": -0.07266705372615867,
+     "p25": 0.6313071902996447,
+     "med": 1.417008418515774,
+     "p75": 3.6917373523981114,
+     "p90": 14.938727082920007,
+     "max": 135572.59935954786,
+     "mean": 231.27347073691058
+    },
+    "t_statistic": {
+     "n": 1092,
+     "min": 2.4731088647740216,
+     "p10": 5.034106482506701,
+     "p25": 6.412751278458829,
+     "med": 8.076952751603073,
+     "p75": 10.129413759303855,
+     "p90": 14.381842424442187,
+     "max": 30.593421331103936,
+     "mean": 8.880561152652433
+    },
+    "p_value": {
+     "n": 1092,
+     "min": 1e-10,
+     "p10": 1e-10,
+     "p25": 1e-10,
+     "med": 1e-10,
+     "p75": 1e-10,
+     "p90": 2.400413874337204e-07,
+     "max": 0.006697166702315349,
+     "mean": 4.167268041539096e-05
+    },
+    "max_drawdown": {
+     "n": 1092,
+     "min": -0.28354201444328436,
+     "p10": -0.07657858369296544,
+     "p25": -0.054056159866672455,
+     "med": -0.03636510136583365,
+     "p75": -0.024199581978264606,
+     "p90": -0.01591382447447612,
+     "max": 0.0,
+     "mean": -0.04370598200468791
+    },
+    "profit_factor": {
+     "n": 1092,
+     "min": 1.736237382743855,
+     "p10": 2.571563469482154,
+     "p25": 2.8693822411301544,
+     "med": 3.3064107417117024,
+     "p75": 4.220064591932931,
+     "p90": 5.931600626125401,
+     "max": 77.85976014223723,
+     "mean": 4.1731559054395975
+    },
+    "avg_holding_bars": {
+     "n": 1092,
+     "min": 1.736842105263158,
+     "p10": 3.5616438356164384,
+     "p25": 4.9523809523809526,
+     "med": 7.972916666666666,
+     "p75": 12.669902912621358,
+     "p90": 19.086021505376344,
+     "max": 38.5,
+     "mean": 9.926604589165553
+    },
+    "tp_hit_rate": {
+     "n": 1092,
+     "min": 0.0847457627118644,
+     "p10": 0.25,
+     "p25": 0.3029411764705882,
+     "med": 0.38071065989847713,
+     "p75": 0.47619047619047616,
+     "p90": 0.6720430107526881,
+     "max": 0.9142857142857143,
+     "mean": 0.41598852297787753
+    },
+    "n_tp": {
+     "n": 1092,
+     "min": 4,
+     "p10": 26,
+     "p25": 43,
+     "med": 79,
+     "p75": 137,
+     "p90": 275,
+     "max": 1480,
+     "mean": 120.43589743589743
+    },
+    "n_sl": {
+     "n": 1092,
+     "min": 0,
+     "p10": 8,
+     "p25": 17,
+     "med": 38,
+     "p75": 63,
+     "p90": 104,
+     "max": 795,
+     "mean": 52.26282051282051
+    },
+    "n_timeout": {
+     "n": 1092,
+     "min": 0,
+     "p10": 9,
+     "p25": 32,
+     "med": 98,
+     "p75": 184,
+     "p90": 311,
+     "max": 1270,
+     "mean": 136.3882783882784
+    }
+   },
+   "n_sharpe_gt_15": 94,
+   "n_sharpe_gt_5": 754,
+   "n_win_rate_1": 0,
+   "n_lt5_trades": 0,
+   "n_alpha_neg": 115
+  }
+ },
+ "archive": {
+  "path": "D:/midas_v2/einherjar/outputs/archive.jsonl",
+  "malformed": 0,
+  "analysis": {
+   "file": "archive",
+   "records": 26462,
+   "distinct_ids": 26462,
+   "records_with_dup_id": 0,
+   "n_dup_id_groups": 0,
+   "exact_structural_sigs": 22056,
+   "records_in_dup_sig_groups": 6857,
+   "n_dup_sig_groups": 2451,
+   "distinct_feature_sets": 11902,
+   "feature_set_reuse_top": [
+    [
+     "supertrend_signal",
+     579
+    ],
+    [
+     "Factor_Momentum_Score+skewness_risk",
+     378
+    ],
+    [
+     "Factor_Momentum_Score+chaikin_oscillator+skewness_risk",
+     241
+    ],
+    [
+     "aroon_trend_signal",
+     233
+    ],
+    [
+     "Factor_Momentum_Score+chaikin_oscillator",
+     214
+    ],
+    [
+     "vwap_signal",
+     203
+    ],
+    [
+     "chaikin_oscillator+skewness_risk",
+     203
+    ],
+    [
+     "macd_trend_signal",
+     199
+    ],
+    [
+     "chaikin_oscillator",
+     142
+    ],
+    [
+     "ema_26_signal+pattern_elliott_wave_1",
+     99
+    ],
+    [
+     "Factor_Momentum_Score+quant_rolling_skewness",
+     93
+    ],
+    [
+     "Factor_Momentum_Score+chaikin_oscillator+quant_rolling_skewness",
+     92
+    ]
+   ],
+   "assets": {
+    "multi": 3285,
+    "XOM": 1646,
+    "JPM": 1623,
+    "SP500": 1055,
+    "NASDAQ100": 1021,
+    "DOWJONES": 1008,
+    "DAX40": 1007,
+    "TSLA": 1000,
+    "WTIUSD": 967,
+    "GOOGL": 921,
+    "MSFT": 885,
+    "AMZN": 862,
+    "AAPL": 841,
+    "BRENT": 811,
+    "NVDA": 804,
+    "USDCHF": 778,
+    "EURUSD": 760,
+    "AUDUSD": 754,
+    "USDCAD": 696,
+    "EURGBP": 673,
+    "GBPUSD": 635,
+    "COPPER": 619,
+    "ADAUSD": 601,
+    "XAUUSD": 589,
+    "ETHUSD": 569,
+    "LTCUSD": 569,
+    "BTCUSD": 545,
+    "BCHUSD": 479,
+    "USDJPY": 459
+   },
+   "n_assets": 29,
+   "asset_classes": {
+    "stocks_tech": 5973,
+    "forex": 5896,
+    "indices": 4820,
+    "crypto": 3374,
+    "commodities": 3130,
+    "stocks_growth": 1646,
+    "stocks_value": 1623
+   },
+   "timeframes": {
+    "1d": 10009,
+    "1h": 6884,
+    "15m": 6145,
+    "4h": 3424
+   },
+   "horizons": {
+    "10d": 3366,
+    "2d": 2633,
+    "1d": 2628,
+    "20d": 2517,
+    "60d": 2506,
+    "5d": 2456,
+    "12h": 1729,
+    "6h": 1645,
+    "8h": 1611,
+    "4h": 1580,
+    "2h": 1537,
+    "1h": 1417,
+    "4d": 837
+   },
+   "directions": {
+    "BUY": 15560,
+    "SELL": 10902
+   },
+   "models": {
+    "XGBRegressor": 13098,
+    "subgroup_discovery": 6707,
+    "XGBRegressor+cross": 1955,
+    "event_study": 1777,
+    "or_regimes": 1606,
+    "XGBRegressor+family:trend": 225,
+    "XGBRegressor+family:statistical": 213,
+    "XGBRegressor+family:volatility": 213,
+    "XGBRegressor+family:momentum": 211,
+    "XGBRegressor+family:risk": 211,
+    "XGBRegressor+family:volume_flow": 202,
+    "XGBRegressor+family:price_action": 44
+   },
+   "scopes": {
+    "asset": 26462
+   },
+   "tf_x_horizon": [
+    {
+     "tf": "1d",
+     "horizon": "10d",
+     "n": 2530
+    },
+    {
+     "tf": "1d",
+     "horizon": "20d",
+     "n": 2517
+    },
+    {
+     "tf": "1d",
+     "horizon": "60d",
+     "n": 2506
+    },
+    {
+     "tf": "1d",
+     "horizon": "5d",
+     "n": 2456
+    },
+    {
+     "tf": "1h",
+     "horizon": "2d",
+     "n": 1779
+    },
+    {
+     "tf": "1h",
+     "horizon": "1d",
+     "n": 1731
+    },
+    {
+     "tf": "1h",
+     "horizon": "12h",
+     "n": 1729
+    },
+    {
+     "tf": "1h",
+     "horizon": "6h",
+     "n": 1645
+    },
+    {
+     "tf": "15m",
+     "horizon": "8h",
+     "n": 1611
+    },
+    {
+     "tf": "15m",
+     "horizon": "4h",
+     "n": 1580
+    },
+    {
+     "tf": "15m",
+     "horizon": "2h",
+     "n": 1537
+    },
+    {
+     "tf": "15m",
+     "horizon": "1h",
+     "n": 1417
+    },
+    {
+     "tf": "4h",
+     "horizon": "1d",
+     "n": 897
+    },
+    {
+     "tf": "4h",
+     "horizon": "2d",
+     "n": 854
+    },
+    {
+     "tf": "4h",
+     "horizon": "4d",
+     "n": 837
+    },
+    {
+     "tf": "4h",
+     "horizon": "10d",
+     "n": 836
+    }
+   ],
+   "n_conditions_hist": {
+    "1": 2598,
+    "2": 6332,
+    "3": 13702,
+    "4": 3359,
+    "5": 139,
+    "6": 332
+   },
+   "operators": {
+    ">=": 30852,
+    "<": 22324,
+    ">": 9338,
+    "<=": 8947,
+    "==": 1030
+   },
+   "feature_families": {
+    "quant": 23685,
+    "indicator": 21474,
+    "other": 16453,
+    "factor": 7121,
+    "pattern": 1840
+   },
+   "top_features": {
+    "chaikin_oscillator": 3742,
+    "skewness_risk": 3648,
+    "Factor_Momentum_Score": 3415,
+    "quant_max_drawdown": 2578,
+    "quant_dynamic_var": 2063,
+    "quant_rolling_skewness": 1955,
+    "supertrend_signal": 1779,
+    "bb_percent": 1636,
+    "quant_permutation_entropy": 1616,
+    "quant_shannon_entropy": 1514,
+    "quant_dynamic_cvar": 1507,
+    "atr_21": 1450,
+    "quant_garch_volatility": 1445,
+    "quant_vol_persistence": 1316,
+    "aroon_trend_signal": 1267,
+    "quant_variance_ratio": 1232,
+    "quant_realized_vol_50": 1112,
+    "quant_dfa_exponent": 1095,
+    "vwap": 1084,
+    "macd_signal": 1079,
+    "bb_width": 1070,
+    "trix_14": 1066,
+    "macd_line": 1062,
+    "volume_sma_20": 1061,
+    "quant_spectral_centroid": 993,
+    "adx_strength_signal": 983,
+    "vortex_pos": 950,
+    "quant_sample_entropy": 890,
+    "macd_histogram": 850,
+    "Factor_Trend_Score": 848
+   },
+   "n_distinct_features": 171,
+   "metrics": {
+    "n_trades": {
+     "n": 26462,
+     "min": 0,
+     "p10": 5,
+     "p25": 22,
+     "med": 89,
+     "p75": 439,
+     "p90": 1728,
+     "max": 25139,
+     "mean": 652.9097951779911
+    },
+    "win_rate": {
+     "n": 26462,
+     "min": 0.0,
+     "p10": 0.2727272727272727,
+     "p25": 0.39285714285714285,
+     "med": 0.46008403361344535,
+     "p75": 0.5329341317365269,
+     "p90": 0.6111111111111112,
+     "max": 1.0,
+     "mean": 0.44423139084350843
+    },
+    "sharpe_ratio": {
+     "n": 26462,
+     "min": -1130.8435189645484,
+     "p10": -3.0271792564605686,
+     "p25": -0.6645544948092718,
+     "med": 0.0,
+     "p75": 0.930656809205695,
+     "p90": 3.3588223338519563,
+     "max": 437.7793276266503,
+     "mean": -0.26202529129255886
+    },
+    "avg_net_return": {
+     "n": 26462,
+     "min": -0.15913698157701953,
+     "p10": -0.004804690909135387,
+     "p25": -0.0007999999999999952,
+     "med": 0.0,
+     "p75": 0.002607786143425332,
+     "p90": 0.008891961163049081,
+     "max": 0.3845814012492984,
+     "mean": 0.001664595501106867
+    },
+    "total_return": {
+     "n": 26462,
+     "min": -1.0,
+     "p10": -0.5554980301289425,
+     "p25": -0.18662210924238432,
+     "med": 0.0,
+     "p75": 0.25504404668359304,
+     "p90": 1.0956741938698467,
+     "max": 276750.4309552299,
+     "mean": 21.02253382446353
+    },
+    "alpha": {
+     "n": 26462,
+     "min": -6.769137570489812,
+     "p10": -1.381065191827281,
+     "p25": -0.612123641933568,
+     "med": -0.21107536583121514,
+     "p75": 0.08565901288008515,
+     "p90": 0.6703749664229177,
+     "max": 276750.4309552299,
+     "mean": 20.490008297378537
+    },
+    "t_statistic": {
+     "n": 26462,
+     "min": -119.14948432724151,
+     "p10": -3.169654805989053,
+     "p25": -0.9218091410895861,
+     "med": 0.0,
+     "p75": 1.230420239582218,
+     "p90": 3.7832652147747967,
+     "max": 197.47749696332832,
+     "mean": -0.5709316054689471
+    },
+    "p_value": {
+     "n": 26462,
+     "min": 1e-10,
+     "p10": 7.739216495750156e-05,
+     "p25": 0.10926988902619716,
+     "med": 1.0,
+     "p75": 1.0,
+     "p90": 1.0,
+     "max": 1.0,
+     "mean": 0.5837799916274192
+    },
+    "max_drawdown": {
+     "n": 26462,
+     "min": -1.0,
+     "p10": -0.6247109990484441,
+     "p25": -0.34338505576978723,
+     "med": -0.16936606901552362,
+     "p75": -0.07306521763779153,
+     "p90": -0.018231425470480365,
+     "max": 0.0,
+     "mean": -0.2492648360717703
+    },
+    "profit_factor": {
+     "n": 26462,
+     "min": 0.0,
+     "p10": 0.3790758921524613,
+     "p25": 0.7389021926964618,
+     "med": 0.998456972915978,
+     "p75": 1.3890461447103999,
+     "p90": 2.0441569718436217,
+     "max": Infinity,
+     "mean": Infinity
+    },
+    "avg_holding_bars": {
+     "n": 26462,
+     "min": 0.0,
+     "p10": 3.110446570972887,
+     "p25": 4.369230769230769,
+     "med": 8.415384615384616,
+     "p75": 16.987854251012145,
+     "p90": 35.098684210526315,
+     "max": 60.0,
+     "mean": 13.330431561187801
+    },
+    "tp_hit_rate": {
+     "n": 26462,
+     "min": 0.0,
+     "p10": 0.058823529411764705,
+     "p25": 0.14634146341463414,
+     "med": 0.20440251572327045,
+     "p75": 0.27340823970037453,
+     "p90": 0.36254980079681276,
+     "max": 1.0,
+     "mean": 0.21571827705404498
+    },
+    "n_tp": {
+     "n": 26462,
+     "min": 0,
+     "p10": 1,
+     "p25": 4,
+     "med": 18,
+     "p75": 103,
+     "p90": 419,
+     "max": 5887,
+     "mean": 144.92831229687854
+    },
+    "n_sl": {
+     "n": 26462,
+     "min": 0,
+     "p10": 2,
+     "p25": 8,
+     "med": 33,
+     "p75": 143,
+     "p90": 497,
+     "max": 10291,
+     "mean": 201.57603355755424
+    },
+    "n_timeout": {
+     "n": 26462,
+     "min": 0,
+     "p10": 1,
+     "p25": 8,
+     "med": 34,
+     "p75": 179,
+     "p90": 789,
+     "max": 13321,
+     "mean": 306.4054493235583
+    }
+   },
+   "n_sharpe_gt_15": 634,
+   "n_sharpe_gt_5": 1700,
+   "n_win_rate_1": 198,
+   "n_lt5_trades": 2508,
+   "n_alpha_neg": 18039
+  },
+  "rejection_reasons": [
+   {
+    "group": "BH/multi-test",
+    "detail": "BH REJECTED : non significatif apres correction multi-tests",
+    "count": 21907
+   },
+   {
+    "group": "n_trades",
+    "detail": "Holdout REJECTED : 0 trades < min_holdout_trades=5",
+    "count": 436
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.500 < 0.5850000000000001",
+    "count": 62
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.571 < 0.5850000000000001",
+    "count": 40
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.552 < 0.5850000000000001",
+    "count": 36
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.568 < 0.5850000000000001",
+    "count": 35
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.562 < 0.5850000000000001",
+    "count": 33
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.553 < 0.5850000000000001",
+    "count": 31
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.546 < 0.5850000000000001",
+    "count": 30
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.579 < 0.5850000000000001",
+    "count": 29
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.536 < 0.5850000000000001",
+    "count": 29
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.559 < 0.5850000000000001",
+    "count": 29
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.537 < 0.5850000000000001",
+    "count": 28
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.577 < 0.5850000000000001",
+    "count": 28
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.560 < 0.5850000000000001",
+    "count": 28
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.519 < 0.5850000000000001",
+    "count": 28
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.529 < 0.5850000000000001",
+    "count": 28
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.540 < 0.5850000000000001",
+    "count": 28
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.556 < 0.5850000000000001",
+    "count": 27
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.545 < 0.5850000000000001",
+    "count": 26
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.522 < 0.5850000000000001",
+    "count": 26
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.506 < 0.5850000000000001",
+    "count": 26
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.516 < 0.5850000000000001",
+    "count": 25
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.558 < 0.5850000000000001",
+    "count": 25
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.524 < 0.5850000000000001",
+    "count": 25
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.517 < 0.5850000000000001",
+    "count": 24
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.543 < 0.5850000000000001",
+    "count": 24
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=9 < 10",
+    "count": 24
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.578 < 0.5850000000000001",
+    "count": 24
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.557 < 0.5850000000000001",
+    "count": 24
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.583 < 0.5850000000000001",
+    "count": 23
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.531 < 0.5850000000000001",
+    "count": 23
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.509 < 0.5850000000000001",
+    "count": 23
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.523 < 0.5850000000000001",
+    "count": 22
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.581 < 0.5850000000000001",
+    "count": 22
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.567 < 0.5850000000000001",
+    "count": 22
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.548 < 0.5850000000000001",
+    "count": 22
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.569 < 0.5850000000000001",
+    "count": 22
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.538 < 0.5850000000000001",
+    "count": 22
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.534 < 0.5850000000000001",
+    "count": 22
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.528 < 0.5850000000000001",
+    "count": 22
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.575 < 0.5850000000000001",
+    "count": 21
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.547 < 0.5850000000000001",
+    "count": 21
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.525 < 0.5850000000000001",
+    "count": 20
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.563 < 0.5850000000000001",
+    "count": 20
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.580 < 0.5850000000000001",
+    "count": 20
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.511 < 0.5850000000000001",
+    "count": 20
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.514 < 0.5850000000000001",
+    "count": 20
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.570 < 0.5850000000000001",
+    "count": 20
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.492 < 0.5850000000000001",
+    "count": 20
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.520 < 0.5850000000000001",
+    "count": 20
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.497 < 0.5850000000000001",
+    "count": 20
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.544 < 0.5850000000000001",
+    "count": 20
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.535 < 0.5850000000000001",
+    "count": 19
+   },
+   {
+    "group": "n_trades",
+    "detail": "Holdout REJECTED : 3 trades < min_holdout_trades=5",
+    "count": 19
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.513 < 0.5850000000000001",
+    "count": 19
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.564 < 0.5850000000000001",
+    "count": 19
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.565 < 0.5850000000000001",
+    "count": 19
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.549 < 0.5850000000000001",
+    "count": 19
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.574 < 0.5850000000000001",
+    "count": 19
+   }
+  ]
+ },
+ "corpus_1d": {
+  "path": "D:/midas_v2/einherjar/outputs/corpus_1d_full.jsonl",
+  "malformed": 0,
+  "analysis": {
+   "file": "corpus_1d",
+   "records": 11,
+   "distinct_ids": 11,
+   "records_with_dup_id": 0,
+   "n_dup_id_groups": 0,
+   "exact_structural_sigs": 8,
+   "records_in_dup_sig_groups": 6,
+   "n_dup_sig_groups": 3,
+   "distinct_feature_sets": 8,
+   "feature_set_reuse_top": [
+    [
+     "chaikin_oscillator+quant_dynamic_var+quant_rolling_kurtosis",
+     2
+    ],
+    [
+     "chaikin_oscillator+pattern_bull_flag+quant_dynamic_var+quant_rolling_kurtosis",
+     2
+    ],
+    [
+     "chaikin_oscillator",
+     2
+    ],
+    [
+     "supertrend_signal",
+     1
+    ],
+    [
+     "quant_dynamic_var+quant_hurst_exponent+quant_realized_vol_50",
+     1
+    ],
+    [
+     "money_flow_index+quant_dynamic_var+quant_hurst_exponent+quant_realized_vol_50",
+     1
+    ],
+    [
+     "aroon_down+chaikin_oscillator",
+     1
+    ],
+    [
+     "Factor_Volume_Score+supertrend_signal",
+     1
+    ]
+   ],
+   "assets": {
+    "NVDA": 5,
+    "JPM": 4,
+    "DOWJONES": 2
+   },
+   "n_assets": 3,
+   "asset_classes": {
+    "stocks_tech": 5,
+    "stocks_value": 4,
+    "indices": 2
+   },
+   "timeframes": {
+    "1d": 11
+   },
+   "horizons": {
+    "10d": 6,
+    "60d": 4,
+    "20d": 1
+   },
+   "directions": {
+    "BUY": 11
+   },
+   "models": {
+    "XGBRegressor+family:volume_flow": 2,
+    "XGBRegressor+cross": 2,
+    "XGBRegressor+cross+veto": 2,
+    "XGBRegressor+family:volume_flow+veto": 1,
+    "event_study": 1,
+    "event_study+veto": 1,
+    "XGBRegressor": 1,
+    "XGBRegressor+veto": 1
+   },
+   "scopes": {
+    "asset": 11
+   },
+   "tf_x_horizon": [
+    {
+     "tf": "1d",
+     "horizon": "10d",
+     "n": 6
+    },
+    {
+     "tf": "1d",
+     "horizon": "60d",
+     "n": 4
+    },
+    {
+     "tf": "1d",
+     "horizon": "20d",
+     "n": 1
+    }
+   ],
+   "n_conditions_hist": {
+    "1": 1,
+    "2": 3,
+    "3": 4,
+    "4": 3
+   },
+   "operators": {
+    ">=": 17,
+    "<": 12,
+    ">": 2
+   },
+   "feature_families": {
+    "quant": 14,
+    "indicator": 9,
+    "other": 2,
+    "pattern": 2,
+    "factor": 1
+   },
+   "top_features": {
+    "chaikin_oscillator": 10,
+    "quant_dynamic_var": 6,
+    "quant_rolling_kurtosis": 4,
+    "supertrend_signal": 2,
+    "pattern_bull_flag": 2,
+    "quant_realized_vol_50": 2,
+    "quant_hurst_exponent": 2,
+    "aroon_down": 1,
+    "Factor_Volume_Score": 1,
+    "money_flow_index": 1
+   },
+   "n_distinct_features": 10,
+   "metrics": {
+    "n_trades": {
+     "n": 11,
+     "min": 10,
+     "p10": 10,
+     "p25": 11,
+     "med": 14,
+     "p75": 14,
+     "p90": 16,
+     "max": 16,
+     "mean": 13.090909090909092
+    },
+    "win_rate": {
+     "n": 11,
+     "min": 0.75,
+     "p10": 0.75,
+     "p25": 0.7692307692307693,
+     "med": 0.7857142857142857,
+     "p75": 0.8,
+     "p90": 0.8333333333333334,
+     "max": 0.9090909090909091,
+     "mean": 0.7958647413192868
+    },
+    "sharpe_ratio": {
+     "n": 11,
+     "min": 2.086928168364567,
+     "p10": 2.0869281683645675,
+     "p25": 2.1291389742131366,
+     "med": 2.221744358246447,
+     "p75": 2.7514871923809148,
+     "p90": 2.8559871922297604,
+     "max": 2.9572934713229126,
+     "mean": 2.4144328544391787
+    },
+    "avg_net_return": {
+     "n": 11,
+     "min": 0.025161176613115344,
+     "p10": 0.025161176613115344,
+     "p25": 0.026599366174546897,
+     "med": 0.04936956602533444,
+     "p75": 0.0993141443129732,
+     "p90": 0.15470543581971313,
+     "max": 0.17187095392427534,
+     "mean": 0.06832759241801073
+    },
+    "total_return": {
+     "n": 11,
+     "min": 0.43378189795638344,
+     "p10": 0.43378189795638344,
+     "p25": 0.47450994923014567,
+     "med": 0.6052810895011793,
+     "p75": 1.7457526795970004,
+     "p90": 4.91670209816578,
+     "max": 5.281415828824779,
+     "mean": 1.577633118782799
+    },
+    "alpha": {
+     "n": 11,
+     "min": -3.158044498254459,
+     "p10": -3.040080688220661,
+     "p25": -2.5447838269644656,
+     "med": -0.2210359567996525,
+     "p75": 0.40340112667998657,
+     "p90": 0.40340112667998657,
+     "max": 0.7606791454135431,
+     "mean": -0.7040965572416054
+    },
+    "t_statistic": {
+     "n": 11,
+     "min": 2.814932057490752,
+     "p10": 2.814932057490752,
+     "p25": 2.937365523492165,
+     "med": 3.4126046452300014,
+     "p75": 3.6377378825027904,
+     "p90": 3.7758972056587665,
+     "max": 3.9098341144741284,
+     "mean": 3.31093319496933
+    },
+    "p_value": {
+     "n": 11,
+     "min": 4.6179762849263284e-05,
+     "p10": 7.971636815673477e-05,
+     "p25": 0.00013752156177315733,
+     "med": 0.00032172608603975306,
+     "p75": 0.0016550684870656474,
+     "p90": 0.0024393773619215686,
+     "max": 0.0024393773619215686,
+     "mean": 0.0008975210780239177
+    },
+    "max_drawdown": {
+     "n": 11,
+     "min": -0.15913698157701953,
+     "p10": -0.15913698157701953,
+     "p25": -0.09315780127558729,
+     "med": -0.055307937978731445,
+     "p75": -0.03723273713435506,
+     "p90": -0.013524016305428935,
+     "max": -0.013524016305428935,
+     "mean": -0.06918202510235795
+    },
+    "profit_factor": {
+     "n": 11,
+     "min": 4.716817634949706,
+     "p10": 4.716817634949706,
+     "p25": 5.536712292375479,
+     "med": 7.480113631202418,
+     "p75": 12.726936150102024,
+     "p90": 21.875921367475872,
+     "max": 21.875921367475875,
+     "mean": 9.94450098363359
+    },
+    "avg_holding_bars": {
+     "n": 11,
+     "min": 7.75,
+     "p10": 7.75,
+     "p25": 7.769230769230769,
+     "med": 8.142857142857142,
+     "p75": 34.25,
+     "p90": 48.1,
+     "max": 48.2,
+     "mean": 20.221464898737626
+    },
+    "tp_hit_rate": {
+     "n": 11,
+     "min": 0.2857142857142857,
+     "p10": 0.2857142857142857,
+     "p25": 0.3125,
+     "med": 0.4,
+     "p75": 0.6363636363636364,
+     "p90": 0.6428571428571429,
+     "max": 0.6666666666666666,
+     "mean": 0.44630445312263495
+    },
+    "n_tp": {
+     "n": 11,
+     "min": 4,
+     "p10": 4,
+     "p25": 4,
+     "med": 5,
+     "p75": 7,
+     "p90": 8,
+     "max": 9,
+     "mean": 5.7272727272727275
+    },
+    "n_sl": {
+     "n": 11,
+     "min": 0,
+     "p10": 0,
+     "p25": 1,
+     "med": 2,
+     "p75": 2,
+     "p90": 2,
+     "max": 3,
+     "mean": 1.4545454545454546
+    },
+    "n_timeout": {
+     "n": 11,
+     "min": 2,
+     "p10": 2,
+     "p25": 3,
+     "med": 6,
+     "p75": 8,
+     "p90": 9,
+     "max": 9,
+     "mean": 5.909090909090909
+    }
+   },
+   "n_sharpe_gt_15": 0,
+   "n_sharpe_gt_5": 0,
+   "n_win_rate_1": 0,
+   "n_lt5_trades": 0,
+   "n_alpha_neg": 7
+  }
+ },
+ "archive_1d": {
+  "path": "D:/midas_v2/einherjar/outputs/archive_1d_full.jsonl",
+  "malformed": 0,
+  "analysis": {
+   "file": "archive_1d",
+   "records": 8625,
+   "distinct_ids": 8625,
+   "records_with_dup_id": 0,
+   "n_dup_id_groups": 0,
+   "exact_structural_sigs": 7297,
+   "records_in_dup_sig_groups": 2241,
+   "n_dup_sig_groups": 913,
+   "distinct_feature_sets": 4561,
+   "feature_set_reuse_top": [
+    [
+     "supertrend_signal",
+     71
+    ],
+    [
+     "volume_sma_20",
+     63
+    ],
+    [
+     "quant_dynamic_var",
+     49
+    ],
+    [
+     "quant_max_drawdown",
+     46
+    ],
+    [
+     "quant_dynamic_cvar",
+     45
+    ],
+    [
+     "chaikin_oscillator",
+     45
+    ],
+    [
+     "trix_14",
+     42
+    ],
+    [
+     "quant_amihud_illiquidity",
+     40
+    ],
+    [
+     "quant_garch_volatility",
+     39
+    ],
+    [
+     "vwap_signal",
+     37
+    ],
+    [
+     "vwap",
+     33
+    ],
+    [
+     "quant_kaufman_efficiency+quant_vol_persistence",
+     33
+    ]
+   ],
+   "assets": {
+    "multi": 1276,
+    "JPM": 650,
+    "XOM": 588,
+    "DOWJONES": 421,
+    "TSLA": 370,
+    "USDCAD": 363,
+    "SP500": 359,
+    "AUDUSD": 357,
+    "USDCHF": 356,
+    "MSFT": 334,
+    "NASDAQ100": 332,
+    "DAX40": 330,
+    "GOOGL": 327,
+    "GBPUSD": 313,
+    "AMZN": 312,
+    "WTIUSD": 291,
+    "AAPL": 277,
+    "COPPER": 262,
+    "EURGBP": 231,
+    "EURUSD": 230,
+    "NVDA": 230,
+    "BRENT": 192,
+    "XAUUSD": 115,
+    "USDJPY": 109
+   },
+   "n_assets": 24,
+   "asset_classes": {
+    "forex": 2410,
+    "stocks_tech": 2079,
+    "indices": 1795,
+    "commodities": 1103,
+    "stocks_value": 650,
+    "stocks_growth": 588
+   },
+   "timeframes": {
+    "1d": 8625
+   },
+   "horizons": {
+    "20d": 2236,
+    "60d": 2163,
+    "10d": 2126,
+    "5d": 2100
+   },
+   "directions": {
+    "BUY": 5426,
+    "SELL": 3199
+   },
+   "models": {
+    "XGBRegressor": 2754,
+    "XGBRegressor+cross": 2546,
+    "subgroup_discovery": 882,
+    "or_regimes": 348,
+    "XGBRegressor+family:trend": 309,
+    "XGBRegressor+family:momentum": 295,
+    "XGBRegressor+family:volatility": 291,
+    "XGBRegressor+family:volume_flow": 289,
+    "XGBRegressor+family:risk": 288,
+    "XGBRegressor+family:statistical": 286,
+    "event_study": 206,
+    "XGBRegressor+family:price_action": 83,
+    "XGBRegressor+family:market_structure": 36,
+    "XGBRegressor+family:market_regime": 12
+   },
+   "scopes": {
+    "asset": 8625
+   },
+   "tf_x_horizon": [
+    {
+     "tf": "1d",
+     "horizon": "20d",
+     "n": 2236
+    },
+    {
+     "tf": "1d",
+     "horizon": "60d",
+     "n": 2163
+    },
+    {
+     "tf": "1d",
+     "horizon": "10d",
+     "n": 2126
+    },
+    {
+     "tf": "1d",
+     "horizon": "5d",
+     "n": 2100
+    }
+   ],
+   "n_conditions_hist": {
+    "1": 898,
+    "2": 2284,
+    "3": 4878,
+    "4": 399,
+    "5": 68,
+    "6": 98
+   },
+   "operators": {
+    ">=": 11281,
+    "<": 8837,
+    "<=": 1343,
+    ">": 1119,
+    "==": 44
+   },
+   "feature_families": {
+    "quant": 8247,
+    "indicator": 7438,
+    "other": 3817,
+    "factor": 847,
+    "pattern": 349
+   },
+   "top_features": {
+    "quant_dynamic_var": 907,
+    "quant_max_drawdown": 698,
+    "quant_garch_volatility": 697,
+    "quant_permutation_entropy": 695,
+    "quant_vol_persistence": 624,
+    "vwap": 609,
+    "quant_dynamic_cvar": 607,
+    "volume_sma_20": 563,
+    "macd_line": 546,
+    "trix_14": 530,
+    "quant_shannon_entropy": 523,
+    "adx_strength_signal": 499,
+    "quant_spectral_centroid": 474,
+    "vortex_pos": 456,
+    "bb_width": 454,
+    "quant_hurst_exponent": 453,
+    "bb_percent": 424,
+    "quant_variance_ratio": 416,
+    "macd_signal": 411,
+    "quant_kaufman_efficiency": 405,
+    "atr_21": 398,
+    "quant_dfa_exponent": 387,
+    "atr_14": 384,
+    "chaikin_oscillator": 362,
+    "quant_realized_vol_50": 321,
+    "vwap_signal": 280,
+    "quant_sample_entropy": 279,
+    "obv_ema": 273,
+    "macd_histogram": 266,
+    "quant_autocorr_50": 266
+   },
+   "n_distinct_features": 139,
+   "metrics": {
+    "n_trades": {
+     "n": 8625,
+     "min": 0,
+     "p10": 0,
+     "p25": 9,
+     "med": 22,
+     "p75": 54,
+     "p90": 107,
+     "max": 1288,
+     "mean": 45.246840579710145
+    },
+    "win_rate": {
+     "n": 8625,
+     "min": 0.0,
+     "p10": 0.0,
+     "p25": 0.3448275862068966,
+     "med": 0.4444444444444444,
+     "p75": 0.5263157894736842,
+     "p90": 0.6206896551724138,
+     "max": 1.0,
+     "mean": 0.41162827883721703
+    },
+    "sharpe_ratio": {
+     "n": 8625,
+     "min": -92.29243465433953,
+     "p10": -1.224632873738231,
+     "p25": -0.39415746051142947,
+     "med": 0.0,
+     "p75": 0.45210392605782884,
+     "p90": 1.2093424559931396,
+     "max": 108.77553611202298,
+     "mean": -0.08135872664359725
+    },
+    "avg_net_return": {
+     "n": 8625,
+     "min": -0.1945700560444453,
+     "p10": -0.012255559758966006,
+     "p25": -0.002277244907489323,
+     "med": 0.0,
+     "p75": 0.005474990909563246,
+     "p90": 0.020425060405253524,
+     "max": 0.3845814012492984,
+     "mean": 0.0027435770640437044
+    },
+    "total_return": {
+     "n": 8625,
+     "min": -0.9654120298965692,
+     "p10": -0.2841496274404681,
+     "p25": -0.11327402036427892,
+     "med": 0.0,
+     "p75": 0.09911770991774116,
+     "p90": 0.364208520997261,
+     "max": 23.696252224042546,
+     "mean": 0.07105088789521746
+    },
+    "alpha": {
+     "n": 8625,
+     "min": -5.399653329165908,
+     "p10": -0.7497807775331626,
+     "p25": -0.4199540515953617,
+     "med": -0.1668562660826967,
+     "p75": 0.0121969057665261,
+     "p90": 0.16855473273607055,
+     "max": 23.696252224042546,
+     "mean": -0.250487829879881
+    },
+    "t_statistic": {
+     "n": 8625,
+     "min": -122.01971600674099,
+     "p10": -1.347710465084185,
+     "p25": -0.5604247587785789,
+     "med": 0.0,
+     "p75": 0.606439300832566,
+     "p90": 1.3058316984383764,
+     "max": 197.47749696332832,
+     "mean": 0.009200936226547723
+    },
+    "p_value": {
+     "n": 8625,
+     "min": 1e-10,
+     "p10": 0.0958048989281357,
+     "p25": 0.27211153884672434,
+     "med": 1.0,
+     "p75": 1.0,
+     "p90": 1.0,
+     "max": 1.0,
+     "mean": 0.6610626809291562
+    },
+    "max_drawdown": {
+     "n": 8625,
+     "min": -0.9707024743616288,
+     "p10": -0.42997765492115436,
+     "p25": -0.27945378559072837,
+     "med": -0.16037509129152658,
+     "p75": -0.07928995072613866,
+     "p90": 0.0,
+     "max": 0.0,
+     "mean": -0.1997392581642646
+    },
+    "profit_factor": {
+     "n": 8625,
+     "min": 0.0,
+     "p10": 0.0,
+     "p25": 0.6419528229294401,
+     "med": 0.9448722762715616,
+     "p75": 1.3418949339085067,
+     "p90": 2.0534276960960844,
+     "max": Infinity,
+     "mean": Infinity
+    },
+    "avg_holding_bars": {
+     "n": 8625,
+     "min": 0.0,
+     "p10": 0.0,
+     "p25": 4.117647058823529,
+     "med": 7.810344827586207,
+     "p75": 16.0,
+     "p90": 42.40909090909091,
+     "max": 60.0,
+     "mean": 14.6968730184275
+    },
+    "tp_hit_rate": {
+     "n": 8625,
+     "min": 0.0,
+     "p10": 0.0,
+     "p25": 0.09183673469387756,
+     "med": 0.15384615384615385,
+     "p75": 0.21875,
+     "p90": 0.3076923076923077,
+     "max": 1.0,
+     "mean": 0.1627700433041985
+    },
+    "n_tp": {
+     "n": 8625,
+     "min": 0,
+     "p10": 0,
+     "p25": 1,
+     "med": 4,
+     "p75": 9,
+     "p90": 16,
+     "max": 187,
+     "mean": 7.335536231884058
+    },
+    "n_sl": {
+     "n": 8625,
+     "min": 0,
+     "p10": 0,
+     "p25": 3,
+     "med": 8,
+     "p75": 21,
+     "p90": 39,
+     "max": 461,
+     "mean": 16.835826086956523
+    },
+    "n_timeout": {
+     "n": 8625,
+     "min": 0,
+     "p10": 0,
+     "p25": 3,
+     "med": 9,
+     "p75": 24,
+     "p90": 53,
+     "max": 663,
+     "mean": 21.075478260869566
+    }
+   },
+   "n_sharpe_gt_15": 138,
+   "n_sharpe_gt_5": 378,
+   "n_win_rate_1": 96,
+   "n_lt5_trades": 1437,
+   "n_alpha_neg": 6274
+  },
+  "rejection_reasons": [
+   {
+    "group": "BH/multi-test",
+    "detail": "BH REJECTED : non significatif apres correction multi-tests",
+    "count": 8363
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.500 < 0.5850000000000001",
+    "count": 16
+   },
+   {
+    "group": "n_trades",
+    "detail": "Holdout REJECTED : 3 trades < min_holdout_trades=5",
+    "count": 14
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.581 < 0.5850000000000001",
+    "count": 12
+   },
+   {
+    "group": "n_trades",
+    "detail": "Holdout REJECTED : 0 trades < min_holdout_trades=5",
+    "count": 11
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.571 < 0.5850000000000001",
+    "count": 11
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=8 < 10",
+    "count": 11
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=9 < 10",
+    "count": 11
+   },
+   {
+    "group": "n_trades",
+    "detail": "Holdout REJECTED : 1 trades < min_holdout_trades=5",
+    "count": 9
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.545 < 0.5850000000000001",
+    "count": 8
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.453 < 0.0",
+    "count": 6
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.556 < 0.5850000000000001",
+    "count": 6
+   },
+   {
+    "group": "n_trades",
+    "detail": "Holdout REJECTED : 2 trades < min_holdout_trades=5",
+    "count": 6
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=7 < 10",
+    "count": 5
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=3 < 10",
+    "count": 5
+   },
+   {
+    "group": "n_trades",
+    "detail": "Holdout REJECTED : 4 trades < min_holdout_trades=5",
+    "count": 4
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.438 < 0.5850000000000001",
+    "count": 4
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.529 < 0.5850000000000001",
+    "count": 4
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.536 < 0.5850000000000001",
+    "count": 4
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.526 < 0.5850000000000001",
+    "count": 4
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.440 < 0.5850000000000001",
+    "count": 3
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.583 < 0.5850000000000001",
+    "count": 3
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.542 < 0.5850000000000001",
+    "count": 3
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.533 < 0.5850000000000001",
+    "count": 3
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.505 < 0.5850000000000001",
+    "count": 3
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.400 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-1.353 < 0.0",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.320 < 0.0",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.239 < 0.0",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.573 < 0.0",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.466 < 0.0",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.444 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.518 < 0.0",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.463 < 0.0",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.488 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.562 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.579 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.291 < 0.0",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.486 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "sharpe=1.519 < 2.0",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "sharpe=1.606 < 2.0",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.455 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.548 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "sharpe=1.501 < 2.0",
+    "count": 2
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=4 < 10",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.128 < 0.0",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.549 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "autre",
+    "detail": "win_rate=0.615 < 0.65",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.516 < 0.5850000000000001",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.412 < 0.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.500 < 0.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.295 < 0.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.336 < 0.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.962 < 0.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.307 < 0.0",
+    "count": 1
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.510 < 0.5850000000000001",
+    "count": 1
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.467 < 0.5850000000000001",
+    "count": 1
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.524 < 0.5850000000000001",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "sharpe=1.692 < 2.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "sharpe=1.618 < 2.0",
+    "count": 1
+   }
+  ]
+ },
+ "corpus_1d_old": {
+  "path": "D:/midas_v2/einherjar/outputs/corpus_1d.jsonl",
+  "malformed": 0,
+  "analysis": {
+   "file": "corpus_1d_old",
+   "records": 15,
+   "distinct_ids": 15,
+   "records_with_dup_id": 0,
+   "n_dup_id_groups": 0,
+   "exact_structural_sigs": 11,
+   "records_in_dup_sig_groups": 6,
+   "n_dup_sig_groups": 2,
+   "distinct_feature_sets": 10,
+   "feature_set_reuse_top": [
+    [
+     "quant_dynamic_var+quant_spectral_centroid+skewness_risk",
+     6
+    ],
+    [
+     "supertrend_signal",
+     1
+    ],
+    [
+     "momentum_10+parabolic_sar+pattern_bull_flag",
+     1
+    ],
+    [
+     "momentum_10+parabolic_sar",
+     1
+    ],
+    [
+     "kurtosis_risk+quant_rolling_kurtosis+trix_14",
+     1
+    ],
+    [
+     "kurtosis_risk+parabolic_sar+pattern_bull_flag",
+     1
+    ],
+    [
+     "kurtosis_risk+parabolic_sar",
+     1
+    ],
+    [
+     "chaikin_oscillator",
+     1
+    ],
+    [
+     "bb_width_signal+chaikin_oscillator",
+     1
+    ],
+    [
+     "Factor_Volume_Score+supertrend_signal",
+     1
+    ]
+   ],
+   "assets": {
+    "NVDA": 9,
+    "JPM": 6
+   },
+   "n_assets": 2,
+   "asset_classes": {
+    "stocks_tech": 9,
+    "stocks_value": 6
+   },
+   "timeframes": {
+    "1d": 15
+   },
+   "horizons": {
+    "60d": 7,
+    "10d": 6,
+    "20d": 2
+   },
+   "directions": {
+    "BUY": 15
+   },
+   "models": {
+    "XGBRegressor": 3,
+    "or_regimes": 2,
+    "or_regimes+veto": 2,
+    "XGBRegressor+cross": 2,
+    "twin_generalized": 2,
+    "XGBRegressor+family:volume_flow": 1,
+    "XGBRegressor+family:volume_flow+veto": 1,
+    "event_study": 1,
+    "event_study+veto": 1
+   },
+   "scopes": {
+    "asset": 15
+   },
+   "tf_x_horizon": [
+    {
+     "tf": "1d",
+     "horizon": "60d",
+     "n": 7
+    },
+    {
+     "tf": "1d",
+     "horizon": "10d",
+     "n": 6
+    },
+    {
+     "tf": "1d",
+     "horizon": "20d",
+     "n": 2
+    }
+   ],
+   "n_conditions_hist": {
+    "1": 1,
+    "2": 4,
+    "3": 10
+   },
+   "operators": {
+    ">=": 28,
+    "<": 8,
+    ">": 3
+   },
+   "feature_families": {
+    "quant": 13,
+    "other": 12,
+    "indicator": 9,
+    "pattern": 2,
+    "factor": 1
+   },
+   "top_features": {
+    "quant_spectral_centroid": 6,
+    "quant_dynamic_var": 6,
+    "skewness_risk": 6,
+    "chaikin_oscillator": 4,
+    "parabolic_sar": 4,
+    "kurtosis_risk": 3,
+    "momentum_10": 2,
+    "supertrend_signal": 2,
+    "pattern_bull_flag": 2,
+    "bb_width_signal": 1,
+    "trix_14": 1,
+    "quant_rolling_kurtosis": 1,
+    "Factor_Volume_Score": 1
+   },
+   "n_distinct_features": 13,
+   "metrics": {
+    "n_trades": {
+     "n": 15,
+     "min": 10,
+     "p10": 10,
+     "p25": 10,
+     "med": 12,
+     "p75": 15,
+     "p90": 23,
+     "max": 24,
+     "mean": 13.666666666666666
+    },
+    "win_rate": {
+     "n": 15,
+     "min": 0.6666666666666666,
+     "p10": 0.7333333333333333,
+     "p25": 0.7333333333333333,
+     "med": 0.7857142857142857,
+     "p75": 0.9,
+     "p90": 0.9,
+     "max": 0.9,
+     "mean": 0.8072118702553486
+    },
+    "sharpe_ratio": {
+     "n": 15,
+     "min": 2.1354195560703824,
+     "p10": 2.158778224655248,
+     "p25": 2.329304820267817,
+     "med": 2.6222988255132726,
+     "p75": 2.822038786976612,
+     "p90": 2.822038786976612,
+     "max": 2.822038786976612,
+     "mean": 2.562262717826988
+    },
+    "avg_net_return": {
+     "n": 15,
+     "min": 0.036578115598888926,
+     "p10": 0.036578115598888926,
+     "p25": 0.036578115598888926,
+     "med": 0.07099813462049749,
+     "p75": 0.14115297329413598,
+     "p90": 0.15713698157701939,
+     "max": 0.17187095392427534,
+     "mean": 0.09329632445327819
+    },
+    "total_return": {
+     "n": 15,
+     "min": 0.4263365277245954,
+     "p10": 0.4263365277245954,
+     "p25": 0.4263365277245954,
+     "med": 3.3960096303468514,
+     "p75": 4.939395748758249,
+     "p90": 5.013920635540257,
+     "max": 5.281415828824779,
+     "mean": 2.8449569044720535
+    },
+    "alpha": {
+     "n": 15,
+     "min": -1.5216949911777844,
+     "p10": -0.8945268762146146,
+     "p25": -0.26920937830520275,
+     "med": -0.26920937830520275,
+     "p75": 0.4186590653470139,
+     "p90": 0.4931839521290211,
+     "max": 0.7606791454135431,
+     "mean": -0.1150101110733047
+    },
+    "t_statistic": {
+     "n": 15,
+     "min": 2.8232356071527414,
+     "p10": 2.85411807458028,
+     "p25": 3.079571079977442,
+     "med": 3.4669380992312475,
+     "p75": 3.7310140602158572,
+     "p90": 3.7310140602158572,
+     "max": 3.7310140602158572,
+     "mean": 3.387564434017333
+    },
+    "p_value": {
+     "n": 15,
+     "min": 9.53552892370979e-05,
+     "p10": 9.53552892370979e-05,
+     "p25": 9.53552892370979e-05,
+     "med": 0.00026321155207986724,
+     "p75": 0.0010364944900083106,
+     "p90": 0.002157824407254205,
+     "max": 0.0023770810035608214,
+     "mean": 0.0006664384627258935
+    },
+    "max_drawdown": {
+     "n": 15,
+     "min": -0.24456795816641982,
+     "p10": -0.15913698157701955,
+     "p25": -0.15913698157701955,
+     "med": -0.15913698157701947,
+     "p75": 0.0,
+     "p90": 0.0,
+     "max": 0.0,
+     "mean": -0.0967789753654096
+    },
+    "profit_factor": {
+     "n": 15,
+     "min": 3.4760748426210215,
+     "p10": 4.908905094294076,
+     "p25": 5.219478996469738,
+     "med": 5.536712292375479,
+     "p75": 10.824181194870569,
+     "p90": 10.824181194870569,
+     "max": 10.824181194870569,
+     "mean": 7.4924466266162995
+    },
+    "avg_holding_bars": {
+     "n": 15,
+     "min": 7.2,
+     "p10": 7.2,
+     "p25": 7.2,
+     "med": 13.695652173913043,
+     "p75": 29.133333333333333,
+     "p90": 29.928571428571427,
+     "max": 34.25,
+     "mean": 18.551059351276745
+    },
+    "tp_hit_rate": {
+     "n": 15,
+     "min": 0.4,
+     "p10": 0.4,
+     "p25": 0.4,
+     "med": 0.5416666666666666,
+     "p75": 0.6,
+     "p90": 0.6666666666666666,
+     "max": 0.75,
+     "mean": 0.5281953071083506
+    },
+    "n_tp": {
+     "n": 15,
+     "min": 4,
+     "p10": 4,
+     "p25": 4,
+     "med": 9,
+     "p75": 9,
+     "p90": 12,
+     "max": 13,
+     "mean": 7.4
+    },
+    "n_sl": {
+     "n": 15,
+     "min": 1,
+     "p10": 1,
+     "p25": 1,
+     "med": 3,
+     "p75": 3,
+     "p90": 4,
+     "max": 6,
+     "mean": 2.4
+    },
+    "n_timeout": {
+     "n": 15,
+     "min": 0,
+     "p10": 2,
+     "p25": 3,
+     "med": 5,
+     "p75": 5,
+     "p90": 5,
+     "max": 7,
+     "mean": 3.8666666666666667
+    }
+   },
+   "n_sharpe_gt_15": 0,
+   "n_sharpe_gt_5": 0,
+   "n_win_rate_1": 0,
+   "n_lt5_trades": 0,
+   "n_alpha_neg": 9
+  }
+ },
+ "archive_1d_old": {
+  "path": "D:/midas_v2/einherjar/outputs/archive_1d.jsonl",
+  "malformed": 0,
+  "analysis": {
+   "file": "archive_1d_old",
+   "records": 8550,
+   "distinct_ids": 8550,
+   "records_with_dup_id": 0,
+   "n_dup_id_groups": 0,
+   "exact_structural_sigs": 6944,
+   "records_in_dup_sig_groups": 2652,
+   "n_dup_sig_groups": 1046,
+   "distinct_feature_sets": 4294,
+   "feature_set_reuse_top": [
+    [
+     "supertrend_signal",
+     65
+    ],
+    [
+     "volume_sma_20",
+     63
+    ],
+    [
+     "quant_max_drawdown",
+     47
+    ],
+    [
+     "quant_garch_volatility",
+     47
+    ],
+    [
+     "trix_14",
+     44
+    ],
+    [
+     "quant_dynamic_cvar",
+     42
+    ],
+    [
+     "chaikin_oscillator",
+     42
+    ],
+    [
+     "vwap",
+     40
+    ],
+    [
+     "quant_vol_persistence",
+     37
+    ],
+    [
+     "quant_dynamic_var+quant_max_drawdown",
+     36
+    ],
+    [
+     "vwap_signal",
+     33
+    ],
+    [
+     "quant_dynamic_var",
+     32
+    ]
+   ],
+   "assets": {
+    "multi": 1240,
+    "XOM": 740,
+    "JPM": 656,
+    "TSLA": 382,
+    "SP500": 359,
+    "USDCHF": 356,
+    "GOOGL": 347,
+    "AUDUSD": 343,
+    "EURGBP": 324,
+    "DAX40": 324,
+    "DOWJONES": 319,
+    "USDCAD": 305,
+    "MSFT": 298,
+    "NASDAQ100": 296,
+    "GBPUSD": 287,
+    "AMZN": 282,
+    "WTIUSD": 280,
+    "AAPL": 269,
+    "COPPER": 254,
+    "NVDA": 249,
+    "EURUSD": 220,
+    "BRENT": 187,
+    "XAUUSD": 117,
+    "USDJPY": 116
+   },
+   "n_assets": 24,
+   "asset_classes": {
+    "forex": 2309,
+    "stocks_tech": 2078,
+    "indices": 1672,
+    "commodities": 1095,
+    "stocks_growth": 740,
+    "stocks_value": 656
+   },
+   "timeframes": {
+    "1d": 8550
+   },
+   "horizons": {
+    "10d": 2185,
+    "60d": 2185,
+    "20d": 2094,
+    "5d": 2086
+   },
+   "directions": {
+    "BUY": 5340,
+    "SELL": 3210
+   },
+   "models": {
+    "XGBRegressor": 2707,
+    "XGBRegressor+cross": 2602,
+    "subgroup_discovery": 875,
+    "or_regimes": 331,
+    "XGBRegressor+family:trend": 300,
+    "XGBRegressor+family:momentum": 295,
+    "XGBRegressor+family:risk": 286,
+    "XGBRegressor+family:statistical": 285,
+    "XGBRegressor+family:volatility": 285,
+    "XGBRegressor+family:volume_flow": 273,
+    "event_study": 190,
+    "XGBRegressor+family:price_action": 79,
+    "XGBRegressor+family:market_structure": 36,
+    "XGBRegressor+family:market_regime": 6
+   },
+   "scopes": {
+    "asset": 8550
+   },
+   "tf_x_horizon": [
+    {
+     "tf": "1d",
+     "horizon": "10d",
+     "n": 2185
+    },
+    {
+     "tf": "1d",
+     "horizon": "60d",
+     "n": 2185
+    },
+    {
+     "tf": "1d",
+     "horizon": "20d",
+     "n": 2094
+    },
+    {
+     "tf": "1d",
+     "horizon": "5d",
+     "n": 2086
+    }
+   ],
+   "n_conditions_hist": {
+    "1": 814,
+    "2": 2345,
+    "3": 4869,
+    "4": 455,
+    "5": 37,
+    "6": 30
+   },
+   "operators": {
+    ">=": 11087,
+    "<": 8687,
+    "<=": 1405,
+    ">": 1077,
+    "==": 40
+   },
+   "feature_families": {
+    "quant": 8153,
+    "indicator": 7258,
+    "other": 3963,
+    "factor": 803,
+    "pattern": 336
+   },
+   "top_features": {
+    "quant_dynamic_var": 915,
+    "quant_max_drawdown": 762,
+    "quant_garch_volatility": 701,
+    "quant_permutation_entropy": 697,
+    "quant_vol_persistence": 635,
+    "atr_21": 625,
+    "vwap": 614,
+    "quant_dynamic_cvar": 583,
+    "trix_14": 565,
+    "adx_strength_signal": 547,
+    "volume_sma_20": 539,
+    "quant_spectral_centroid": 515,
+    "macd_signal": 477,
+    "bb_width": 475,
+    "quant_variance_ratio": 467,
+    "quant_kaufman_efficiency": 465,
+    "vortex_pos": 464,
+    "quant_shannon_entropy": 462,
+    "macd_line": 436,
+    "quant_dfa_exponent": 405,
+    "bb_percent": 366,
+    "chaikin_oscillator": 341,
+    "quant_hurst_exponent": 327,
+    "quant_rolling_skewness": 322,
+    "quant_autocorr_50": 305,
+    "obv": 300,
+    "quant_realized_vol_50": 294,
+    "quant_sample_entropy": 286,
+    "vwap_signal": 284,
+    "macd_histogram": 266
+   },
+   "n_distinct_features": 137,
+   "metrics": {
+    "n_trades": {
+     "n": 8550,
+     "min": 0,
+     "p10": 0,
+     "p25": 9,
+     "med": 22,
+     "p75": 52,
+     "p90": 101,
+     "max": 814,
+     "mean": 40.99122807017544
+    },
+    "win_rate": {
+     "n": 8550,
+     "min": 0.0,
+     "p10": 0.0,
+     "p25": 0.35294117647058826,
+     "med": 0.449438202247191,
+     "p75": 0.5306122448979592,
+     "p90": 0.625,
+     "max": 1.0,
+     "mean": 0.41806652500667013
+    },
+    "sharpe_ratio": {
+     "n": 8550,
+     "min": -145.0800971620271,
+     "p10": -1.2110117864607817,
+     "p25": -0.40630654746449185,
+     "med": 0.0,
+     "p75": 0.4685200769548426,
+     "p90": 1.1710803748680627,
+     "max": 108.77553611202298,
+     "mean": 0.016499781120242862
+    },
+    "avg_net_return": {
+     "n": 8550,
+     "min": -0.15913698157701953,
+     "p10": -0.011362787638339984,
+     "p25": -0.002422182110889083,
+     "med": 0.0,
+     "p75": 0.005791310360359854,
+     "p90": 0.02028744570203116,
+     "max": 0.3845814012492984,
+     "mean": 0.0031677168310966317
+    },
+    "total_return": {
+     "n": 8550,
+     "min": -0.9559401211184513,
+     "p10": -0.2841274092667322,
+     "p25": -0.1116990515953783,
+     "med": 0.0,
+     "p75": 0.10113936175313243,
+     "p90": 0.3387860984628168,
+     "max": 8.676512070442689,
+     "mean": 0.0547728752792135
+    },
+    "alpha": {
+     "n": 8550,
+     "min": -5.402258791511693,
+     "p10": -0.7605977843016686,
+     "p25": -0.4218596532840568,
+     "med": -0.16516169249270934,
+     "p75": 0.0121969057665261,
+     "p90": 0.17119383729828958,
+     "max": 8.676512070442689,
+     "mean": -0.2767604188993074
+    },
+    "t_statistic": {
+     "n": 8550,
+     "min": -13.152915586738256,
+     "p10": -1.3443549265277435,
+     "p25": -0.5690238163115762,
+     "med": 0.0,
+     "p75": 0.6344669864921614,
+     "p90": 1.2816438325521298,
+     "max": 197.47749696332832,
+     "mean": 0.12728445387832082
+    },
+    "p_value": {
+     "n": 8550,
+     "min": 1e-10,
+     "p10": 0.10006460510903692,
+     "p25": 0.26288805264256987,
+     "med": 1.0,
+     "p75": 1.0,
+     "p90": 1.0,
+     "max": 1.0,
+     "mean": 0.6551017429438692
+    },
+    "max_drawdown": {
+     "n": 8550,
+     "min": -0.963384006689762,
+     "p10": -0.42473724504834653,
+     "p25": -0.2769225967079189,
+     "med": -0.16057637149386436,
+     "p75": -0.08133676061997346,
+     "p90": 0.0,
+     "max": 0.0,
+     "mean": -0.19870610521992732
+    },
+    "profit_factor": {
+     "n": 8550,
+     "min": 0.0,
+     "p10": 0.0,
+     "p25": 0.6532758409526924,
+     "med": 0.9577523774357919,
+     "p75": 1.3509245962628782,
+     "p90": 2.0737887091955516,
+     "max": Infinity,
+     "mean": Infinity
+    },
+    "avg_holding_bars": {
+     "n": 8550,
+     "min": 0.0,
+     "p10": 0.0,
+     "p25": 4.151515151515151,
+     "med": 7.863247863247863,
+     "p75": 16.25,
+     "p90": 42.42857142857143,
+     "max": 60.0,
+     "mean": 14.925316817847628
+    },
+    "tp_hit_rate": {
+     "n": 8550,
+     "min": 0.0,
+     "p10": 0.0,
+     "p25": 0.0916030534351145,
+     "med": 0.15384615384615385,
+     "p75": 0.2222222222222222,
+     "p90": 0.30434782608695654,
+     "max": 1.0,
+     "mean": 0.16459356145173304
+    },
+    "n_tp": {
+     "n": 8550,
+     "min": 0,
+     "p10": 0,
+     "p25": 1,
+     "med": 4,
+     "p75": 9,
+     "p90": 16,
+     "max": 136,
+     "mean": 6.663040935672514
+    },
+    "n_sl": {
+     "n": 8550,
+     "min": 0,
+     "p10": 0,
+     "p25": 3,
+     "med": 8,
+     "p75": 20,
+     "p90": 37,
+     "max": 316,
+     "mean": 15.205146198830409
+    },
+    "n_timeout": {
+     "n": 8550,
+     "min": 0,
+     "p10": 0,
+     "p25": 3,
+     "med": 9,
+     "p75": 24,
+     "p90": 51,
+     "max": 388,
+     "mean": 19.123040935672513
+    }
+   },
+   "n_sharpe_gt_15": 174,
+   "n_sharpe_gt_5": 413,
+   "n_win_rate_1": 95,
+   "n_lt5_trades": 1344,
+   "n_alpha_neg": 6231
+  },
+  "rejection_reasons": [
+   {
+    "group": "BH/multi-test",
+    "detail": "BH REJECTED : non significatif apres correction multi-tests",
+    "count": 8331
+   },
+   {
+    "group": "n_trades",
+    "detail": "Holdout REJECTED : 3 trades < min_holdout_trades=5",
+    "count": 16
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.500 < 0.5850000000000001",
+    "count": 14
+   },
+   {
+    "group": "n_trades",
+    "detail": "Holdout REJECTED : 0 trades < min_holdout_trades=5",
+    "count": 13
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.549 < 0.5850000000000001",
+    "count": 13
+   },
+   {
+    "group": "n_trades",
+    "detail": "Holdout REJECTED : 4 trades < min_holdout_trades=5",
+    "count": 10
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.571 < 0.5850000000000001",
+    "count": 8
+   },
+   {
+    "group": "n_trades",
+    "detail": "Holdout REJECTED : 1 trades < min_holdout_trades=5",
+    "count": 7
+   },
+   {
+    "group": "n_trades",
+    "detail": "Holdout REJECTED : 2 trades < min_holdout_trades=5",
+    "count": 6
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.526 < 0.5850000000000001",
+    "count": 6
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : max_drawdown=0.465 > 0.44999999999999996",
+    "count": 6
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.524 < 0.5850000000000001",
+    "count": 5
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.556 < 0.5850000000000001",
+    "count": 4
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=2 < 16",
+    "count": 4
+   },
+   {
+    "group": "profit/shape",
+    "detail": "sharpe=1.849 < 2.0",
+    "count": 4
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.545 < 0.5850000000000001",
+    "count": 4
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.514 < 0.5850000000000001",
+    "count": 3
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.529 < 0.5850000000000001",
+    "count": 3
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.532 < 0.5850000000000001",
+    "count": 3
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.490 < 0.5850000000000001",
+    "count": 3
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.466 < 0.0",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.469 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.579 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.480 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.291 < 0.0",
+    "count": 2
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=3 < 10",
+    "count": 2
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=2 < 10",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.567 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.210 < 0.0",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.488 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "profit/shape",
+    "detail": "sharpe=1.501 < 2.0",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.519 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.536 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.531 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.457 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=9 < 10",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.527 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.477 < 0.5850000000000001",
+    "count": 2
+   },
+   {
+    "group": "autre",
+    "detail": "win_rate=0.600 < 0.65",
+    "count": 2
+   },
+   {
+    "group": "autre",
+    "detail": "win_rate=0.629 < 0.65",
+    "count": 2
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=3 < 19",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.534 < 0.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.441 < 0.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.344 < 0.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.309 < 0.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.560 < 0.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "Holdout REJECTED : sharpe=-0.105 < 0.0",
+    "count": 1
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.455 < 0.5850000000000001",
+    "count": 1
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.522 < 0.5850000000000001",
+    "count": 1
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.583 < 0.5850000000000001",
+    "count": 1
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.467 < 0.5850000000000001",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "sharpe=1.692 < 2.0",
+    "count": 1
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.581 < 0.5850000000000001",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "sharpe=1.762 < 2.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "sharpe=1.839 < 2.0",
+    "count": 1
+   },
+   {
+    "group": "holdout",
+    "detail": "Holdout REJECTED : win_rate=0.520 < 0.5850000000000001",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "sharpe=1.714 < 2.0",
+    "count": 1
+   },
+   {
+    "group": "profit/shape",
+    "detail": "superseceded by veto variant xgb_NVDA_1d_20d_0005_0001_9dd353_veto_6b51 (sharpe 2.14 -> 2.62)",
+    "count": 1
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=7 < 10",
+    "count": 1
+   },
+   {
+    "group": "n_trades",
+    "detail": "n_trades=4 < 10",
+    "count": 1
+   }
+  ]
+ },
+ "_files_sizes": {
+  "corpus": 2154947,
+  "archive": 51826453,
+  "corpus_1d": 19947,
+  "archive_1d": 16550010,
+  "corpus_1d_old": 26986,
+  "archive_1d_old": 16414265
+ }
+}

@@ -243,23 +243,36 @@ class FeaturePipeline:
         frame = self.compute_technical(df, asset, timeframe)
         report["colonnes_techniques"] = frame.width
 
-        quant_requis = besoin is None or any(c.startswith("quant_") for c in besoin)
-        if quant_requis:
-            frame = self.compute_quantitative(frame, asset, timeframe)
-        report["colonnes_apres_quant"] = frame.width
-
-        patterns_requis = besoin is None or any(
-            c.startswith(PATTERN_COLUMN_PREFIX) for c in besoin
-        )
-        if patterns_requis:
-            frame = self.compute_patterns(frame)
-        report["colonnes_apres_patterns"] = frame.width
-
         facteurs_requis = besoin is None or any(
             c.startswith("Factor_") or c.endswith(("_signal", "_norm"))
             or c in ("skewness_risk", "kurtosis_risk")
             for c in besoin
         )
+        # Les colonnes de facteurs sont CALCULEES a partir des colonnes quantitatives
+        # et des patterns : si le calcul cible demande un facteur, les etapes amont
+        # doivent tourner, sinon la colonne n'existe pas, l'evaluation de l'einher
+        # leve une exception avalee et l'einher devient muet sans aucune alerte.
+        # Mesure : sans cette dependance, `skewness_risk` manquait pour EURUSD/15m et
+        # DOWJONES/15m (4 einhers jamais declenchables).
+        quant_requis = (
+            besoin is None
+            or facteurs_requis
+            or any(c.startswith("quant_") for c in besoin)
+        )
+        patterns_requis = (
+            besoin is None
+            or facteurs_requis
+            or any(c.startswith(PATTERN_COLUMN_PREFIX) for c in besoin)
+        )
+
+        if quant_requis:
+            frame = self.compute_quantitative(frame, asset, timeframe)
+        report["colonnes_apres_quant"] = frame.width
+
+        if patterns_requis:
+            frame = self.compute_patterns(frame)
+        report["colonnes_apres_patterns"] = frame.width
+
         if with_factors and facteurs_requis:
             before = set(frame.columns)
             frame = self.compute_factors(frame)

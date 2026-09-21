@@ -15,16 +15,19 @@ export function Header() {
   // reglage local : pas d'API -> STALE, broker non connecte -> HORS LIGNE,
   // sinon DEMO/LIVE selon `environment`.
   const isLive = env.brokerConnected && env.environment === 'live'
-  const badge = freshness === 'stale'
-    ? 'STALE'
+  // Aucun mode n'est INVENTE : serveur muet -> INCONNU, broker absent -> HORS LIGNE.
+  const badge = freshness.etat === 'stale'
+    ? 'HORS LIGNE'
     : !env.brokerConnected
       ? 'HORS LIGNE'
-      : (env.environment ?? 'demo').toUpperCase()
-  const badgeColor = freshness === 'stale' || !env.brokerConnected
+      : env.environment
+        ? env.environment.toUpperCase()
+        : 'INCONNU'
+  const badgeColor = freshness.etat === 'stale' || !env.brokerConnected
     ? 'text-textMuted'
     : isLive ? 'text-danger' : 'text-frost'
   // Classes ecrites en clair : Tailwind ne genere que les classes litterales.
-  const dotColor = freshness === 'stale' || !env.brokerConnected
+  const dotColor = freshness.etat === 'stale' || !env.brokerConnected
     ? 'bg-textMuted'
     : isLive ? 'bg-danger' : 'bg-frost'
 
@@ -52,6 +55,7 @@ export function Header() {
               </span>
               <span
                 className={`text-[10px] font-mono uppercase tracking-wider ${badgeColor}`}
+                title={freshness.erreur ?? 'Etat fourni par le serveur'}
               >
                 {badge}
               </span>
@@ -97,6 +101,13 @@ export function Header() {
               <Settings size={13} />
               <span>Settings</span>
             </Link>
+            <a
+              href="/logout"
+              className="text-textMuted hover:text-danger transition-colors"
+              title="Fermer la session"
+            >
+              Logout
+            </a>
           </div>
         </div>
       </div>

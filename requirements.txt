@@ -1,0 +1,33 @@
+# Dependances d'execution d'EINHERJAR (chemin live).
+#
+# Versions epinglees = celles reellement exploitees et mesurees sur le compte de
+# demonstration (comparaison de features 268/268, cycles d'inference verifies).
+# Le paquet `ctrader-open-api` n'est PAS listee ici : il epingle protobuf==3.20.1
+# (aucune roue Python 3.11) alors que ses modules generes fonctionnent avec protobuf
+# moderne. Il s'installe donc sans ses dependances, apres twisted/protobuf :
+#     pip install -r requirements.txt
+#     pip install --no-deps -e .
+#     pip install --no-deps ctrader-open-api==0.9.2
+
+# Calcul de features (le coeur : 271 colonnes, Numba)
+polars==1.33.1
+numpy==1.26.4
+numba==0.61.2
+pandas==2.2.2
+dask==2025.7.0
+pyarrow==24.0.0
+
+# Persistance (journal, signaux, ordres, courbe d'equity)
+duckdb==1.4.1
+
+# API + dashboard
+fastapi==0.139.2
+uvicorn==0.51.0
+pydantic==2.12.5
+PyYAML==6.0.2
+aiohttp==3.12.14
+
+# Client cTrader Open API (transport)
+twisted==24.3.0
+protobuf==7.36.1
+service-identity==24.2.0

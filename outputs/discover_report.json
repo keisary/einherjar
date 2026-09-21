@@ -1,0 +1,12 @@
+{
+  "triplets_total": 116,
+  "triplets_ok": 116,
+  "triplets_err": 0,
+  "triplets_skipped": 0,
+  "einhers_admitted_total": 10,
+  "einhers_rejected_total": 12802,
+  "corpus_count": 16,
+  "archive_count": 12806,
+  "elapsed_seconds": 461.3602993488312,
+  "errors": []
+}

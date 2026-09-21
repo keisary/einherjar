@@ -10,7 +10,8 @@ export interface Position {
   slPrice: number;
   pnl: number;
   pnlPercent: number;
-  timeInPosition: string;
+  /** Duree de detention calculee par le serveur ; null si inconnue (afficher « — »). */
+  timeInPosition: string | null;
   einher: string;
 }
 
@@ -25,7 +26,8 @@ export interface Signal {
     name: string;
     met: boolean;
   }[];
-  triggered: boolean;
+  /** Etat fourni par le serveur ; null quand le detail des conditions n'est pas expose. */
+  triggered: boolean | null;
 }
 
 export interface Einher {
@@ -105,9 +107,13 @@ export interface HealthStatus {
 
 export interface BrokerStatus {
   name: string;
+  /** Horodatage fourni par le SERVEUR (jamais l'horloge du navigateur). */
   lastUpdate: string;
+  /** Aller-retour mesure cote navigateur, en ms. */
   latency: number;
   status: 'healthy' | 'warning' | 'critical';
+  /** Cause exacte du dernier echec broker, si le serveur en connait une. */
+  detail?: string;
 }
 
 export interface Metric {

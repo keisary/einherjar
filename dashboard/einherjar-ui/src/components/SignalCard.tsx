@@ -10,7 +10,10 @@ interface SignalCardProps {
 export function SignalCard({ signal }: SignalCardProps) {
   const metCount = signal.conditions.filter((c) => c.met).length
   const totalCount = signal.conditions.length
-  const isTriggered = metCount === totalCount
+  // L'etat vient du SERVEUR (`triggered`). Sans detail des conditions, une carte ne
+  // doit pas se declarer « declenchee » : l'ancienne regle `metCount === totalCount`
+  // donnait `0 === 0` sur une liste vide, donc toutes les cartes en etat actif.
+  const isTriggered = signal.triggered ?? (totalCount > 0 && metCount === totalCount)
 
   return (
     <motion.div

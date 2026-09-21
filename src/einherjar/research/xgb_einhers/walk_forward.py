@@ -42,12 +42,13 @@ def walk_forward_evaluate(
     folds: int = DEFAULT_FOLDS,
     min_folds_pct: float = DEFAULT_MIN_FOLDS_PCT,
     embargo_bars: int = 50,
+    signal_mask: np.ndarray | None = None,
 ) -> dict:
     """Evalue un Einher sur K fenetres walk-forward (expanding).
 
     Args:
-        backtest_fn : signature fn(einher, ohlcv_df, X, feature_names, costs_pct)
-            retournant un objet avec .metrics (EinherMetrics).
+        backtest_fn : signature fn(einher, ohlcv_df, X, feature_names, costs_pct,
+            signal_mask=None) retournant un objet avec .metrics (EinherMetrics).
         einher : Einher a evaluer.
         ohlcv_aligned : DataFrame polars aligne.
         X_aligned : ndarray aligne.
@@ -57,6 +58,8 @@ def walk_forward_evaluate(
         folds : nombre de folds.
         min_folds_pct : fraction minimale de folds rentables (defaut 0.6).
         embargo_bars : embargo entre fenetres.
+        signal_mask : P2-FIX (2026-09-11) masque bool des points de signal
+            autorises (5M sample) ; tranche par fold comme X_aligned.
 
     Returns:
         dict {
@@ -95,6 +98,7 @@ def walk_forward_evaluate(
             X_aligned[val_start:val_end],
             feature_names,
             costs_pct,
+            signal_mask[val_start:val_end] if signal_mask is not None else None,
         )
         m = result.metrics
         if m.n_trades == 0:

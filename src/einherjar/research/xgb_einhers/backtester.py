@@ -391,6 +391,7 @@ def backtest_einher(
     feature_names: list[str],
     costs_pct: float = 0.0010,
     atr_period: int = 14,
+    signal_mask: np.ndarray | None = None,
 ) -> BacktestResult:
     """Backtest complet d'un Einher sur OHLCV + features.
 
@@ -418,8 +419,14 @@ def backtest_einher(
     timestamps = ohlcv_df["timestamp"].to_numpy().astype(np.int64)
 
     # 1. Évaluer les conditions → mask
-    signal_mask = evaluate_signals(einher, X, feature_names)
-    signal_indices = np.where(signal_mask)[0]
+    signal_mask_all = evaluate_signals(einher, X, feature_names)
+    if signal_mask is not None:
+        # P2-FIX (2026-09-11) : en 5M avec sampling, signal_mask restreint les
+        # points de SIGNAL aux lignes echantillonnees, mais l'execution
+        # (amplitude, SL/TP, timeout) reste sur l'OHLCV BRUT -> l'horloge de
+        # trading est le temps reel, pas le nombre de lignes filtrees.
+        signal_mask_all = signal_mask_all & signal_mask
+    signal_indices = np.where(signal_mask_all)[0]
     # Exclure les signaux dont la fenêtre d'amplitude déborde
     valid_mask = signal_indices + einher.amplitude_bars < n
     signal_indices = signal_indices[valid_mask]

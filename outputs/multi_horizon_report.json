@@ -1,0 +1,57 @@
+{
+  "horizons": {
+    "2d": {
+      "exists": false,
+      "n_einhers": 0
+    },
+    "6h": {
+      "exists": true,
+      "n_einhers": 50,
+      "val": {
+        "sharpe_median": 1.9,
+        "win_rate_mean": 0.5195,
+        "profit_factor_mean": 1.75,
+        "n_trades_mean": 573.1
+      },
+      "holdout": {
+        "sharpe_median": 1.71,
+        "win_rate_mean": 0.522,
+        "n_einhers_with_trades": 50
+      },
+      "ratio_val_holdout_median": 0.909
+    },
+    "12h": {
+      "exists": true,
+      "n_einhers": 89,
+      "val": {
+        "sharpe_median": 1.55,
+        "win_rate_mean": 0.4971,
+        "profit_factor_mean": 1.46,
+        "n_trades_mean": 671.0
+      },
+      "holdout": {
+        "sharpe_median": 2.09,
+        "win_rate_mean": 0.5405,
+        "n_einhers_with_trades": 89
+      },
+      "ratio_val_holdout_median": 1.629
+    },
+    "1d": {
+      "exists": true,
+      "n_einhers": 95,
+      "val": {
+        "sharpe_median": 1.36,
+        "win_rate_mean": 0.4978,
+        "profit_factor_mean": 1.51,
+        "n_trades_mean": 481.7
+      },
+      "holdout": {
+        "sharpe_median": 1.45,
+        "win_rate_mean": 0.5122,
+        "n_einhers_with_trades": 95
+      },
+      "ratio_val_holdout_median": 0.989
+    }
+  },
+  "n_einhers_total": 234
+}

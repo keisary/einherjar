@@ -3,7 +3,7 @@ import { MetricCard } from '@/components/MetricCard'
 import { HealthIndicator } from '@/components/HealthIndicator'
 import { RuneDivider } from '@/components/RuneDivider'
 import { FrostGlow } from '@/components/FrostGlow'
-import { useBrokers, useAccount, useEnvironment } from '@/hooks/useData'
+import { useApiFreshness, useBrokers, useAccount, useEnvironment } from '@/hooks/useData'
 import { RuneCrumble } from '@/components/RuneCrumble'
 
 export function HealthPage() {
@@ -11,12 +11,14 @@ export function HealthPage() {
   const account = useAccount()
   const env = useEnvironment()
 
+  const sante = useApiFreshness()
+
   const healthyCount = brokers.filter((b) => b.status === 'healthy').length
   const warningCount = brokers.filter((b) => b.status === 'warning').length
   const criticalCount = brokers.filter((b) => b.status === 'critical').length
-  const avgLatency = brokers.length > 0
-    ? Math.round(brokers.reduce((s, b) => s + b.latency, 0) / brokers.length)
-    : 0
+  // Latence REELLEMENT mesuree cote navigateur ; `null` (jamais 0) quand aucune
+  // mesure n'a encore abouti, pour que la carte affiche « — ».
+  const avgLatency = sante.latence
 
   return (
     <motion.div
@@ -49,10 +51,24 @@ export function HealthPage() {
               <HealthIndicator
                 key={broker.name}
                 label={broker.name}
-                value={`${broker.latency}ms · ${broker.lastUpdate.slice(11, 19)}`}
+                value={
+                  broker.lastUpdate
+                    ? `${broker.latency ? `${broker.latency}ms` : '—'} · ${broker.lastUpdate.slice(11, 19)} UTC`
+                    : '—'
+                }
                 status={broker.status}
               />
             ))}
+            {brokers[0]?.detail && (
+              <div className="text-[10px] font-mono text-danger break-words">
+                {brokers[0].detail}
+              </div>
+            )}
+            {!brokers[0]?.detail && sante.erreur && (
+              <div className="text-[10px] font-mono text-danger break-words">
+                Dernier appel API en echec : {sante.erreur}
+              </div>
+            )}
           </div>
         </FrostGlow>
 
@@ -101,16 +117,54 @@ export function HealthPage() {
             )}
             <div className="flex items-center justify-between py-2 border-b border-border">
               <span className="text-[11px] text-textMuted uppercase tracking-wider">Inference Loop</span>
-              <span className="font-mono text-[12px] text-textMuted">STOPPED</span>
+              <span
+                className={`font-mono text-[12px] ${
+                  env.boucle === null
+                    ? 'text-textMuted'
+                    : env.boucle.running
+                      ? 'text-success'
+                      : 'text-danger'
+                }`}
+              >
+                {env.boucle === null ? '—' : env.boucle.running ? 'RUNNING' : 'STOPPED'}
+              </span>
             </div>
             <div className="flex items-center justify-between py-2 border-b border-border">
               <span className="text-[11px] text-textMuted uppercase tracking-wider">Last Cycle</span>
-              <span className="font-mono text-[12px] text-textMuted">--</span>
+              <span className="font-mono text-[12px] text-textMuted">
+                {env.boucle?.lastCycleAt
+                  ? `${env.boucle.lastCycleAt.slice(11, 19)} UTC · ${env.boucle.cycles ?? 0} cycle(s)`
+                  : '—'}
+              </span>
             </div>
+            {env.boucle && (
+              <div className="flex items-center justify-between py-2 border-b border-border">
+                <span className="text-[11px] text-textMuted uppercase tracking-wider">Dernier cycle</span>
+                <span className="font-mono text-[12px] text-textPrimary">
+                  {env.boucle.assets ?? 0} couples · {env.boucle.signals ?? 0} signaux ·{' '}
+                  {env.boucle.orders ?? 0} ordres · {env.boucle.errors ?? 0} erreur(s)
+                </span>
+              </div>
+            )}
+            {env.couverture && (
+              <div className="flex items-center justify-between py-2 border-b border-border">
+                <span className="text-[11px] text-textMuted uppercase tracking-wider">Couverture features</span>
+                <span
+                  className={`font-mono text-[12px] ${
+                    env.couverture.couplesEcartes ? 'text-danger' : 'text-success'
+                  }`}
+                >
+                  {env.couverture.couplesVerifies ?? 0} verifies
+                  {env.couverture.couplesEcartes ? ` · ${env.couverture.couplesEcartes} ecarte(s)` : ''}
+                </span>
+              </div>
+            )}
           </div>
-          <div className="mt-4 text-[9px] text-textMuted">
-            Start the scheduler via main.py to see live metrics.
-          </div>
+          {!env.boucle && (
+            <div className="mt-4 text-[9px] text-textMuted">
+              Aucun cycle publie : la boucle d'inference n'est pas demarree (main.py).
+            </div>
+          )}
         </FrostGlow>
       </div>
     </motion.div>

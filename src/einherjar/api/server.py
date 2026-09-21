@@ -10,10 +10,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from urllib.parse import parse_qs, quote
+
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+
+from einherjar.api import auth as auth_module
+from einherjar.config.credentials import charger_credentials
 
 from einherjar.brokers.broker_utils import ASSET_CLASS_MAP
 from einherjar.data.store import DataStore
@@ -61,19 +66,38 @@ def _load_corpus() -> dict[str, Any]:
 
 
 def _load_credentials() -> dict[str, Any] | None:
-    """Charge les identifiants seulement lorsqu'ils sont valides."""
-    if not CREDENTIALS_PATH.exists():
-        return None
-    try:
-        data = json.loads(CREDENTIALS_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    return data if isinstance(data, dict) else None
+    """Charge les identifiants cTrader (fichier local complete par l'environnement).
+
+    Sur un hebergement (Render, Docker), `config/credentials.json` est gitignore et
+    absent : les variables `EINHERJAR_*` prennent alors le relais.
+    """
+    return charger_credentials()
 
 
 def _format_datetime(value: Any) -> str:
     """Normalise les datetimes DuckDB pour le client JSON."""
     return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+
+def _duree_ecoulee(depuis: Any) -> str | None:
+    """Duree lisible depuis un horodatage (ex. "2h 15m"), ou None si inconnu.
+
+    Le dashboard affichait une chaine vide a la place de la duree de detention :
+    elle se calcule ici, a partir de l'horodatage reel d'ouverture.
+    """
+    if not hasattr(depuis, "timestamp"):
+        return None
+    try:
+        secondes = max(0, int((datetime.now(UTC) - depuis).total_seconds()))
+    except (TypeError, ValueError, OSError):
+        return None
+    heures, reste = divmod(secondes, 3600)
+    minutes = reste // 60
+    if heures >= 24:
+        return f"{heures // 24}j {heures % 24}h"
+    if heures:
+        return f"{heures}h {minutes:02d}m"
+    return f"{minutes}m"
 
 
 # Adaptateur cTrader DEJA connecte, impose par l'appelant (main.py). Le reactor
@@ -144,6 +168,123 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ---------------------------------------------------------------------------
+# Authentification
+# ---------------------------------------------------------------------------
+# Identifiants charges une seule fois (env ou mot de passe genere) et limiteur de
+# tentatives par adresse : le systeme trade un compte reel, l'application ne doit
+# pas etre lisible par quiconque connait l'URL.
+_IDENTIFIANTS: auth_module.Identifiants | None = None
+_LIMITEUR = auth_module.LimiteurTentatives()
+
+
+def _identifiants() -> auth_module.Identifiants:
+    """Identifiants de l'application (charges une fois par process)."""
+    global _IDENTIFIANTS
+    if _IDENTIFIANTS is None:
+        _IDENTIFIANTS = auth_module.charger_identifiants()
+    return _IDENTIFIANTS
+
+
+def _adresse_client(requete: Request) -> str:
+    """Adresse du client (proxy de l'hebergeur inclus) pour le limiteur."""
+    transmise = (requete.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    if transmise:
+        return transmise
+    return requete.client.host if requete.client else "inconnu"
+
+
+def _cible_sure(cible: str | None) -> str:
+    """Nettoie la destination post-connexion (redirection interne uniquement)."""
+    if not cible or not cible.startswith("/") or cible.startswith("//"):
+        return "/"
+    return cible
+
+
+@app.middleware("http")
+async def authentification(requete: Request, suivante: Any) -> Response:
+    """Protege l'application entiere sauf la page de connexion et la sonde publique.
+
+    Les appels API non authentifies recoivent un 401 JSON (le dashboard le voit),
+    les pages HTML une redirection vers la connexion.
+    """
+    chemin = requete.url.path
+    if auth_module.chemin_public(chemin) or chemin.startswith("/assets/"):
+        return await suivante(requete)
+    jeton = auth_module.extraire_cookie(requete.headers.get("cookie"))
+    if auth_module.lire_jeton(jeton, _identifiants()) is not None:
+        return await suivante(requete)
+    if chemin.startswith("/api/"):
+        return JSONResponse({"detail": "authentification requise"}, status_code=401)
+    cible = "/login" if chemin in ("/", "") else f"/login?suite={quote(chemin, safe='')}"
+    return RedirectResponse(cible, status_code=303)
+
+
+@app.get("/healthz")
+async def healthz() -> dict[str, str]:
+    """Sonde de sante PUBLIQUE (aucune donnee de compte) pour l'hebergeur."""
+    return {"status": "ok"}
+
+
+@app.get("/login")
+async def page_login(requete: Request) -> Response:
+    """Affiche la page de connexion (ou renvoie a l'application si deja connecte)."""
+    suite = _cible_sure(requete.query_params.get("suite"))
+    jeton = auth_module.extraire_cookie(requete.headers.get("cookie"))
+    if auth_module.lire_jeton(jeton, _identifiants()) is not None:
+        return RedirectResponse(suite, status_code=303)
+    return HTMLResponse(auth_module.page_connexion(None, suite))
+
+
+@app.post("/login")
+async def connexion(requete: Request) -> Response:
+    """Verifie le formulaire, pose le cookie de session signe, puis redirige."""
+    corps = (await requete.body()).decode("utf-8", errors="replace")
+    champs = {cle: valeurs[0] for cle, valeurs in parse_qs(corps).items()}
+    suite = _cible_sure(champs.get("suite"))
+    adresse = _adresse_client(requete)
+
+    if not _LIMITEUR.autorise(adresse):
+        logger.warning("AUTH: trop de tentatives depuis %s", adresse)
+        return HTMLResponse(
+            auth_module.page_connexion(
+                "Trop de tentatives. Reessayez dans quelques minutes.", suite
+            ),
+            status_code=429,
+        )
+
+    if not auth_module.verifier_identifiants(
+        champs.get("utilisateur", ""), champs.get("mot_de_passe", ""), _identifiants()
+    ):
+        _LIMITEUR.enregistrer_echec(adresse)
+        logger.warning("AUTH: echec de connexion depuis %s", adresse)
+        return HTMLResponse(
+            auth_module.page_connexion("Identifiant ou mot de passe incorrect.", suite),
+            status_code=401,
+        )
+
+    _LIMITEUR.reinitialiser(adresse)
+    reponse = RedirectResponse(suite, status_code=303)
+    reponse.set_cookie(
+        auth_module.COOKIE_NAME,
+        auth_module.creer_jeton(_identifiants()),
+        max_age=auth_module.DUREE_SESSION_S,
+        httponly=True,
+        samesite="lax",
+        secure=auth_module.souvenir_sure(requete),
+        path="/",
+    )
+    logger.info("AUTH: connexion reussie (%s)", adresse)
+    return reponse
+
+
+@app.get("/logout")
+async def deconnexion() -> Response:
+    """Efface la session et renvoie vers la page de connexion."""
+    reponse = RedirectResponse("/login", status_code=303)
+    reponse.delete_cookie(auth_module.COOKIE_NAME, path="/")
+    return reponse
+
 
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
@@ -169,6 +310,10 @@ async def health() -> dict[str, Any]:
             "corpus": "ok" if CORPUS_PATH.exists() else "missing",
             "corpusEinhers": len(getattr(app.state, "corpus", {}).get("entries", [])),
             "corpusUnivers": len(getattr(app.state, "corpus", {}).get("univers", {})),
+            # Etat REEL de la boucle d'inference (publie par le scheduler) et
+            # couverture des features : sans cela le dashboard doit inventer.
+            "loop": app.state.store.get_state("loop"),
+            "couverture": app.state.store.get_state("couverture"),
             "ctrader": broker,
         },
     }
@@ -248,7 +393,7 @@ async def positions() -> list[dict[str, Any]]:
             else 0.0,
             "einher": position.einher_name,
             "openedAt": _format_datetime(position.opened_at),
-            "timeInPosition": "",
+            "timeInPosition": _duree_ecoulee(position.opened_at),
         }
         for position in app.state.store.get_positions()
     ]
@@ -260,6 +405,7 @@ async def forming() -> list[dict[str, Any]]:
     rows = app.state.store.get_recent_signals()
     return [
         {
+            "id": f"signal-{index}",
             "asset": row["asset"],
             "timeframe": row["timeframe"],
             "direction": row["direction"].upper(),
@@ -269,7 +415,7 @@ async def forming() -> list[dict[str, Any]]:
             "triggered": row["executed"],
             "timestamp": _format_datetime(row["timestamp"]),
         }
-        for row in rows
+        for index, row in enumerate(rows)
     ]
 
 

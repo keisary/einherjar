@@ -218,6 +218,7 @@ def load_multi_asset_split(
     val_ratio: float = 0.2,
     holdout_ratio: float = 0.2,
     embargo_bars: int = 50,
+    horizon_bars: int = 48,
 ) -> MultiAssetSplit:
     """Sprint 3.4 FIX BUG-03 : split par actif PUIS concat des splits separes.
 
@@ -265,7 +266,10 @@ def load_multi_asset_split(
     # 2. Pour chaque actif : split temporel INDIVIDUEL
     # On split en X_global (=X sans filtrer valid), y, valid_mask.
     # Puis on applique valid_mask AVANT temporal_split pour eviter leakage.
-    horizon_bars_est = 48  # pour 2d, peut etre ajuste
+    # P3-FIX (2026-09-11) : l'embargo multi suit l'horizon REEL du triplet
+    # (ex. 1d/60d -> purger 60 barres, 5m/15m -> 15 barres), pas une constante.
+    # temporal_split applique max(embargo_bars, horizon_bars) par actif.
+    horizon_bars_est = horizon_bars
     train_Xs, train_ys, val_Xs, val_ys, holdout_Xs, holdout_ys = [], [], [], [], [], []
 
     for d in loaded_list:

@@ -6,6 +6,8 @@
   "default_cooldown": "4h",
   "default_sl_atr_mult": 1.5,
   "default_tp_atr_mult": 2.5,
+  "_live_exclude_assets_comment": "Actifs exclus de la boucle live. Motif mesure sur le compte de demonstration : pour le crypto, les bougies (trendbars) et les cotations (spots) divergent (close 81 300 vs cotation 85 159) — un TP/SL calcule sur la bougie tombe du mauvais cote du marche et le broker refuse l'ordre. A reevaluer quand les deux flux concorderont.",
+  "live_exclude_assets": ["BTCUSD", "ETHUSD"],
   "risk_limits": {
     "exposure_total_pct": 0.60,
     "exposure_asset_pct": 0.20,

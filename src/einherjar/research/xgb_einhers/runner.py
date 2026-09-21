@@ -73,9 +73,11 @@ from .multiple_testing import apply_bh_to_einhers
 from .path_extractor import extract_paths
 from .paths import (
     ARCHIVE_PATH,
+    COMPILED_DIR,
     CORPUS_PATH,
     DISCOVER_STATE_PATH,
     OUTPUTS_DIR,
+    REPO_ROOT,
     resolve_output,
 )
 from .types import Einher
@@ -93,6 +95,113 @@ def make_triplet_id(asset: str, asset_class: str, scope: str, timeframe: str, ho
 
     raw = f"{asset}|{asset_class}|{scope}|{timeframe}|{horizon}"
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def _git_head() -> str:
+    """Hash court du commit courant du repo einherjar (best effort)."""
+    try:
+        import subprocess
+
+        r = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if r.returncode == 0:
+            return r.stdout.strip()
+    except Exception:
+        pass
+    return ""
+
+
+def _data_fingerprint() -> str:
+    """Empreinte du schema de donnees compilees (metadata.json par classe/TF).
+
+    P9-FIX (2026-09-11) : sert a figer la version de DONNEES d'un run.
+    Hash stable : trie les metadata.json sous COMPILED_DIR et hache leur
+    contenu. Un changement de features/horizons change l'empreinte -> un run
+    n'est comparable qu'a un run de meme data_fingerprint.
+    """
+    import hashlib
+
+    h = hashlib.sha256()
+    try:
+        metas = sorted(COMPILED_DIR.rglob("metadata.json"))
+        for p in metas:
+            rel = p.relative_to(COMPILED_DIR).as_posix()
+            h.update(rel.encode("utf-8"))
+            h.update(b"\x00")
+            h.update(p.read_bytes())
+    except Exception:
+        return ""
+    return h.hexdigest()[:16]
+
+
+def _sha256_file(path: Path) -> str:
+    """SHA-256 d'un fichier (corpus/archive) pour le manifest."""
+    import hashlib
+
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+    except Exception:
+        return ""
+
+
+def _write_run_manifest(
+    *, command: str, args: Any, corpus_file: Path, archive_file: Path,
+    corpus_n: int, archive_n: int, n_ok: int, n_err: int, n_skipped: int,
+    n_admitted_total: int, n_rejected_total: int, errors: list,
+    extra: dict | None = None,
+) -> Path:
+    """Ecrit un manifest immuable par run (P9, reproductibilite).
+
+    Contenu : commit git, empreinte des donnees compilees, config, hashes des
+    sorties et compteurs. Nomme par timestamp -> jamais ecrase ; chaque run a
+    son manifest (ne pas melanger les generations).
+    """
+    from datetime import datetime
+
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+    manifest: dict = {
+        "run_id": run_id,
+        "command": command,
+        "git_commit": _git_head(),
+        "data_fingerprint": _data_fingerprint(),
+        "config": {
+            k: getattr(args, k, None)
+            for k in ("asset_classes", "timeframes", "horizons", "max_assets",
+                      "workers", "limit", "debug", "n_estimators", "max_depth",
+                      "max_paths", "min_score", "min_holdout_trades",
+                      "sampling", "walk_forward_folds", "per_class",
+                      "global_scope", "per_asset",
+                      "no_pattern_miner", "no_or_regimes", "no_veto",
+                      "no_cross_family", "no_family_models", "no_twin_merge")
+        },
+        "outputs": {
+            "corpus": str(corpus_file),
+            "archive": str(archive_file),
+            "corpus_sha256": _sha256_file(corpus_file),
+            "archive_sha256": _sha256_file(archive_file),
+            "corpus_count": corpus_n,
+            "archive_count": archive_n,
+        },
+        "result": {
+            "triplets_ok": n_ok,
+            "triplets_err": n_err,
+            "triplets_skipped": n_skipped,
+            "einhers_admitted_total": n_admitted_total,
+            "einhers_rejected_total": n_rejected_total,
+            "errors": errors[:10],
+        },
+    }
+    if extra:
+        manifest.update(extra)
+    man_dir = OUTPUTS_DIR / "manifests"
+    man_dir.mkdir(parents=True, exist_ok=True)
+    out = man_dir / f"run_{command}_{run_id}.json"
+    with open(out, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, ensure_ascii=False)
+    logger.info("  Manifest de run : %s", out)
+    return out
 
 
 def _load_done_triplets(state_path=None) -> set[str]:
@@ -321,8 +430,9 @@ def run_pipeline(
     enable_cross_family: bool = True,  # 2026-08-28 : modele inter-familles (sans Factor_*)
     enable_family_models: bool = True,  # 2026-08-28 : 1 modele XGBoost par famille economique
     enable_twin_merge: bool = True,  # 2026-08-29 : generalisation des quasi-jumeaux admis
-    workers: int = 6,  # Nombre de workers paralleles (pour decision GPU)
-) -> dict[str, Any]:
+        workers: int = 6,  # Nombre de workers paralleles (pour decision GPU)
+        sampling_5m: str = "volume",  # 2026-09-09 : mode de sampling 5m (volume|dollar|both|none)
+    ) -> dict[str, Any]:
     """Pipeline complet XGBoost -> Einher (single ou multi-actif).
 
     Args:
@@ -403,12 +513,17 @@ def run_pipeline(
         # TOUS les arrays de tous les actifs juste pour lire feature_names et
         # horizons, qui sont identiques entre actifs). On lit metadata.json du
         # primary : RAM peak divisee par ~2 en scope market/general.
+        # CONTRAT-1 (2026-09-12) : on ne lit ici QUE les horizons. load_feature_meta
+        # renvoie les noms BRUTS du metadata (246) alors que load_xy charge 213
+        # colonnes utilisables (filtres OHLCV + taxonomie, ordre different) :
+        # utiliser ces noms comme feature_names desalignait le mode multi
+        # (matrices 213 col. vs noms 246) -> "index 213 is out of bounds" au
+        # backtest multi. Les feature_names sont repris APRES load_multi_asset_split.
         from .data_loader import load_feature_meta
 
-        feature_names_full, horizons = load_feature_meta(
+        _, horizons = load_feature_meta(
             primary_asset, timeframe, _primary_class
         )
-        feature_names = feature_names_full
         horizon_idx = horizons.index(horizon_str)
         horizon_bars = parse_horizon(horizon_str, timeframe)
         # FIX BUG-03 : split par actif PUIS concat (pas de leakage cross-actif)
@@ -421,8 +536,15 @@ def run_pipeline(
             val_ratio=0.2,
             holdout_ratio=0.2,
             embargo_bars=embargo_bars,
+            # P3-FIX (2026-09-11) : embargo multi aligne sur l'horizon REEL
+            # du triplet (ex. 1d/60d -> 60 barres, 5m/15m -> 15 barres).
+            horizon_bars=horizon_bars,
         )
-        # Stocker les donnees du split
+        # CONTRAT-1 (suite) : feature_names = colonnes REELLEMENT chargees par
+        # le split (meme contrat que single-asset : 213 noms alignes sur X).
+        feature_names_full = list(multi_split.feature_names)
+        feature_names = feature_names_full
+                # Stocker les donnees du split
         X_global_train = multi_split.train_X
         y_global_train = multi_split.train_y
         X_global_val = multi_split.val_X
@@ -469,36 +591,82 @@ def run_pipeline(
             horizons,
         )
 
-    # SMART-5M (2026-08-29) : filtre volume pour les barres 5m (single).
-    # Le 5M a 37k-1.17M lignes dominees par le bruit. On garde les barres
-    # a volume significatif (mult x moyenne glissante) : reduction ~50-70%
-    # du bruit sans changer la resolution temporelle (les horizons restent
-    # valides en barres 5m). Memes indices appliques a X_global, Y, ohlcv.
-    # NOTE : le dollar-bar (echantillonnage par $ traded) necessite de
-    # recalculer le target - reserve a une iteration ulterieure.
+    # P2-FIX (2026-09-11) : masque des points de signal autorises en 5M.
+    # Defini au niveau de la fonction : la closure _backtest_full doit toujours
+    # le voir (None = pas de restriction de signal), y compris en multi/global.
+    _signal_mask_5m: np.ndarray | None = None
+
+    # SMART-5M (2026-08-29, complete 2026-09-09) : sampling intelligent des
+    # barres 5m (single). Le 5M a 37k-1.17M lignes dominees par le bruit de
+    # microstructure. Deux modes complementaires (flag --sampling) :
+    #   volume : garde les barres volume > 1.5x moyenne glissante (Lopez de
+    #            Prado) - reduction ~50-70% du bruit.
+    #   dollar : barres "tous les $N echanges" (Lopez de Prado 2018 Ch.2) -
+    #            reduction 5-20x, returns quasi-IID, chaque barre = meme
+    #            quantite d'information. C'est l'insight #1 de la recherche 5M.
+    #   both   : volume PUIS dollar (intersection).
+    # Les deux modes conservent un SOUS-ENSEMBLE d'indices de barres 5m : la
+    # target Y_ret[:, h] reste valide (calquee sur les timestamps reels, pas
+    # sur la position d'index), donc AUCUN recalcul de target n'est requis -
+    # contrairement a la NOTE initiale (trop prudente). Le volume filter
+    # deja actif le prouvait. Memes indices appliques a X, Y, ohlcv, ts.
     if timeframe == "5m" and not multi:
         try:
-            from .smart_sampling import filter_volume_indices
+            from .smart_sampling import (
+                combine_indices,
+                dollar_bars_indices,
+                filter_volume_indices,
+            )
 
-            logger.info("[1b/10] SMART-5M : filtre volume (5m) ...")
+            _mode = (sampling_5m or "volume").lower()
             _vols = ohlcv_aligned["volume"].to_numpy().astype(np.float64)
-            _keep_idx = filter_volume_indices(_vols, volume_mult=1.5)
-            if 100 <= len(_keep_idx) < X_aligned_full.shape[0]:
-                _keep_list = _keep_idx.tolist()
-                # Appliquer les memes indices a toutes les matrices de lignes
-                X_aligned_full = X_aligned_full[_keep_idx]
-                ohlcv_aligned = ohlcv_aligned.take(_keep_list)
-                ts_aligned = ts_aligned[_keep_idx]
-                if not multi:
-                    loaded.X = loaded.X[_keep_idx]
-                    loaded.Y_dir = loaded.Y_dir[_keep_idx]
-                    loaded.Y_ret = loaded.Y_ret[_keep_idx]
-                    X_global = loaded.X
-                    Y_dir_global = loaded.Y_dir
-                    Y_ret_global = loaded.Y_ret
+            _closes = ohlcv_aligned["close"].to_numpy().astype(np.float64)
+            _ts = ts_aligned.to_numpy() if hasattr(ts_aligned, "to_numpy") else ts_aligned
+
+            _keep_idx = None
+            if _mode in ("volume", "both"):
+                logger.info("[1b/10] SMART-5M : filtre volume (5m) ...")
+                _keep_idx = filter_volume_indices(_vols, volume_mult=1.5)
+            if _mode in ("dollar", "both"):
+                logger.info("[1b/10] SMART-5M : dollar bars (5m) ...")
+                _dollar_idx = dollar_bars_indices(_ts, _closes, _vols)
+                if _keep_idx is None:
+                    _keep_idx = _dollar_idx
+                else:
+                    _keep_idx = combine_indices(_keep_idx, _dollar_idx)
+
+            if _keep_idx is not None and 100 <= len(_keep_idx) < X_aligned_full.shape[0]:
+                # P2-FIX (2026-09-11) : on NE sous-echantillonne PAS les
+                # donnees de BACKTEST (X_aligned_full / ohlcv_aligned / ts
+                # restent sur l'horloge brute 5m). Seules les matrices
+                # d'ENTRAINEMENT sont filtrees. Le masque _signal_mask_5m
+                # restreint les points de signal aux lignes echantillonnees
+                # pendant que l'execution (amplitude/SL/TP/timeout/embargo)
+                # reste sur les barres brutes. Avant : duree et embargo
+                # etaient comptees en lignes filtrees -> metriques 5M non
+                # interpretables (contrat de temps casse).
+                _signal_mask_5m = np.zeros(X_aligned_full.shape[0], dtype=bool)
+                _signal_mask_5m[_keep_idx] = True
+                # FIX 5M-FROZEN (2026-09-12) : LoadedData est @dataclass(frozen) ->
+                # muter loaded.X/... levait FrozenInstanceError et le filtre ne
+                # s'appliquait JAMAIS. On reconstruit une copie filtree.
+                from dataclasses import replace as _dc_replace
+
+                loaded = _dc_replace(
+                    loaded,
+                    timestamps=loaded.timestamps[_keep_idx],
+                    X=loaded.X[_keep_idx],
+                    Y_dir=loaded.Y_dir[_keep_idx],
+                    Y_ret=loaded.Y_ret[_keep_idx],
+                    Y_hor=loaded.Y_hor[_keep_idx],
+                )
+                X_global = loaded.X
+                Y_dir_global = loaded.Y_dir
+                Y_ret_global = loaded.Y_ret
                 logger.info(
-                    "  SMART-5M : %d -> %d barres (reduction %.1fx)",
-                    loaded.n_samples, len(_keep_idx),
+                    "  SMART-5M (%s) : %d -> %d barres (reduction %.1fx) ; "
+                    "backtest sur OHLCV brut + masque signal",
+                    _mode, loaded.n_samples, len(_keep_idx),
                     loaded.n_samples / max(1, len(_keep_idx)),
                 )
             else:
@@ -751,6 +919,16 @@ def run_pipeline(
                 if split_holdout_X is not None:
                     split_holdout_X = split_holdout_X[:, _ic_idx]
                 feature_names = _ic_names
+                # P1-FIX (2026-09-11) : aligner AUSSI les matrices de backtest
+                # sur la meme selection IC. Sans ce slicing, feature_names
+                # reduit est evalue contre X_aligned pleine largeur -> chaque
+                # condition tombe sur la MAUVAISE colonne -> metriques 1D
+                # invalides (contrat colonnes entrainees == backtestees casse).
+                X_aligned = X_aligned[:, _ic_idx]
+                if multi_per_asset:
+                    multi_per_asset = [
+                        (_oa, _Xa[:, _ic_idx]) for (_oa, _Xa) in multi_per_asset
+                    ]
                 logger.info(
                     "  IC-REDUCE : %d features gardees pour le 1D",
                     len(feature_names),
@@ -1021,6 +1199,14 @@ def run_pipeline(
     # trades rejetait 27/68 candidats qui avaient 1-29 trades - dont certains
     # rentables. On garde un plancher bas (10) et on plafonne au nombre de
     # trades PHYSIQUEMENT possibles sur la fenetre (1 signal par amplitude).
+    #
+    # DOC DECISION (2026-09-13, Jovanny) : ce seuil adaptatif est ASSUME, on ne
+    # change pas son comportement. Consequence documentee : sur les horizons LONGS
+    # (ex. 1d/20d, 1d/60d, 4h/10d), le plancher descend a 10 et le corpus admet
+    # des einhers a 10-30 trades ("petit n"). C'est voulu pour ne pas tuer le 1D
+    # (penurie structurelle de barres, cf. FDR-adaptatif) ; ces entrees sont
+    # marquees a l'export comme petit echantillon, PAS comme un bug. A l'inverse,
+    # un seuil fixe de 30 partout biaisait la recherche contre les horizons longs.
     n_val_bars = max(0, X_aligned.shape[0] - int(X_aligned.shape[0] * 0.6) - max(50, horizon_bars))
     max_possible_trades = max(1, n_val_bars // max(1, horizon_bars))
     adaptive_min_trades = int(min(30, max(10, max_possible_trades // 10)))
@@ -1083,6 +1269,7 @@ def run_pipeline(
         """Backtest fenetre val + holdout d'un Einher (single ou multi)."""
         n_aligned = X_aligned.shape[0] if n_aligned_override is None else n_aligned_override
         emb = max(50, horizon_bars)
+        _sm = _signal_mask_5m  # P2-FIX : masque des points de signal 5M (None sinon)
         if multi and multi_per_asset and n_aligned > 0:
             # FIX BUG-1 : en multi, backtest sur TOUT l'univers (multi_per_asset)
             # + holdout multi (union sur tous actifs).
@@ -1107,12 +1294,14 @@ def run_pipeline(
                 result = backtest_einher(
                     einher=einher, ohlcv_df=ohlcv_aligned[_vs:_ve],
                     X=X_aligned[_vs:_ve], feature_names=feature_names, costs_pct=costs,
+                    signal_mask=(_sm[_vs:_ve] if _sm is not None else None),
                 )
             else:
                 # Pas assez de bougies pour le val avec embargo
                 result = backtest_einher(
                     einher=einher, ohlcv_df=ohlcv_aligned[:0],
                     X=X_aligned[:0], feature_names=feature_names, costs_pct=costs,
+                    signal_mask=None,
                 )
             # FIX HOLDOUT (2026-08-27) : backtest holdout en single-asset
             # (avant : holdout_metrics restait None -> check holdout saute)
@@ -1122,6 +1311,7 @@ def run_pipeline(
                     h_result = backtest_einher(
                         einher=einher, ohlcv_df=ohlcv_aligned[_hs:],
                         X=X_aligned[_hs:], feature_names=feature_names, costs_pct=costs,
+                        signal_mask=(_sm[_hs:] if _sm is not None else None),
                     )
                     einher = set_einher_holdout_metrics(einher, h_result.metrics)
         else:
@@ -1333,23 +1523,47 @@ def run_pipeline(
                 )
                 if res_v is not None:
                     cand_v, info_v = res_v
-                    if archive_store is not None:
-                        archive_store.add(
-                            e_adm,
-                            rejection_reason=(
-                                f"superseceded by veto variant {cand_v.id} "
-                                f"(sharpe {info_v['sharpe_before']:.2f} -> "
-                                f"{info_v['sharpe_after']:.2f})"
-                            ),
-                            scope=runner_scope or scope or ("market" if multi else "asset"),
-                            asset=e_adm.universe.get("asset", ""),
-                            asset_class=e_adm.universe.get("asset_class", ""),
-                            timeframe=e_adm.universe.get("timeframe", ""),
-                            horizon=e_adm.universe.get("horizon", ""),
-                        )
-                    if corpus_store is not None:
-                        corpus_store.add(cand_v)
-                    replaced.append(cand_v)
+                    # FIX VETO-ADMISSION (2026-09-13, decision Jovanny) :
+                    # avant ce correctif, la variante veto remplacait l'original
+                    # dans le corpus SANS re-backtest complet ni re-check
+                    # d'admission -> des variantes sous les seuils (win_rate<0.65,
+                    # trades<30, ...) entraient dans le corpus. On re-backteste
+                    # val+holdout via le circuit complet (_backtest_full) puis on
+                    # re-applique check_admission. Si la variante echoue, on
+                    # GARDE l'original admis et on archive la variante avec la
+                    # raison du rejet.
+                    cand_v = _backtest_full(cand_v)
+                    passed_v, reason_v = check_admission(cand_v, admission_cfg, bh_rejected=True)
+                    if passed_v:
+                        if archive_store is not None:
+                            archive_store.add(
+                                e_adm,
+                                rejection_reason=(
+                                    f"superseceded by veto variant {cand_v.id} "
+                                    f"(sharpe {info_v['sharpe_before']:.2f} -> "
+                                    f"{info_v['sharpe_after']:.2f})"
+                                ),
+                                scope=runner_scope or scope or ("market" if multi else "asset"),
+                                asset=e_adm.universe.get("asset", ""),
+                                asset_class=e_adm.universe.get("asset_class", ""),
+                                timeframe=e_adm.universe.get("timeframe", ""),
+                                horizon=e_adm.universe.get("horizon", ""),
+                            )
+                        if corpus_store is not None:
+                            corpus_store.add(cand_v)
+                        replaced.append(cand_v)
+                    else:
+                        if archive_store is not None:
+                            archive_store.add(
+                                cand_v,
+                                rejection_reason=f"veto variant REJECTED: {reason_v}",
+                                scope=runner_scope or scope or ("market" if multi else "asset"),
+                                asset=e_adm.universe.get("asset", ""),
+                                asset_class=e_adm.universe.get("asset_class", ""),
+                                timeframe=e_adm.universe.get("timeframe", ""),
+                                horizon=e_adm.universe.get("horizon", ""),
+                            )
+                        replaced.append(e_adm)
                 else:
                     replaced.append(e_adm)
             einhers_admitted = replaced
@@ -1408,6 +1622,14 @@ def run_pipeline(
     # rentables dans >=60% des K fenetres walk-forward. Critique pour le 1d
     # (peu de donnees, un seul holdout = biais de regime). Pour les autres TF,
     # walk_forward_folds > 1 active aussi la validation.
+    if walk_forward_folds > 1 and einhers_admitted and not debug and multi:
+        # P4-FIX (2026-09-11) : mode explicite — le filtre post-hoc est
+        # single-asset uniquement ; on le signale au lieu de l'ignorer en silence.
+        logger.warning(
+            "  Walk-forward demande (%d folds) mais scope multi/global non "
+            "supporté (filtre post-hoc single-asset) : ignoré.",
+            walk_forward_folds,
+        )
     if walk_forward_folds > 1 and einhers_admitted and not debug and not multi:
         try:
             from .walk_forward import walk_forward_evaluate
@@ -1424,8 +1646,8 @@ def run_pipeline(
             survivors: list[Einher] = []
             for e_adm in einhers_admitted:
                 wf = walk_forward_evaluate(
-                    backtest_fn=lambda ein, o, x, fn, c: backtest_einher(
-                        ein, o, x, fn, costs_pct=c
+                    backtest_fn=lambda ein, o, x, fn, c, sm=None: backtest_einher(
+                        ein, o, x, fn, costs_pct=c, signal_mask=sm
                     ),
                     einher=e_adm,
                     ohlcv_aligned=ohlcv_aligned,
@@ -1436,6 +1658,7 @@ def run_pipeline(
                     folds=walk_forward_folds,
                     min_folds_pct=0.60,
                     embargo_bars=50,
+                    signal_mask=_signal_mask_5m,
                 )
                 if wf.get("passed"):
                     survivors.append(e_adm)
@@ -1592,6 +1815,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         enable_cross_family=not args.no_cross_family,
         enable_family_models=not args.no_family_models,
         enable_twin_merge=not args.no_twin_merge,
+        sampling_5m=args.sampling,
     )
     # Resume JSON
     asset_tag = "_".join(assets) if len(assets) <= 3 else f"multi_{len(assets)}"
@@ -1648,6 +1872,10 @@ def _discover_one_triplet(
     min_holdout_trades = triplet.get("min_holdout_trades", 5)
     multi_assets = triplet.get("multi_assets", None)
     n_workers = triplet.get("workers", 1)
+    sampling_5m = triplet.get("sampling_5m", "volume")
+    # P4-FIX (2026-09-11) : propage le nombre de folds walk-forward dans les
+    # triplets de discovery (avant : jamais transmis -> toujours inactif).
+    walk_forward_folds = triplet.get("walk_forward_folds", 1)
 
     try:
         # FIX 2026-08-21 (prob. 1) : les actifs sont deja la bonne selection
@@ -1697,6 +1925,8 @@ def _discover_one_triplet(
             enable_cross_family=triplet.get("enable_cross_family", True),
             enable_family_models=triplet.get("enable_family_models", True),
             enable_twin_merge=triplet.get("enable_twin_merge", True),
+            sampling_5m=sampling_5m,
+            walk_forward_folds=walk_forward_folds,
         )
         # CKPT-01 : checkpoint immediat APRES ecriture corpus/archive du triplet.
         _mark_triplet_done(
@@ -1988,6 +2218,8 @@ def cmd_discover(args: argparse.Namespace) -> int:
         "min_holdout_trades": args.min_holdout_trades,
         "max_assets": args.max_assets,
         "workers": args.workers,
+        "sampling_5m": args.sampling,
+        "walk_forward_folds": args.walk_forward_folds,
     }
     jobs = [{**t, **common} for t in triplets]
     if done_ids:
@@ -2173,6 +2405,26 @@ def cmd_discover(args: argparse.Namespace) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
         json.dump(rapport, f, indent=2, ensure_ascii=False)
+    # P9-FIX (2026-09-11) : manifest immuable par run (reproductibilite).
+    # Chaque run ecrit son propre manifest (timestamp unique) avec commit git,
+    # empreinte des donnees compilees, config, hashes des sorties et compteurs.
+    try:
+        _write_run_manifest(
+            command="discover",
+            args=args,
+            corpus_file=corpus_file,
+            archive_file=archive_file,
+            corpus_n=corpus_n,
+            archive_n=archive_n,
+            n_ok=n_ok,
+            n_err=n_err,
+            n_skipped=n_skipped,
+            n_admitted_total=n_admitted_total,
+            n_rejected_total=n_rejected_total,
+            errors=errors,
+        )
+    except Exception as _man_err:
+        logger.warning("  Manifest de run : erreur (%s) - ignoree", _man_err)
     logger.info("=" * 70)
     logger.info("RAPPORT DISCOVER :")
     logger.info("  Triplets OK : %d / %d", n_ok, len(jobs))
@@ -2388,6 +2640,9 @@ def main(argv: list[str] | None = None) -> int:
                        default=False, help="desactive les modeles XGBoost par famille")
     p_run.add_argument("--no-twin-merge", dest="no_twin_merge", action="store_true",
                        default=False, help="desactive la generalisation des quasi-jumeaux")
+    p_run.add_argument("--sampling", type=str, default="volume",
+                        choices=["volume", "dollar", "both", "none"],
+                        help="Sampling des barres 5m (volume|dollar|both|none), defaut volume")
     p_run.set_defaults(func=cmd_run)
 
     # Sprint 3.6 : cmd_discover - discovery complet en parallele
@@ -2484,6 +2739,12 @@ def main(argv: list[str] | None = None) -> int:
                         default=False, help="desactive les modeles XGBoost par famille")
     p_disc.add_argument("--no-twin-merge", dest="no_twin_merge", action="store_true",
                         default=False, help="desactive la generalisation des quasi-jumeaux")
+    p_disc.add_argument("--sampling", type=str, default="volume",
+                        choices=["volume", "dollar", "both", "none"],
+                        help="Sampling des barres 5m (volume|dollar|both|none), defaut volume")
+    p_disc.add_argument("--walk-forward-folds", type=int, default=1,
+                        help="Folds walk-forward (1=desactive). Filtre post-hoc de "
+                             "stabilite des admis, sans re-entrainement, scope asset seul.")
     p_disc.set_defaults(func=cmd_discover)
 
     # FIX Sprint 3.7 (user request) : si pas de subcommand, lancer
@@ -2515,6 +2776,7 @@ def main(argv: list[str] | None = None) -> int:
             "per_class",
             "global_scope",
             "limit",
+            "sampling",
         ):
             v = cli_overrides.get(k)
             if v is not None and v != defaults.get(k):

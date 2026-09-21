@@ -46,6 +46,8 @@ SRC_PATH = PROJECT_ROOT / "src"
 # Ajouter src au PYTHONPATH
 sys.path.insert(0, str(SRC_PATH))
 
+from einherjar.config.credentials import charger_credentials  # noqa: E402
+
 
 def _count_corpus(path: Path) -> int:
     """Compte les einhers d'un corpus (JSONL une ligne par einher, ou JSON historique)."""
@@ -171,26 +173,15 @@ class StatusChecker:
 
     def _check_ctrader(self) -> None:
         """Verifie les credentials cTrader et tente la connexion (demo ou live)."""
-        if not CREDENTIALS_PATH.exists():
+        identifiants = charger_credentials()
+        if identifiants is None:
             self.results["CTRADER"] = {
-                "status": "ABSENT : renseigner config/credentials.json",
+                "status": "ABSENT : renseigner config/credentials.json ou les variables EINHERJAR_*",
                 "path": str(CREDENTIALS_PATH),
             }
             self.broker_ready = False
             return
-
-        try:
-            with open(CREDENTIALS_PATH, encoding="utf-8") as f:
-                creds = json.load(f)
-            if not isinstance(creds, dict):
-                raise ValueError("credentials.json must contain a JSON object")
-        except (json.JSONDecodeError, ValueError) as exc:
-            self.results["CTRADER"] = {
-                "status": f"INVALID CREDENTIALS: {exc}",
-                "path": str(CREDENTIALS_PATH),
-            }
-            self.broker_ready = False
-            return
+        creds: dict[str, Any] = identifiants
 
         # ENVIRONNEMENT : 'demo' (compte demo cTrader) ou 'live'. Le host et le
         # compte diffèrent, le code et le point d'entree des donnees sont identiques.
@@ -275,6 +266,8 @@ async def start_api_server(adapter: Any | None = None) -> None:
             connexion : le reactor Twisted est un singleton par process, deux
             adaptateurs ne peuvent pas coexister (le second fait tomber le premier).
     """
+    import os
+
     import uvicorn
     from einherjar.api import server as api_server
 
@@ -282,10 +275,13 @@ async def start_api_server(adapter: Any | None = None) -> None:
         api_server.utiliser_adapter(adapter)
     app = api_server.app
 
+    # Le port vient de l'environnement quand l'hebergeur l'impose (`$PORT` sur Render),
+    # sinon 8000 en local : coder le port en dur empechait tout deploiement.
+    port = int(os.environ.get("PORT", "8000"))
     config = uvicorn.Config(
         app,
         host="0.0.0.0",
-        port=8000,
+        port=port,
         log_level="info",
         access_log=False,
     )
@@ -384,6 +380,27 @@ async def start_inference_loop(checker: StatusChecker) -> None:
             logger.warning("Liste de symboles broker vide : univers non filtre")
     except Exception as exc:  # noqa: BLE001 - le filtrage ne doit pas bloquer le demarrage
         logger.warning("Verification de l'univers broker impossible (%s)", exc)
+
+    # Actifs volontairement ecartes (config/settings.json : live_exclude_assets).
+    # Motif mesure : sur le compte demo, les bougies et les cotations divergent pour le
+    # crypto (close 81 300 vs cotation 85 159) — un TP/SL calcule sur la bougie tombe
+    # alors du mauvais cote du marche et le broker refuse l'ordre.
+    try:
+        brut_config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        exclus = {str(a).upper() for a in brut_config.get("live_exclude_assets", [])}
+    except Exception:  # noqa: BLE001
+        exclus = set()
+    if exclus:
+        avant = len(assets_timeframes)
+        assets_timeframes = [
+            (a, tf) for a, tf in assets_timeframes if a.upper() not in exclus
+        ]
+        logger.warning(
+            "Actifs exclus de la boucle live : %s -> %d couple(s) ecarte(s) (%d restants)",
+            ", ".join(sorted(exclus)),
+            avant - len(assets_timeframes),
+            len(assets_timeframes),
+        )
 
     loop = InferenceLoop(
         broker=broker,

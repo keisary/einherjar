@@ -153,6 +153,8 @@ class InferenceLoop:
         self.confluence_engine = confluence_engine or ConfluenceEngine()
         self.calendar = MarketCalendar()
         self.running = False
+        self._cycles = 0
+        self._demarre_le = datetime.now(UTC).isoformat()
         self._tasks: set[asyncio.Task] = set()
         # Features reellement requises par couple (calcul cible) : sans cela chaque
         # cycle paierait les 107 patterns et les 76 colonnes de facteurs dont
@@ -293,6 +295,24 @@ class InferenceLoop:
         # Sorties : le broker gere les TP/SL (transmis a l'ouverture), EINHERJAR
         # ferme les positions dont la duree de tenue maximale est depassee.
         closed = await self._gerer_sorties(now)
+
+        # Etat publie pour l'API et le dashboard : sans cela, l'etat de la boucle
+        # n'est observable qu'en lisant les logs (le dashboard affichait un etat fige).
+        self._cycles += 1
+        self.data_store.set_state(
+            "loop",
+            {
+                "running": True,
+                "cycles": self._cycles,
+                "lastCycleAt": now.isoformat(),
+                "assets": len(tasks),
+                "signals": total_signals,
+                "orders": total_orders,
+                "closed": closed,
+                "errors": errors,
+                "startedAt": self._demarre_le,
+            },
+        )
         logger.info(
             "Cycle %s | assets=%d | signals=%d | orders=%d | closed=%d | errors=%d",
             now.isoformat(),
@@ -378,7 +398,7 @@ class InferenceLoop:
         logger.info("Amorcage historique : %d couples, %d bougies chargees", len(ajouts), total)
         return ajouts
 
-    async def warmup_features(self, rows: int = 250) -> dict[str, float]:
+    def warmup_features(self, rows: int = 250) -> dict[str, float]:
         """Compile le code Numba a l'avance (un profil de besoin a la fois).
 
         Mesure : un cycle a froid coute ~85 s (compilation JIT des enrichisseurs)
@@ -423,11 +443,14 @@ class InferenceLoop:
                 "volume": np.full(rows, 1000.0),
             })
 
+        from einherjar.signals.feature_pipeline import FeaturePipeline
+
         durees: dict[str, float] = {}
+        manquantes_globales: set[str] = set()
         for cle, refs in profils.items():
             debut = time.perf_counter()
             try:
-                self.feature_engine.compute(
+                enrichi = self.feature_engine.compute(
                     frame, asset="WARMUP", timeframe="1h",
                     needed=(refs or None),
                 )
@@ -436,8 +459,93 @@ class InferenceLoop:
                 durees[cle] = -1.0
                 continue
             durees[cle] = round(time.perf_counter() - debut, 2)
+            # Le calcul vient d'etre fait : on verifie GRATUITEMENT que chaque
+            # feature_ref du corpus est bien produite. Un calcul cible qui oublie une
+            # dependance laisse la colonne absente, l'evaluation de l'einher leve une
+            # exception avalee et l'einher devient muet sans aucune alerte.
+            if refs:
+                absentes = FeaturePipeline.missing_refs(enrichi, sorted(refs))
+                if absentes:
+                    manquantes_globales.update(absentes)
+                    logger.error(
+                        "Couverture du profil %s : %d feature(s) du corpus NON produites : %s",
+                        cle,
+                        len(absentes),
+                        ", ".join(absentes),
+                    )
+        self._features_manquantes = manquantes_globales
         logger.info("Echauffement features (JIT) : %s", durees)
         return durees
+
+    async def warmup_features_async(self, rows: int = 250) -> dict[str, float]:
+        """Echauffement JIT hors boucle d'evenements (l'API reste disponible).
+
+        Args:
+            rows: Taille de la frame d'echauffement.
+
+        Returns:
+            Dict {profil: duree_s}.
+        """
+        # `warmup_features` est SYNCHRONE : appelee telle quelle dans la boucle
+        # d'evenements, elle gelait l'API pendant tout l'echauffement (~90 s).
+        return await asyncio.to_thread(self.warmup_features, rows)
+
+    def appliquer_couverture_features(self) -> dict[str, list[str]]:
+        """Ecartee les couples dont une feature du corpus n'est pas produite.
+
+        La liste des features manquantes vient de l'echauffement (ou chaque profil de
+        besoin est reellement calcule) : aucun calcul supplementaire n'est fait ici.
+        Un couple dont une `feature_ref` manque est retire de la boucle, car ses
+        einhers seraient muets pour toujours (`_eval_condition` rend False en
+        silence sur une colonne absente).
+
+        Returns:
+            Dict {"ASSET|tf": [refs manquantes]} des couples ecartes.
+        """
+        manquantes = getattr(self, "_features_manquantes", set())
+        if not manquantes:
+            self.data_store.set_state(
+                "couverture",
+                {"couples_verifies": len(self.assets_timeframes), "couples_ecartes": 0, "detail": {}},
+            )
+            logger.info(
+                "Couverture des features : %d couples, aucune feature du corpus manquante",
+                len(self.assets_timeframes),
+            )
+            return {}
+
+        incomplets: dict[str, list[str]] = {}
+        gardes: list[tuple[str, str]] = []
+        for asset, timeframe in self.assets_timeframes:
+            besoin = self._needed.get((asset, timeframe)) or set()
+            fautives = sorted(besoin & manquantes)
+            if fautives:
+                incomplets[f"{asset}|{timeframe}"] = fautives
+            else:
+                gardes.append((asset, timeframe))
+
+        self.assets_timeframes = gardes
+        for cle, fautives in sorted(incomplets.items()):
+            logger.error(
+                "Couple %s ecarte : feature(s) du corpus non produites -> %s "
+                "(einhers muets sinon)",
+                cle,
+                ", ".join(fautives),
+            )
+        logger.warning(
+            "Couverture des features : %d couples conserves, %d ecarte(s)",
+            len(gardes),
+            len(incomplets),
+        )
+        self.data_store.set_state(
+            "couverture",
+            {
+                "couples_verifies": len(gardes) + len(incomplets),
+                "couples_ecartes": len(incomplets),
+                "detail": incomplets,
+            },
+        )
+        return incomplets
 
     async def run(self) -> None:
         """Boucle principale d'inference."""
@@ -448,9 +556,13 @@ class InferenceLoop:
         except Exception as exc:  # l'amorcage ne doit jamais empecher la boucle de tourner
             logger.exception("Amorcage historique echoue : %s", exc)
         try:
-            await self.warmup_features()
+            await self.warmup_features_async()
         except Exception as exc:
             logger.exception("Echauffement des features echoue : %s", exc)
+        try:
+            self.appliquer_couverture_features()
+        except Exception as exc:  # noqa: BLE001 - ne doit jamais bloquer la boucle
+            logger.exception("Application de la couverture des features echouee : %s", exc)
 
         while self.running:
             try:

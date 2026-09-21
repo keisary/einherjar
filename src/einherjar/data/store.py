@@ -415,6 +415,40 @@ class DataStore:
         except (TypeError, json.JSONDecodeError):
             return False
 
+    def set_state(self, key: str, value: Any) -> None:
+        """Ecrit un etat systeme dans la table cle/valeur.
+
+        Args:
+            key: Cle de l'etat (ex. "loop").
+            value: Valeur JSON-serialisable.
+        """
+        # Meme ecriture que set_kill_switch : DuckDB gere la serialisation cote
+        # moteur, il n'y a pas de verrou applicatif dans DataStore.
+        self.conn.execute(
+            "INSERT OR REPLACE INTO system_state VALUES (?, ?, CURRENT_TIMESTAMP)",
+            (key, json.dumps(value, default=str)),
+        )
+
+    def get_state(self, key: str, default: Any = None) -> Any:
+        """Lit un etat systeme persiste.
+
+        Args:
+            key: Cle de l'etat.
+            default: Valeur retournee si la cle est absente.
+
+        Returns:
+            La valeur deserialisee, ou `default`.
+        """
+        row = self.conn.execute(
+            "SELECT value FROM system_state WHERE key = ?", (key,)
+        ).fetchone()
+        if row is None:
+            return default
+        try:
+            return json.loads(row[0])
+        except (TypeError, json.JSONDecodeError):
+            return default
+
     def get_positions(self) -> list[Position]:
         """Recupere les positions ouvertes.
 

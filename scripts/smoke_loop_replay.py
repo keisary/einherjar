@@ -71,7 +71,7 @@ async def run(asset: str, timeframe: str, lookback: int) -> int:
         assert fenetre.height >= 200, "amorcage insuffisant pour des features a fenetre"
 
         t0 = time.time()
-        durees = await loop.warmup_features()
+        durees = loop.warmup_features()
         print(f"echauffement JIT : {durees} en {time.time()-t0:.1f}s")
 
         bougie = await loop._fetch_last_candle(asset, timeframe)
