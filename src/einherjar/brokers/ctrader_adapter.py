@@ -623,15 +623,35 @@ class _CTraderTwistedThread:
         min_volume = meta.get("minVolume")
         step_volume = meta.get("stepVolume")
         if step_volume:
-            volume = max(int(step_volume), (volume // int(step_volume)) * int(step_volume))
-        if min_volume and volume < int(min_volume):
+            # Arrondi vers le BAS au pas du broker, jamais vers le haut : arrondir a la
+            # hausse (max(pas, ...)) transformait une taille minuscule en taille minimale
+            # et multipliait le risque reel sans que personne ne le voie.
+            volume = (volume // int(step_volume)) * int(step_volume)
+        if volume <= 0 or (min_volume and volume < int(min_volume)):
+            risque = (
+                float(order.quantity)
+                * abs(float(order.entry_price or 0) - float(order.sl_price or 0))
+            )
             raise CTraderError(
                 f"volume {volume} (centiemes) sous le minimum broker {min_volume} pour "
-                f"{order.asset} : ordre refuse cote client"
+                f"{order.asset} : taille demandee {order.quantity} (risque ~{risque:.2f}), "
+                "ordre refuse cote client au lieu d'etre agrandi"
             )
         req = ProtoOANewOrderReq()
         req.ctidTraderAccountId = self.account_id
         req.symbolId = symbol_id
+        digits = int(meta.get("digits") or 0)
+        if order.order_type == OrderType.MARKET:
+            if not order.sl_price or float(order.sl_price) <= 0:
+                raise CTraderError(
+                    f"ordre marche {order.asset} sans stop-loss valide "
+                    f"({order.sl_price!r}) : ordre refuse cote client"
+                )
+            if not order.tp_price or float(order.tp_price) <= 0:
+                raise CTraderError(
+                    f"ordre marche {order.asset} sans take-profit valide "
+                    f"({order.tp_price!r}) : ordre refuse cote client"
+                )
         req.orderType = CTRADER_ORDER_TYPES[order.order_type]
         req.tradeSide = 1 if order.direction == Direction.LONG else 2
         req.volume = volume
@@ -639,18 +659,34 @@ class _CTraderTwistedThread:
         if order.order_type == OrderType.LIMIT:
             if order.entry_price is None:
                 raise CTraderError(f"ordre LIMIT sans prix d'entree pour {order.asset}")
-            req.limitPrice = float(order.entry_price)
+            req.limitPrice = round(float(order.entry_price), digits)
         elif order.order_type == OrderType.STOP_MARKET:
             if order.entry_price is None:
                 raise CTraderError(f"ordre STOP sans prix de declenchement pour {order.asset}")
-            req.stopPrice = float(order.entry_price)
+            req.stopPrice = round(float(order.entry_price), digits)
         # Le label transporte le nom de l'einher : il revient avec la position
         # (tradeData.label) et permet la sortie sur duree de tenue.
         req.label = str(getattr(order, "einher_name", "") or "")[:100]
-        if order.sl_price is not None:
-            req.stopLoss = order.sl_price
-        if order.tp_price is not None:
-            req.takeProfit = order.tp_price
+        # Les prix doivent etre ARRONDIS aux decimales du symbole : le broker refuse
+        # tout prix trop precis ("Order price = 82233.19089321411 has more digits than
+        # symbol allows. Allowed 3 digits"). Une confluence calculee sur des prix
+        # ponderes produit naturellement des flottants a 14 decimales.
+        if order.sl_price is not None and float(order.sl_price) > 0:
+            req.stopLoss = round(float(order.sl_price), digits)
+        if order.tp_price is not None and float(order.tp_price) > 0:
+            req.takeProfit = round(float(order.tp_price), digits)
+
+        if req.stopLoss and req.takeProfit:
+            if req.tradeSide == 1 and not (req.stopLoss < req.takeProfit):
+                raise CTraderError(
+                    f"stop-loss {req.stopLoss} >= take-profit {req.takeProfit} sur un "
+                    f"acha t {order.asset} : protections incoherentes, ordre non envoye"
+                )
+            if req.tradeSide == 2 and not (req.stopLoss > req.takeProfit):
+                raise CTraderError(
+                    f"stop-loss {req.stopLoss} <= take-profit {req.takeProfit} sur une "
+                    f"vente {order.asset} : protections incoherentes, ordre non envoye"
+                )
 
         future = self._send_request(req, ProtoOAExecutionEvent)
         try:

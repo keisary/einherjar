@@ -303,6 +303,14 @@ class RiskManager:
         if not self._check_margin(volume, entry_price, account):
             return Rejection(signal=signal, reason=RejectionReason.MARGIN.value)
 
+        # Toute position doit partir protegee : sans stop-loss valide, la perte n'est
+        # pas bornee et la taille calculee (fondee sur la distance au SL) n'a plus de
+        # sens. On refuse au lieu d'envoyer un ordre nu.
+        if not signal.sl_price or float(signal.sl_price) <= 0:
+            return Rejection(signal=signal, reason=RejectionReason.PROTECTION_MISSING.value)
+        if not signal.tp_price or float(signal.tp_price) <= 0:
+            return Rejection(signal=signal, reason=RejectionReason.PROTECTION_MISSING.value)
+
         # --- Construire l'ordre ---
         order = Order(
             order_id=f"ORD_{signal.asset.replace('/', '_')}_{now.strftime('%Y%m%d%H%M%S')}_{signal.einher_name}",

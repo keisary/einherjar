@@ -71,3 +71,4 @@ class RejectionReason(StrEnum):
     CONFIDENCE_TOO_LOW = "confidence_too_low"
     MARGIN = "margin"
     PRICE_MISSING = "price_missing"
+    PROTECTION_MISSING = "protection_missing"
