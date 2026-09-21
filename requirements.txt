@@ -35,3 +35,7 @@ service-identity==24.2.0
 # installe sans ses dependances (voir plus haut), il doit etre liste ici, sinon
 # l'import echoue ET se degrade en mode stub avec un message trompeur.
 requests==2.32.3
+# Meme cause pour le TLS : `ctrader_open_api` ouvre sa connexion via un endpoint
+# `ssl:` de Twisted, et `twisted.internet.ssl` leve ModuleNotFoundError sans
+# pyOpenSSL -> la connexion au broker est alors impossible (timeout de 15 s).
+pyopenssl==26.4.0
