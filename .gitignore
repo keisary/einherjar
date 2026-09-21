@@ -43,3 +43,4 @@ outputs/_ref_midas_*.parquet
 # Donnees runtime du store live (regenerables a lamorcage)
 src/data/live/
 data/live/
+*.local.txt

@@ -1,0 +1,20 @@
+name: Maintien en vie du service Render
+
+# Le plan gratuit de Render endort un service web apres ~15 minutes sans requete
+# HTTP entrante : la boucle d'inference s'arrete alors (les TP/SL restent chez le
+# broker, mais plus aucun cycle n'est calcule). Cette sonde publique garde le
+# service eveille sans exposer la moindre donnee de compte.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sonde:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sonde /healthz
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -m 90 https://einherjar.onrender.com/healthz)
+          echo "healthz -> $code"
+          test "$code" = "200"
