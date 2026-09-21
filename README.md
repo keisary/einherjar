@@ -211,11 +211,15 @@ cd einherjar
 python -m venv .venv
 source .venv/Scripts/activate        # Windows (Git Bash) — macOS/Linux : source .venv/bin/activate
 
-# Coeur du système (le paquet déclare ses dépendances dans pyproject.toml)
-pip install -e .
+# Dépendances d'exécution (versions vérifiées sur le compte de démonstration)
+pip install -r requirements.txt
 
-# Librairie broker : indispensable pour le live, absente des extras par défaut
-pip install ctrader-open-api
+# Coeur du système (le paquet déclare ses dépendances dans pyproject.toml)
+pip install --no-deps -e .
+
+# Librairie broker : indispensable pour le live, installée SANS ses dépendances
+# (elle épingle protobuf==3.20.1, dont il n'existe pas de roue pour Python 3.11)
+pip install --no-deps ctrader-open-api==0.9.2
 
 # Dashboard (produit dashboard/einherjar-ui/dist/, servi par FastAPI)
 cd dashboard/einherjar-ui && npm install && npm run build && cd ../..
@@ -226,7 +230,7 @@ python scripts/ctrader_verifier_univers.py   # actifs du corpus négociables che
 ```
 
 > [!WARNING]
-> `ctrader-open-api` épingle `protobuf==3.20.1`. Dans un environnement qui contient déjà `onnx` ou `streamlit`, installez-le dans un **venv dédié** plutôt que de casser la résolution de protobuf du projet.
+> `ctrader-open-api` épingle `protobuf==3.20.1` (aucune roue Python 3.11) et n'exige ni `requests` ni `pyOpenSSL`, dont il a pourtant besoin à l'exécution (`requests` pour son moteur d'appels, `pyOpenSSL` pour l'endpoint TLS de Twisted). `requirements.txt` les fournit ; sans eux l'import échoue, le client se dégrade en mode stub et la connexion au broker finit en timeout.
 
 Sans `ctrader-open-api`, le reste du système reste utilisable (pipeline de features, corpus, tests, dashboard) mais `CTraderAdapter` lève une erreur explicite au lieu de se comporter comme un broker.
 
@@ -428,6 +432,12 @@ Un service web Python suffit : FastAPI sert l'API **et** le dashboard construit 
    EINHERJAR_CLIENT_ID / EINHERJAR_CLIENT_SECRET / EINHERJAR_ACCESS_TOKEN / EINHERJAR_ACCOUNT_ID
    ```
 5. **Données** : `data/` (DuckDB + parquet OHLCV live) vit sur le disque local du service. Sans disque persistant, un redéploiement repart d'un historique vide — le `LiveDataStore` se ré-amorce automatiquement depuis le broker (~16 s) mais la base DuckDB (journal, fills, equity) est perdue.
+6. **Le plan gratuit endort le service** après ~15 minutes sans requête HTTP entrante : la boucle d'inférence s'arrête (les TP/SL restent chez le broker, mais plus aucun cycle n'est calculé). La sonde `.github/workflows/keepalive.yml` interroge `/healthz` toutes les 10 minutes pour le maintenir éveillé. Pour un fonctionnement garanti sans dépendance à cette sonde, un plan payant (instance toujours active) ou un disque persistant est nécessaire.
+7. **Vérification après déploiement** :
+   ```bash
+   python scripts/verifier_deploiement_render.py
+   ```
+   Contrôle l'authentification (401 sans session, redirection, refus d'un mauvais mot de passe), le compte réel servi par l'API, l'état du broker, la boucle d'inférence, la couverture des features et la déconnexion.
 
 > [!NOTE]
 > `main.py` écoute sur `0.0.0.0:$PORT` (variable d'environnement, `8000` par défaut) : la plateforme impose donc son port sans configuration. `main.py` reste le seul point d'entrée qui démarre la boucle d'inférence. Un service = un process = un seul adaptateur cTrader (contrainte du reactor Twisted).
