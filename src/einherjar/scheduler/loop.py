@@ -362,10 +362,33 @@ class InferenceLoop:
         Returns:
             Dict {"ASSET|tf": bougies ajoutees}.
         """
+        import os
+
         objectif = limit or getattr(self.feature_engine, "max_lookback", 500)
         ajouts: dict[str, int] = {}
         now = datetime.now(UTC)
+        # Un broker muet ne doit pas figer l'amorcage indefiniment : mesure en
+        # hebergement, un appel sans reponse laissait la boucle bloquee sans aucune
+        # trace. Au-dela du budget, la boucle demarre avec l'historique disponible
+        # (les couples sans donnees ne produisent aucun signal, ils sont ecartes par
+        # la verification de couverture).
+        budget = float(os.environ.get("EINHERJAR_BOOTSTRAP_BUDGET_S", "240"))
+        echeance = time.monotonic() + budget
+        logger.info(
+            "Amorcage historique : %d couples a interroger (budget %.0f s)",
+            len(self.assets_timeframes),
+            budget,
+        )
         for asset, timeframe in self.assets_timeframes:
+            if time.monotonic() > echeance:
+                logger.warning(
+                    "Amorcage interrompu apres %.0f s (%d/%d couples traites) : la boucle "
+                    "demarre avec l'historique deja disponible",
+                    budget,
+                    len(ajouts),
+                    len(self.assets_timeframes),
+                )
+                break
             cle = f"{asset}|{timeframe}"
             if not self.calendar.is_open(asset, now):
                 ajouts[cle] = 0

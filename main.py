@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +46,9 @@ SRC_PATH = PROJECT_ROOT / "src"
 
 # Ajouter src au PYTHONPATH
 sys.path.insert(0, str(SRC_PATH))
+
+#: Store runtime, publie par `start_inference_loop` pour la surveillance de demarrage.
+_DATA_STORE: Any | None = None
 
 from einherjar.config.credentials import charger_credentials  # noqa: E402
 
@@ -311,6 +315,8 @@ async def start_inference_loop(checker: StatusChecker) -> None:
     # recalcul de chaque bougie se ferait sur un historique tronque.
     live_store = LiveDataStore(window_size=feature_engine.max_lookback)
     data_store = DataStore(db_path=DB_PATH)
+    global _DATA_STORE
+    _DATA_STORE = data_store
 
     # Couples (asset, timeframe) A EVALUER : ceux couverts par le corpus.
     # Prendre le produit cartesien complet (29 actifs x 5 TF = 145 couples) ferait
@@ -449,11 +455,43 @@ def main() -> int:
     print("  Dashboard   : http://localhost:3166  (Vite dev)")
     print("-" * 60 + "\n")
 
+    async def surveiller_demarrage(
+        delai_max: float = 420.0, intervalle: float = 60.0
+    ) -> None:
+        """Journalise la pile de TOUS les threads si aucun cycle n'aboutit.
+
+        Un appel broker qui ne rend jamais la main laissait la boucle figee sans
+        aucune trace (0 % de CPU, plus aucun log). Ce veilleur rend la cause visible
+        au lieu d'attendre indéfiniment.
+
+        Args:
+            delai_max: Secondes accordees au demarrage avant de journaliser la pile.
+            intervalle: Periode de verification.
+        """
+        import faulthandler
+
+        debut = time.monotonic()
+        while True:
+            await asyncio.sleep(intervalle)
+            etat = _DATA_STORE.get_state("loop") if _DATA_STORE is not None else None
+            if isinstance(etat, dict) and etat.get("cycles"):
+                return
+            ecoule = time.monotonic() - debut
+            if ecoule >= delai_max:
+                logger.error(
+                    "Aucun cycle d'inference apres %.0f s : journalisation de la pile "
+                    "de tous les threads pour identifier le blocage",
+                    ecoule,
+                )
+                faulthandler.dump_traceback(all_threads=True)
+                return
+
     async def _run_services() -> None:
         api_task = asyncio.create_task(
             start_api_server(checker.ctrader_adapter), name="api"
         )
         loop_task = asyncio.create_task(start_inference_loop(checker), name="inference")
+        veille_task = asyncio.create_task(surveiller_demarrage(), name="veille_demarrage")
         try:
             await asyncio.gather(api_task, loop_task)
         except asyncio.CancelledError:
@@ -468,6 +506,7 @@ def main() -> int:
                 await loop_task
             except asyncio.CancelledError:
                 pass
+            veille_task.cancel()
 
     try:
         asyncio.run(_run_services())
