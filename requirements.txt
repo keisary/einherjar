@@ -31,3 +31,7 @@ aiohttp==3.12.14
 twisted==24.3.0
 protobuf==7.36.1
 service-identity==24.2.0
+# `ctrader_open_api` importe `requests` sans le declarer : comme le paquet est
+# installe sans ses dependances (voir plus haut), il doit etre liste ici, sinon
+# l'import echoue ET se degrade en mode stub avec un message trompeur.
+requests==2.32.3

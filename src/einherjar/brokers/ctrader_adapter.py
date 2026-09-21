@@ -77,7 +77,14 @@ try:
 except ImportError as _imp_err:
     CTRADER_AVAILABLE = False
     CTRADER_IMPORT_ERROR = str(_imp_err)
-    logger.warning("ctrader-open-api non installe. CTraderAdapter fonctionnera en mode stub.")
+    # Le message generique masquait la cause reelle (dependance manquante du paquet) :
+    # on journalise l'erreur d'import exacte.
+    logger.warning(
+        "ctrader-open-api indisponible (%s) : CTraderAdapter fonctionnera en mode stub. "
+        "Cause : %s",
+        type(_imp_err).__name__,
+        CTRADER_IMPORT_ERROR,
+    )
 
 
 # ---------------------------------------------------------------------------
